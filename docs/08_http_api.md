@@ -2221,7 +2221,11 @@ téléchargement ni décodage partagés entre clients, et de l'ordre de 0,15 à 
 100 à 150 Mo de RSS pour une frame de 11 Mpx réduite à 236 ou 640 pixels, contre 10 à 25 ms par
 `get_picture`. Pour une caméra, `camera` / `get_picture` avec `width` est le bon choix.
 
-Dix de ces processus au plus tournent en même temps pour tout le serveur. Au-delà, la
+Six de ces processus au plus tournent en même temps pour tout le serveur ; l'option
+`max_picture_processes` de `local_config.xml` (1…1000, voir [16](16_config_options.md))
+change ce plafond, sans redémarrage. Compter 100 à 150 Mo de RAM par processus sur une frame
+de 11 Mpx (extrapolé). Une valeur absente, vide, non numérique ou hors 1…1000 redonne 6, avec
+un avertissement dans le journal (domaine `ipcam`, une fois par valeur). Au-delà du plafond, la
 réponse immédiate est `{"success":"false","error_str":"too many pictures in progress"}` : le
 client réessaie plus tard.
 
@@ -2918,7 +2922,7 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `invalid width or rotate parameter` | [JsonApiHandlerHttp.cpp:453, 521](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | |
 | `unable to get url` | [JsonApiHandlerHttp.cpp:470, 734](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | pas de pochette disponible |
 | `unable to load data from url` | [JsonApiHandlerHttp.cpp:581, 748](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `calaos_picture` a échoué |
-| `too many pictures in progress` | [JsonApiHandlerHttp.cpp:789](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : dix `calaos_picture` tournent déjà |
+| `too many pictures in progress` | [JsonApiHandlerHttp.cpp:789](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : `max_picture_processes` (6 par défaut) `calaos_picture` tournent déjà |
 
 La clé porteuse est `error` dans tous les cas sauf les cinq dernières lignes,
 qui utilisent `{"success":"false","error_str":"…"}`.

@@ -500,6 +500,10 @@ protected:
         });
     }
 
+    //Fills the process limit with `limit` sleeping runs, checks that one more
+    //request is refused at once, then that a freed place is given back.
+    void expectPictureLimit(size_t limit);
+
     static Json cameraPicRequest(const std::string &width = std::string())
     {
         Json request = authenticated(Json{
@@ -1313,21 +1317,20 @@ TEST_F(JsonApiCameraSnapshotTest, RealTruncatedFrameIsSentAsItCame)
  * bounded, and it tells a frame it could not resize from a failure.
  ******************************************************************************/
 
-TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsTenProcessesAtMost)
+void JsonApiCameraSnapshotTest::expectPictureLimit(size_t limit)
 {
-    addCamera(SNAPSHOT_BYTES);
     FakePictureTool tool("exec sleep 30\n");
     ASSERT_TRUE(tool.isReady());
 
     Requests running;
-    for (int i = 0; i < 10; i++)
+    for (size_t i = 0; i < limit; i++)
     {
         running.push_back(std::make_unique<HttpTestRequest>());
         running.back()->send(cameraPicRequest("320"));
     }
-    ASSERT_TRUE(pumpUntil([&tool]()
-                          {
-        return tool.runs().size() == 10;
+    ASSERT_TRUE(pumpUntil([&]()
+    {
+        return tool.runs().size() == limit;
     }));
 
     HttpTestRequest refused;
@@ -1337,17 +1340,58 @@ TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsTenProcessesAtMost)
     const Json expected = Json{ { "error_str", "too many pictures in progress" },
                                 { "success", "false" } };
     EXPECT_JSON_EQ(expected, refused.body());
+    EXPECT_EQ(limit, tool.runs().size());
 
     //A client that leaves gives its place back
     running.pop_back();
 
     HttpTestRequest next;
     next.send(cameraPicRequest("320"));
-    EXPECT_TRUE(pumpUntil([&tool]()
-                          {
-        return tool.runs().size() == 11;
+    EXPECT_TRUE(pumpUntil([&]()
+    {
+        return tool.runs().size() == limit + 1;
     }));
     EXPECT_EQ(0u, next.count());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsSixProcessesAtMostByDefault)
+{
+    addCamera(SNAPSHOT_BYTES);
+    expectPictureLimit(6);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsAsManyProcessesAsConfigured)
+{
+    addCamera(SNAPSHOT_BYTES);
+    ASSERT_TRUE(Utils::set_config_option("max_picture_processes", "2"));
+    expectPictureLimit(2);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicLimitAboveTheDefaultIsHonoured)
+{
+    addCamera(SNAPSHOT_BYTES);
+    ASSERT_TRUE(Utils::set_config_option("max_picture_processes", "8"));
+    expectPictureLimit(8);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicInvalidLimitFallsBackToSixAndWarnsOnce)
+{
+    addCamera(SNAPSHOT_BYTES);
+
+    for (const char *bad: { "0", "-3", "lots", "4x", "1001", " " })
+    {
+        ASSERT_TRUE(Utils::set_config_option("max_picture_processes", bad));
+
+        const std::string log = captureStdout([this]()
+        {
+            expectPictureLimit(6);
+        });
+
+        //Two refusals-worth of requests ran: the warning is not repeated
+        EXPECT_EQ(1u, countOf(log, "max_picture_processes is not a whole number")) << bad << "\n"
+                                                                                   << log;
+        expectNoCameraIdentity(log);
+    }
 }
 
 TEST_F(JsonApiCameraSnapshotTest, CameraPicGetsTheUrlOfTheCamera)

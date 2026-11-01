@@ -190,6 +190,33 @@ static const int CALAOS_PICTURE_NOT_RESIZED = 3;
 
 int JsonApiHandlerHttp::pictureProcesses = 0;
 
+//Read on each request so a change of local_config.xml needs no restart. Each
+//process holds a whole decoded frame: the default is a memory ceiling, not a CPU one.
+static int maxPictureProcesses()
+{
+    static const int DefaultMaxPictureProcesses = 6;
+    static const uint64_t MaxMaxPictureProcesses = 1000;
+    static std::string warned;
+
+    const std::string value = Utils::get_config_option("max_picture_processes");
+    if (value.empty())
+        return DefaultMaxPictureProcesses;
+
+    const uint64_t v = TransportLimits::parseLimit(value, 0, 1, MaxMaxPictureProcesses);
+    if (v == 0)
+    {
+        //Once per distinct bad value: this runs on every picture request
+        if (warned != value)
+        {
+            warned = value;
+            cWarningDom("ipcam") << "max_picture_processes is not a whole number between 1 and "
+                                 << MaxMaxPictureProcesses << ", using " << DefaultMaxPictureProcesses;
+        }
+        return DefaultMaxPictureProcesses;
+    }
+    return static_cast<int>(v);
+}
+
 JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
     JsonApi(client)
 {
@@ -789,7 +816,7 @@ void JsonApiHandlerHttp::processGetCameraPic()
 
 void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::function<void(int)> finished)
 {
-    if (pictureProcesses >= maxPictureProcesses)
+    if (pictureProcesses >= maxPictureProcesses())
     {
         sendJson(Json{ { "success", "false" },
                        { "error_str", "too many pictures in progress" } });
