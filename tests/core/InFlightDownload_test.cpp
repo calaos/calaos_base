@@ -350,7 +350,7 @@ TEST_F(InFlightDownloadTest, ASynologyCameraWalksTheWholeChain)
 //empty frame, and the next download starts over from the first probe.
 TEST_F(InFlightDownloadTest, ASynologyApiProbeFailureAnswersAnEmptyFrame)
 {
-    for (int hop : { 0, 2 })
+    for (int hop: { 0, 2 })
     {
         SCOPED_TRACE("hop " + std::to_string(hop));
 

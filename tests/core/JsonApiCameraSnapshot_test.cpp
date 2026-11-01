@@ -358,7 +358,10 @@ private:
 class FakeCoverPlayer: public AudioPlayer
 {
 public:
-    FakeCoverPlayer(Params &p): AudioPlayer(p) {}
+    FakeCoverPlayer(Params &p):
+        AudioPlayer(p)
+    {
+    }
 
     std::string coverUrl;
 
