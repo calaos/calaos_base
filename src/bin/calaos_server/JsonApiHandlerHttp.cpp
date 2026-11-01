@@ -845,7 +845,7 @@ void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::func
         finished(ev.status == CALAOS_PICTURE_NOT_RESIZED ? 0 : ev.status);
     });
     exe_thumb->once<uvw::ErrorEvent>([this, finished](const uvw::ErrorEvent &ev, auto &h)
-    {
+                                     {
         cDebugDom("process") << "Process error: " << ev.what();
         h.close();
         pictureProcesses--;
