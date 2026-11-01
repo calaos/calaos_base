@@ -312,7 +312,10 @@ public:
      * calaos_picture while convert works. SIGTERM makes it exit only once the
      * child is done, because the trap waits for the foreground command; the
      * child ends with release(). */
-    enum Hold { HoldsAChild };
+    enum Hold
+    {
+        HoldsAChild
+    };
 
     explicit FakePictureTool(const std::string &body)
     {
