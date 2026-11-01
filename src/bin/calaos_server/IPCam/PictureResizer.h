@@ -87,6 +87,6 @@ private:
     std::set<Fallback> reported;
 };
 
-}
+} //namespace Calaos
 
 #endif

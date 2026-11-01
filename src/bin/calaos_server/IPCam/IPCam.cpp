@@ -113,7 +113,7 @@ void IPCam::downloadSnapshot(std::function<void(const string &)> dataCb)
         //Polled by clients: the host of a camera does not go to the journal
         cameraSnapDl->setQuiet(true);
         cameraSnapDl->m_signalCompleteData.connect([=](const string &downloadedData, int status)
-        {
+                                                   {
             if (status == 200)
             {
                 finishSnapshot(downloadedData);
@@ -142,7 +142,7 @@ void IPCam::finishSnapshot(const string &data)
     auto waiters = std::move(snapshotWaiters);
     snapshotWaiters.clear();
 
-    for (auto &waiter : waiters)
+    for (auto &waiter: waiters)
         waiter(frame);
 }
 
@@ -165,7 +165,7 @@ void IPCam::downloadThumbnail(int width, std::function<void(const string &)> dat
     thumbnailWaiters[width].push_back(std::move(dataCb));
 
     downloadSnapshot([this, alive = ioAlive.token(), width](const string &data)
-    {
+                     {
         if (alive.expired()) return;
         resizeSnapshot(width, data);
     });
@@ -184,7 +184,7 @@ void IPCam::resizeSnapshot(int width, const string &data)
 
     bool accepted = resizer.submit(source, width,
                                    [this, alive = ioAlive.token(), width, source](JpegThumbnail::Result result)
-    {
+                                   {
         if (alive.expired()) return;
 
         auto &resizer = PictureResizer::Instance();
@@ -218,6 +218,6 @@ void IPCam::finishThumbnail(int width, const string &data)
     auto waiters = std::move(waiting->second);
     thumbnailWaiters.erase(waiting);
 
-    for (auto &waiter : waiters)
+    for (auto &waiter: waiters)
         waiter(data);
 }

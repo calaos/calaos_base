@@ -62,7 +62,8 @@ inline std::string encode(int width, int height, const Pixel &pixel, const Optio
     unsigned long size = 0;
     jpeg_mem_dest(&encoder, &buffer, &size);
 
-    const int components = options.color == JCS_GRAYSCALE ? 1 : options.color == JCS_CMYK ? 4 : 3;
+    const int components = options.color == JCS_GRAYSCALE ? 1 : options.color == JCS_CMYK ? 4
+                                                                                          : 3;
     encoder.image_width = width;
     encoder.image_height = height;
     encoder.input_components = components;
@@ -91,14 +92,14 @@ inline std::string encode(int width, int height, const Pixel &pixel, const Optio
     std::vector<JSAMPLE> row(size_t(width) * components);
     for (int y = 0; y < height; y++)
     {
-        unsigned char rgb[3] = {0, 0, 0};
+        unsigned char rgb[3] = { 0, 0, 0 };
         for (int x = 0; x < width; x++)
         {
             pixel(x, y, rgb);
             for (int c = 0; c < components; c++)
                 row[size_t(x) * components + c] = c < 3 ? rgb[c] : 255;
         }
-        JSAMPROW rows[1] = {row.data()};
+        JSAMPROW rows[1] = { row.data() };
         jpeg_write_scanlines(&encoder, rows, 1);
     }
 
@@ -112,12 +113,14 @@ inline std::string encode(int width, int height, const Pixel &pixel, const Optio
 
 inline std::string solid(int width, int height, const Options &options = {})
 {
-    return encode(width, height, [](int, int, unsigned char *rgb)
-    {
+    return encode(
+        width, height, [](int, int, unsigned char *rgb)
+        {
         rgb[0] = 90;
         rgb[1] = 140;
         rgb[2] = 200;
-    }, options);
+        },
+        options);
 }
 
 struct Decoded
@@ -170,7 +173,7 @@ inline Decoded decode(const std::string &jpeg)
     result.pixels.resize(size_t(result.width) * result.height * result.components);
     while (decoder.output_scanline < decoder.output_height)
     {
-        JSAMPROW rows[1] = {result.pixels.data() + size_t(decoder.output_scanline) * result.width * result.components};
+        JSAMPROW rows[1] = { result.pixels.data() + size_t(decoder.output_scanline) * result.width * result.components };
         jpeg_read_scanlines(&decoder, rows, 1);
     }
 
@@ -230,7 +233,7 @@ inline std::string withRepeatedFirstScan(const std::string &jpeg, int times)
     return repeated + jpeg.substr(end);
 }
 
-}
+} //namespace JpegTestFrames
 
 #endif
 #endif

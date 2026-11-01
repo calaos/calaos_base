@@ -45,7 +45,6 @@ public:
     virtual void processApi(const string &data, const Params &paramsGET);
 
 private:
-
     //Each one downloads and decodes a whole frame, in its own process
     static constexpr int maxPictureProcesses = 4;
     static int pictureProcesses;

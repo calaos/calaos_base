@@ -45,6 +45,6 @@ struct Result
 /* Fit the source into `width` columns, keeping its ratio. Never upscales. */
 Result resize(const std::string &jpeg, int width);
 
-}
+} //namespace JpegThumbnail
 
 #endif

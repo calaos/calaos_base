@@ -749,7 +749,10 @@ void JsonApiHandlerHttp::processGetCover()
         }
 
         runPictureCommand(buildPictureCommand(data.svalue, width, rotate),
-                          [this](int status) { exeFinished(status); });
+                          [this](int status)
+                          {
+            exeFinished(status);
+        });
     });
 }
 
@@ -778,15 +781,18 @@ void JsonApiHandlerHttp::processGetCameraPic()
     }
 
     runPictureCommand(buildPictureCommand(camera->getPictureUrl(), width, rotate),
-                      [this](int status) { exeFinished(status); });
+                      [this](int status)
+                      {
+        exeFinished(status);
+    });
 }
 
 void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::function<void(int)> finished)
 {
     if (pictureProcesses >= maxPictureProcesses)
     {
-        sendJson(Json{{ "success", "false" },
-                      { "error_str", "too many pictures in progress" }});
+        sendJson(Json{ { "success", "false" },
+                       { "error_str", "too many pictures in progress" } });
         return;
     }
 
@@ -796,7 +802,7 @@ void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::func
 
     exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exe_thumb->once<uvw::ExitEvent>([this, finished](const uvw::ExitEvent &ev, auto &h)
-    {
+                                    {
         h.close();
         releasePictureSlot();
 
@@ -806,7 +812,7 @@ void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::func
         finished(ev.status == CALAOS_PICTURE_NOT_RESIZED ? 0 : ev.status);
     });
     exe_thumb->once<uvw::ErrorEvent>([this, finished](const uvw::ErrorEvent &ev, auto &h)
-    {
+                                     {
         cDebugDom("process") << "Process error: " << ev.what();
         h.close();
         releasePictureSlot();
@@ -1336,7 +1342,7 @@ void JsonApiHandlerHttp::processCamera()
 
         if (!width.empty() && !isValidIntParam(width, 1, 10000))
         {
-            sendJson({{"error", "invalid width parameter" }});
+            sendJson({ { "error", "invalid width parameter" } });
             return;
         }
 

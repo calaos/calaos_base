@@ -137,7 +137,7 @@ private:
             const Reply &r = replies[std::min<size_t>(i, replies.size() - 1)];
             const std::string resp =
                 "HTTP/1.1 " + r.status + "\r\n"
-                "Content-Type: " +
+                                         "Content-Type: " +
                 r.contentType + "\r\n"
                                 "Content-Length: " +
                 std::to_string(r.body.size()) + "\r\n"
@@ -394,18 +394,29 @@ TEST_F(InFlightDownloadTest, ClientsOfARunningDownloadShareItsFrame)
     UrlCamera *cam = addUrlCamera(urlOf(peer));
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot(collect);
     cam->downloadSnapshot(collect);
     cam->downloadSnapshot(collect);
 
-    ASSERT_TRUE(pumpUntil([&]() { return peer.held(); }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.held();
+    },
+                          5000));
     cam->downloadSnapshot(collect);
     EXPECT_TRUE(frames.empty());
 
     peer.release();
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 4; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 4;
+    },
+                          5000));
 
     EXPECT_EQ(Frames(4, "FB5FRAME"), frames);
     EXPECT_EQ(peer.requests(), 1);
@@ -417,13 +428,24 @@ TEST_F(InFlightDownloadTest, AFinishedDownloadIsNotKept)
     UrlCamera *cam = addUrlCamera(urlOf(peer));
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot(collect);
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 1; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 1;
+    },
+                          5000));
 
     cam->downloadSnapshot(collect);
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 2; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
 
     EXPECT_EQ(Frames({ "FB5ONE", "FB5TWO" }), frames);
     EXPECT_EQ(peer.requests(), 2);
@@ -437,16 +459,23 @@ TEST_F(InFlightDownloadTest, AWaiterAskingAgainLeavesTheFrameOfTheNextOne)
     UrlCamera *cam = addUrlCamera(urlOf(peer));
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot([&](const string &data)
-    {
+                          {
         frames.push_back(data);
         cam->downloadSnapshot(collect);
     });
     cam->downloadSnapshot(collect);
 
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 3; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 3;
+    },
+                          5000));
     EXPECT_EQ(Frames({ "FB5ONE", "FB5ONE", "FB5TWO" }), frames);
 }
 
@@ -456,7 +485,10 @@ TEST_F(InFlightDownloadTest, ACameraWithoutUrlAnswersEveryClient)
     UrlCamera *cam = addUrlCamera(std::string());
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot(collect);
     cam->downloadSnapshot(collect);
@@ -470,18 +502,23 @@ TEST_F(InFlightDownloadTest, AnErrorStatusAnswersEveryClientWithoutTheHost)
     UrlCamera *cam = addUrlCamera(urlOf(peer));
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot(collect);
     cam->downloadSnapshot(collect);
 
     std::ostringstream sink;
     std::streambuf *saved = std::cout.rdbuf(sink.rdbuf());
-    const bool answered = pumpUntil([&]() {
+    const bool answered = pumpUntil([&]()
+                                    {
         if (peer.held())
             peer.release();
         return frames.size() == 2;
-    }, 5000);
+    },
+                                    5000);
     std::cout.rdbuf(saved);
 
     ASSERT_TRUE(answered);
@@ -499,12 +536,19 @@ TEST_F(InFlightDownloadTest, AnUnreachableCameraAnswersEveryClient)
     UrlCamera *cam = addUrlCamera("http://127.0.0.1:" + std::to_string(closedPort) + "/snapshot");
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot(collect);
     cam->downloadSnapshot(collect);
 
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 2; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
     EXPECT_EQ(Frames(2, std::string()), frames);
 }
 
@@ -515,14 +559,25 @@ TEST_F(InFlightDownloadTest, ClientsOfASynologyChainShareIt)
     ASSERT_NE(cam, nullptr);
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadSnapshot(collect);
-    ASSERT_TRUE(pumpUntil([&]() { return peer.held(); }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.held();
+    },
+                          5000));
     cam->downloadSnapshot(collect);
 
     peer.release();
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 2; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
 
     EXPECT_EQ(Frames(2, "FB5JPEG"), frames);
     EXPECT_EQ(peer.requests(), 4);
@@ -537,12 +592,19 @@ TEST_F(InFlightDownloadTest, AWidthOnASynologyCameraSharesTheChain)
     ASSERT_NE(cam, nullptr);
 
     Frames frames;
-    const auto collect = [&frames](const string &data) { frames.push_back(data); };
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
 
     cam->downloadThumbnail(236, collect);
     cam->downloadThumbnail(236, collect);
 
-    ASSERT_TRUE(pumpUntil([&]() { return frames.size() == 2; }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
 
     EXPECT_EQ(Frames(2, "FB5JPEG"), frames);
     EXPECT_EQ(peer.requests(), 4);
@@ -554,13 +616,24 @@ TEST_F(InFlightDownloadTest, ADeletedCameraDropsTheThumbnailItWasDownloading)
     UrlCamera *cam = addUrlCamera(urlOf(peer));
 
     auto called = std::make_shared<bool>(false);
-    cam->downloadThumbnail(236, [called](const string &) { *called = true; });
+    cam->downloadThumbnail(236, [called](const string &)
+                           {
+        *called = true;
+    });
 
-    ASSERT_TRUE(pumpUntil([&]() { return peer.held(); }, 5000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.held();
+    },
+                          5000));
     ASSERT_TRUE(deleteIO(cam));
 
     peer.release();
-    ASSERT_TRUE(pumpUntil([&]() { return peer.served() == 1; }, 3000));
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.served() == 1;
+    },
+                          3000));
     pumpFor(100);
 
     EXPECT_FALSE(*called);

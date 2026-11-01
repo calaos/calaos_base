@@ -33,7 +33,7 @@ PictureResizer &PictureResizer::Instance()
 
 bool PictureResizer::submit(std::shared_ptr<const std::string> source, int width, Done done)
 {
-    Job job{std::move(source), width, std::move(done)};
+    Job job{ std::move(source), width, std::move(done) };
 
     if (running < maxRunning)
     {

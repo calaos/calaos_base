@@ -29,10 +29,10 @@ namespace JpegThumbnail
 
 Result resize(const std::string &, int)
 {
-    return {Status::Unavailable, {}};
+    return { Status::Unavailable, {} };
 }
 
-}
+} //namespace JpegThumbnail
 
 #else
 
@@ -181,7 +181,7 @@ JpegThumbnail::Status convert(Job &job, const string &jpeg, int width)
     decoder.out_color_space = JCS_RGB;
     decoder.scale_num = 1;
     decoder.scale_denom = 1;
-    for (unsigned int denom : {8u, 4u, 2u})
+    for (unsigned int denom: { 8u, 4u, 2u })
     {
         if (decoder.image_width / denom >= targetWidth)
         {
@@ -248,7 +248,7 @@ JpegThumbnail::Status convert(Job &job, const string &jpeg, int width)
     return Status::Resized;
 }
 
-}
+} //namespace
 
 namespace JpegThumbnail
 {
@@ -256,7 +256,7 @@ namespace JpegThumbnail
 Result resize(const string &jpeg, int width)
 {
     if (jpeg.empty() || width < 1)
-        return {Status::Failed, {}};
+        return { Status::Failed, {} };
 
     Job job{};
 
@@ -286,10 +286,10 @@ Result resize(const string &jpeg, int width)
     jpeg_destroy_decompress(&job.decoder);
 
     if (status == Status::Resized)
-        return {status, std::move(job.thumbnail)};
-    return {status, {}};
+        return { status, std::move(job.thumbnail) };
+    return { status, {} };
 }
 
-}
+} //namespace JpegThumbnail
 
 #endif

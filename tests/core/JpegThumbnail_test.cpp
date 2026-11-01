@@ -76,7 +76,7 @@ Options plainGreyScans()
     return options;
 }
 
-}
+} //namespace
 
 TEST(JpegThumbnail, KeepsTheRatio)
 {
@@ -91,7 +91,7 @@ TEST(JpegThumbnail, KeepsTheRatio)
 TEST(JpegThumbnail, KeepsColoursInOrder)
 {
     std::string red = encode(800, 600, [](int, int, unsigned char *rgb)
-    {
+                             {
         rgb[0] = 220;
         rgb[1] = 10;
         rgb[2] = 10;
@@ -110,7 +110,7 @@ TEST(JpegThumbnail, KeepsColoursInOrder)
 TEST(JpegThumbnail, KeepsWhereThingsAre)
 {
     std::string halves = encode(1600, 800, [](int x, int, unsigned char *rgb)
-    {
+                                {
         rgb[0] = rgb[1] = rgb[2] = x < 800 ? 0 : 255;
     });
 
@@ -352,7 +352,7 @@ void report(const char *what, int width, const Cost &cost)
                 what, width, cost.cpuMs, cost.rssMiB, 1000 / cost.cpuMs);
 }
 
-}
+} //namespace
 
 /* Run by hand: GTEST_ARGS=--gtest_also_run_disabled_tests bin/test <worktree>
  * core/JpegThumbnail_test:JpegThumbnail.DISABLED_Measure. Picks up the script
@@ -362,12 +362,12 @@ TEST(JpegThumbnail, DISABLED_Measure)
     char directory[] = "/tmp/calaos_jpeg_measure_XXXXXX";
     ASSERT_NE(mkdtemp(directory), nullptr);
 
-    for (const auto &[name, size] : {std::pair<const char *, const char *>{"4512", "4512x2512"},
-                                     std::pair<const char *, const char *>{"1920", "1920x1080"}})
+    for (const auto &[name, size]: { std::pair<const char *, const char *>{ "4512", "4512x2512" },
+                                     std::pair<const char *, const char *>{ "1920", "1920x1080" } })
     {
         const std::string path = std::string(directory) + "/synth-" + name + ".jpg";
         const std::string generate = std::string("convert -size ") + size +
-            " -seed 42 plasma:fractal -blur 0x1.2 -interlace none -sampling-factor 4:2:0 -strip -quality 50 " + path;
+                                     " -seed 42 plasma:fractal -blur 0x1.2 -interlace none -sampling-factor 4:2:0 -strip -quality 50 " + path;
         ASSERT_EQ(std::system(generate.c_str()), 0);
 
         std::ifstream file(path, std::ios::binary);
@@ -378,7 +378,7 @@ TEST(JpegThumbnail, DISABLED_Measure)
         std::printf("%s: %ld bytes\n", size, long(frame.size()));
         report("resizer, nothing done", 0, measureResizer(frame, 236, 0));
 
-        for (int width : {236, 640})
+        for (int width: { 236, 640 })
         {
             const int iterations = 50;
             auto result = JpegThumbnail::resize(frame, width);
