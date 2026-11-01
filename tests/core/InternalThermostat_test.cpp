@@ -138,6 +138,27 @@ void pumpFor(int ms)
     pumpUntil(never, ms);
 }
 
+/* Stands in for the loop clock of the climate devices, from before load(): a
+ * thermostat reads it when it starts. The timers stay real, they only wake the
+ * thermostat up to read it: wait for the thermostat, never for a delay. */
+class ManualLoopClock
+{
+public:
+    ManualLoopClock() { ClimateBase::setLoopClock(read); }
+    ~ManualLoopClock() { ClimateBase::setLoopClock(nullptr); }
+    ManualLoopClock(const ManualLoopClock &) = delete;
+    ManualLoopClock &operator=(const ManualLoopClock &) = delete;
+
+    void advance(uint64_t ms) { now += ms; }
+
+private:
+    static uint64_t read() { return now; }
+    static inline uint64_t now = 1;
+};
+
+//More changes than a fight may make in a minute, at any spacing.
+const int MOST_CHANGES = 20;
+
 std::string linkXml(const std::string &name, const std::string &io)
 {
     return "      <calaos:link name=\"" + name + "\" io=\"" + io + "\" />\n";
@@ -465,6 +486,26 @@ protected:
         };
         c->sub = IOChangeHub::Instance().subscribe(id, counted);
         return c;
+    }
+
+    /* Moves the clock on by `ms`, 1 ms at a time, and lets thermostat `id` catch
+     * up with each step: it is done when it waits for its next deadline, or
+     * when `output` went past `MOST_CHANGES`, which means nothing spaces the
+     * put-backs any more and it never will be. */
+    static void playFight(ManualLoopClock &clock, const std::string &id, const Counter &output, int ms)
+    {
+        auto settled = [&id, &output]()
+        {
+            return output.count > MOST_CHANGES || state(id).contains("lockout");
+        };
+        //Wide bound: it only ever elapses when the thermostat is lost.
+        const int bound = 30000;
+        ASSERT_TRUE(pumpUntil(settled, bound));
+        for (int i = 0; i < ms; i++)
+        {
+            clock.advance(1);
+            ASSERT_TRUE(pumpUntil(settled, bound));
+        }
     }
 
     static std::vector<std::string> modes(const std::string &id)
@@ -1183,10 +1224,12 @@ TEST_F(InternalThermostatTest, PutBackDelaysBelowOneMillisecondAreRefused)
     EXPECT_LE(heat->count, 6);
 }
 
-//At the shortest spacing allowed, a fight is still bounded (a minute lasts
-//60 ms here).
+/* At the shortest spacing allowed, a fight is still bounded (a minute lasts
+ * 60 ms here). Put back at 0, 1, 3, 7, 15, 31, then at the maximum: 63, 123.
+ * Each one counts for two, and so does the first ON and its undoing. */
 TEST_F(InternalThermostatTest, TheShortestPutBackDelayStillBoundsAFight)
 {
+    ManualLoopClock clock;
     load();
     setpoints("tiny", 21, 0, 0);
     mode("tiny", "heat");
@@ -1194,12 +1237,39 @@ TEST_F(InternalThermostatTest, TheShortestPutBackDelayStillBoundsAFight)
     auto heat = count("tiny_heat");
 
     temp("tiny", 19);
-    pumpFor(60);
-    EXPECT_GE(heat->count, 2);
-    EXPECT_LE(heat->count, 20);
+    playFight(clock, "tiny", *heat, 20);
+    //Longer than the longest spacing: only the clock of the thermostat counts.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    playFight(clock, "tiny", *heat, 40);
+    EXPECT_EQ(heat->count, 14);
     const int first = heat->count;
-    pumpFor(60);
-    EXPECT_LE(heat->count - first, 6);
+    playFight(clock, "tiny", *heat, 60);
+    EXPECT_EQ(heat->count - first, 2);
+}
+
+/* A stall between two turns, as the thermostat sees it: the deadline it
+ * overran is met once, without catching up, and the spacing goes on from
+ * where it was, since the write and its undoing are the same turn. */
+TEST_F(InternalThermostatTest, AStallBetweenTwoTurnsNeitherBurstsNorRestartsAFight)
+{
+    ManualLoopClock clock;
+    load();
+    setpoints("tiny", 21, 0, 0);
+    mode("tiny", "heat");
+    ASSERT_NE(addSimpleRule("heat_back_off", "tiny_heat", "==", "true", "tiny_heat", "false"), nullptr);
+    auto heat = count("tiny_heat");
+
+    temp("tiny", 19);
+    playFight(clock, "tiny", *heat, 20);
+    EXPECT_EQ(heat->count, 12);
+
+    clock.advance(1000);
+    playFight(clock, "tiny", *heat, 0);
+    EXPECT_EQ(heat->count, 14);
+
+    //32 ms after the stall, then 60: a restart would put back at 1, 3, 7...
+    playFight(clock, "tiny", *heat, 60);
+    EXPECT_EQ(heat->count, 16);
 }
 
 //The same holds for a stop the thermostat forces (mode off).

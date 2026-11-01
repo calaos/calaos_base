@@ -690,6 +690,13 @@ docs/07_remoteui.md	1	JsonApi.cpp:576	e53d7c2828af	/* Every word this server rou
 docs/07_remoteui.md	1	JsonApiHandlerWS.cpp:60	5a20a8a8d9e2	/* E4.1s. jansson_decode_object()'s FLATTENING CONTRACT, kep
 docs/07_remoteui.md	1	OtaFirmwareManager.cpp:338	b3a732e01bb1	handler->sendJson("remote_ui_fw_update_available", data);
 docs/07_remoteui.md	1	OtaFirmwareManager.h:156-160	ac7751a3857a	/* Rescan period in milliseconds, computed in 64-bit and cla
+docs/07_remoteui.md	1	ProvisioningHandler.cpp:208	d77bd831a085	const Config::SaveResult saved = Config::Instance().SaveConf
+docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:246-248	8a12c72279bc	Json response; response["status"] = "error"; response["error
+docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:258	9695abefdbdc	bool RemoteUIProvisioningHandler::validateProvisioningReques
+docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:258-271	43f99940df56	bool RemoteUIProvisioningHandler::validateProvisioningReques
+docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:400	a245eb6757f4	const size_t TOKEN_BYTES = 32;
+docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:410	74e9fa98b06a	if (RAND_bytes(buffer.data(), TOKEN_BYTES) != 1)
+docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:416-421	262dbb7c06f1	// Convert to hexadecimal string (64 characters for 32 bytes
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:152	dc6bc3fc64eb	void OtaFirmwareManager::serverStarted()
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:159	c3c970749a53	void OtaFirmwareManager::rescanFromPackage()
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:174	52d55754a82d	void OtaFirmwareManager::scheduleDeferredNotify()
@@ -704,7 +711,6 @@ docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:61-6
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:72-79	8a3677c29766	firmwarePath = Utils::get_config_option("ota_firmware_path")
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:83-84	2a7c3621af8d	string intervalStr = Utils::get_config_option("ota_rescan_in
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/OtaFirmwareManager.h:162-171	e5d6c372d593	static uint64_t computeRescanIntervalMs(int minutes) { stati
-docs/07_remoteui.md	1	ProvisioningHandler.cpp:207	371cfc933f60	Config::Instance().SaveConfigIO();
 docs/07_remoteui.md	1	RemoteUI.cpp:417-421	9806369a552c	try { int brightness = std::stoi(args); setBrightness(bright
 docs/07_remoteui.md	1	RemoteUIManager.cpp:117-118	aea05d3483de	if (io->get_param("type") == "RemoteUI" || io->get_param("ty
 docs/07_remoteui.md	1	RemoteUIManager.cpp:90-91	aea05d3483de	if (io->get_param("type") == "RemoteUI" || io->get_param("ty
@@ -713,12 +719,6 @@ docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:117	86c5e6bd154c	string co
 docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:151	9ddcfab09374	if ((io->get_param("type") == "RemoteUI" || io->get_param("t
 docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:173-185	d084c589d1e9	if (device_info.contains("hardware_id")) remote_ui->set_para
 docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:199	e7f8a1172161	remote_ui->set_param("auth_token", auth_token);
-docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:233-234	582a2b526a5b	{ Json response;
-docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:246	9695abefdbdc	bool RemoteUIProvisioningHandler::validateProvisioningReques
-docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:246-259	43f99940df56	bool RemoteUIProvisioningHandler::validateProvisioningReques
-docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:386	60ba4b2daa4e	{
-docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:396	da39a3ee5e6b	
-docs/07_remoteui.md	1	RemoteUIProvisioningHandler.cpp:402-409	308af3283d0e	} // Convert to hexadecimal string (64 characters for 32 byt
 docs/07_remoteui.md	1	RemoteUIWebSocketHandler.cpp:135-140	3b36ae7276ae	* which sends the next reader into the parser. The handling 
 docs/07_remoteui.md	1	RemoteUIWebSocketHandler.cpp:142-148	8e8e0508597d	// Check for RemoteUI-specific messages first try { message 
 docs/07_remoteui.md	1	RemoteUIWebSocketHandler.cpp:165-166	b639ba1277bd	handleGetConfig(); return;
@@ -791,7 +791,7 @@ docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIManager.h:86-131	29
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:124	7761a8df6200	sendErrorResponse("Device info fields too long", 413);
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:133	4f9093497906	sendErrorResponse("Too many requests or blacklisted", 429);
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:165	eade2a1c3b69	sendErrorResponse("Invalid provisioning code", 404);
-docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:207	371cfc933f60	Config::Instance().SaveConfigIO();
+docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:208	d77bd831a085	const Config::SaveResult saved = Config::Instance().SaveConf
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:39-42	cabc01b507c4	static const int RATE_LIMIT_SECONDS = 10; // Min 10s between
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:56-57	08d11b096af0	if (uri.find("/api/v3/provision/") == 0) return true;
 docs/07_remoteui.md	1	src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:69-76	b7225474a9cc	if (uri == "/api/v3/provision/request" && method == "POST") 
@@ -829,7 +829,7 @@ docs/07_remoteui.md	1	tests/core/RemoteUIDeviceInfo_test.cpp:257	a9f0fbfa1a48	AS
 docs/07_remoteui.md	1	tests/core/RemoteUIDeviceInfo_test.cpp:264	f0e2a6ebe69f	************************************************************
 docs/07_remoteui.md	2	RemoteUIProvisioningHandler.cpp:117	86c5e6bd154c	string code = request["code"];
 docs/07_remoteui.md	2	RemoteUIProvisioningHandler.cpp:173-185	d084c589d1e9	if (device_info.contains("hardware_id")) remote_ui->set_para
-docs/07_remoteui.md	2	RemoteUIProvisioningHandler.cpp:246	9695abefdbdc	bool RemoteUIProvisioningHandler::validateProvisioningReques
+docs/07_remoteui.md	2	RemoteUIProvisioningHandler.cpp:258	9695abefdbdc	bool RemoteUIProvisioningHandler::validateProvisioningReques
 docs/07_remoteui.md	2	remote-ui.md:43-46	2b97c55226a2	**Request Structure**: ```json { "provisioning_code": "ABC12
 docs/07_remoteui.md	2	src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:463	da39a3ee5e6b	
 docs/07_remoteui.md	2	src/bin/calaos_server/RemoteUI/RemoteUIManager.cpp:96	056ab3069f0f	if (JsonApi::secureCompare(io->get_param("auth_token"), toke
