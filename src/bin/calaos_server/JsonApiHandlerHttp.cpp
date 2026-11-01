@@ -827,7 +827,7 @@ void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::func
 
     //The slot is the process's, not the handler's: it comes back when the process
     //has really exited, even if the client left meanwhile (~JsonApiHandlerHttp).
-    //Both callbacks only touch this after checking that the handler is still alive.
+    //The exit callback only touches this after checking that the handler is still alive.
     std::weak_ptr<bool> alive = handlerAlive;
 
     exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
@@ -844,13 +844,13 @@ void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::func
 
         finished(ev.status == CALAOS_PICTURE_NOT_RESIZED ? 0 : ev.status);
     });
-    exe_thumb->once<uvw::ErrorEvent>([this, alive, finished](const uvw::ErrorEvent &ev, auto &h)
-                                     {
+    exe_thumb->once<uvw::ErrorEvent>([this, finished](const uvw::ErrorEvent &ev, auto &h)
+    {
         cDebugDom("process") << "Process error: " << ev.what();
         h.close();
         pictureProcesses--;
-        if (alive.expired())
-            return;
+        //No alive check: libuv reports this error synchronously from spawn(),
+        //while the handler is necessarily alive.
         exe_thumb_running = false;
         finished(1);
     });
