@@ -54,15 +54,15 @@ void SynoSurveillanceStation::downloadSnapshot(std::function<void(const string &
 {
     cDebugDom("syno.ss") << "downloadSnapshot()";
 
+    snapshotWaiters.push_back(std::move(dataCb));
+
     if (isRunning)
     {
-        cDebugDom("syno.ss") << "already running, returning last screenshot.";
-        dataCb(lastSnapshot);
+        cDebugDom("syno.ss") << "already running, waiting for its result.";
         return;
     }
 
     isRunning = true;
-    downloadDataCb = dataCb;
 
     if (authUrl.empty())
     {
@@ -75,7 +75,7 @@ void SynoSurveillanceStation::downloadSnapshot(std::function<void(const string &
             {
                 cWarning() << "Syno: Fail to get api info for SYNO.API.Auth";
                 isRunning = false;
-                downloadDataCb({});
+                finishSnapshot({});
                 return;
             }
 
@@ -104,7 +104,7 @@ void SynoSurveillanceStation::tryLogin()
                 apiSid.clear();
                 snapUrl.clear();
                 isRunning = false;
-                downloadDataCb({});
+                finishSnapshot({});
                 return;
             }
 
@@ -132,7 +132,7 @@ void SynoSurveillanceStation::tryGetSnapshot()
                 apiSid.clear();
                 snapUrl.clear();
                 isRunning = false;
-                downloadDataCb({});
+                finishSnapshot({});
                 return;
             }
 
@@ -156,10 +156,9 @@ void SynoSurveillanceStation::doGetSnapshot()
             apiSid.clear();
             snapUrl.clear();
         }
-        lastSnapshot = data;
-        cInfo() << "new snapshot: " << lastSnapshot.length();
+        cInfo() << "new snapshot: " << data.length();
         isRunning = false;
-        downloadDataCb(lastSnapshot);
+        finishSnapshot(data);
     });
 }
 

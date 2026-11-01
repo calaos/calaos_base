@@ -46,6 +46,10 @@ public:
 
 private:
 
+    //Each one downloads and decodes a whole frame, in its own process
+    static constexpr int maxPictureProcesses = 4;
+    static int pictureProcesses;
+
     std::shared_ptr<uvw::ProcessHandle> exe_thumb;
     bool exe_thumb_running = false;
     string tempfname;
@@ -79,6 +83,9 @@ private:
     static bool checkPictureParams(const string &width, const string &rotate);
     //argv of calaos_picture, built argument by argument
     vector<string> buildPictureCommand(const string &url, const string &width, const string &rotate);
+    //Too many running: answers the client itself, finished never fires
+    void runPictureCommand(const vector<string> &args, std::function<void(int)> finished);
+    void releasePictureSlot();
 
     void releaseCameraDl();
 

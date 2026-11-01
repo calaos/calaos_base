@@ -1,12 +1,20 @@
 #!/bin/bash
 
-#Usage:
-#calaos_picture <url> <filename> [width] [rotate]
+# Usage: calaos_picture <url> <filename> [-w|--width width] [-r|--rotate degrees]
+#
+# Exit codes:
+#   0  filename holds the image, resized and rotated as asked
+#   1  nothing was written: bad usage, or the download failed
+#   3  filename holds the image as downloaded: ImageMagick is missing or failed
 
-set -x
+showUsage()
+{
+    echo "Usage: calaos_picture <url> <filename> -w|--width [width] -r|--rotate [rotate]"
+    exit 1
+}
 
 # Parse command line arguments
-OPTIONS=$(getopt -o r:w: --long rotate:,width: -- "$@")
+OPTIONS=$(getopt -o r:w: --long rotate:,width: -- "$@") || showUsage
 eval set -- "$OPTIONS"
 
 # Set default values
@@ -33,15 +41,6 @@ done
 url="$1"
 filename="$2"
 
-# Download file from URL
-curl -o "$filename" "$url"
-
-showUsage()
-{
-    echo "Usage: calaos_picture <url> <filename> -w|--width [width] -r|--rotate [rotate]"
-    exit 1
-}
-
 if [ "$url" == "" ]; then
     showUsage
 fi
@@ -49,31 +48,55 @@ if [ "$filename" == "" ]; then
     showUsage
 fi
 
-if ! which curl > /dev/null 2>&1 ; then
+if ! command -v curl > /dev/null 2>&1 ; then
     echo "curl is not installed."
     exit 1
 fi
 
-curl "$url" --output "${filename}"_curl
+work="${filename}_curl"
+curlPid=""
 
-if ! which convert > /dev/null 2>&1 ; then
-    echo "imagemagick is not installed. Resizing is not done."
-    mv "${filename}"_curl "${filename}"
+cleanup()
+{
+    if [ -n "$curlPid" ]; then
+        kill "$curlPid" 2> /dev/null
+    fi
+    rm -f "$work"
+}
+trap cleanup EXIT
+
+# The server sends SIGTERM when its client leaves. In the foreground curl would
+# hold this script, and a process slot's worth of work, until the camera answers.
+trap 'exit 1' TERM
+
+curl -s --fail --max-time 30 --output "$work" --url "$url" &
+curlPid=$!
+wait "$curlPid" || exit 1
+curlPid=""
+
+if [ "$width" == "" ] && [ "$rotate" == "" ]; then
+    mv "$work" "$filename"
     exit 0
 fi
 
-if [ "$width" == "" ] && [ "$rotate" == "" ]; then
-    mv "${filename}"_curl "${filename}"
-    exit 0
+keepOriginal()
+{
+    echo "$1 Image is not resized."
+    mv "$work" "$filename"
+    exit 3
+}
+
+if ! command -v convert > /dev/null 2>&1 ; then
+    keepOriginal "imagemagick is not installed."
 fi
 
 # Resize image and rotate before resizing
 if [ ! "$rotate" == "" ]; then
-    convert "${filename}"_curl -rotate "${rotate}" "${filename}_curl"
+    convert "$work" -rotate "$rotate" "$work" || keepOriginal "convert failed."
 fi
 
 if [ ! "$width" == "" ]; then
-    convert "${filename}"_curl  -thumbnail "${width}" "${filename}_curl"
+    convert "$work" -thumbnail "$width" "$work" || keepOriginal "convert failed."
 fi
 
-mv "${filename}"_curl "${filename}"
+mv "$work" "$filename"

@@ -2137,11 +2137,52 @@ est corrompu.
 
 | `type` | Réponse |
 |---|---|
-| `get_picture` | un JPEG (`Content-Type: image/jpeg`) ; `camfail.jpg` si la caméra ne répond pas |
+| `get_picture` | un JPEG (`Content-Type: image/jpeg`) ; `camfail.jpg` si la caméra ne répond pas ; argument optionnel `width` |
 | `get_video` | flux MJPEG relayé, ou flux construit image par image si la caméra n'a pas d'URL vidéo |
 
 `id` inconnu → `{"error":"unkown camera id"}`. `type` inconnu → **rien**, pas de
 branche `else` ([JsonApiHandlerHttp.cpp:903-1029](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+
+#### `get_picture` et `width`
+
+`width` est une largeur en pixels, de 1 à 10000, sur le même modèle que `get_camera_pic`.
+Absent ou vide, rien ne change : la frame de la caméra, telle quelle. Toute autre valeur donne
+`{"error":"invalid width parameter"}`, avant tout téléchargement. L'authentification de
+`get_picture` est celle de la requête, `width` ou pas.
+
+La réponse reste un JPEG brut. Le ratio est conservé, et une image n'est **jamais agrandie** :
+une `width` plus grande que la frame renvoie la frame d'origine. La frame d'origine part aussi
+quand la miniature ne serait pas plus légère qu'elle. Le client lit donc la taille reçue dans
+le JPEG, jamais dans sa requête.
+
+La réduction se fait dans `calaos_server`, sans processus, par libjpeg-turbo sur le pool de
+fils de libuv : la boucle principale ne s'arrête pas. Plusieurs clients sur la même caméra et
+la même largeur partagent **un** téléchargement et **un** décodage, y compris ceux qui arrivent
+pendant le décodage. Rien n'est gardé après la réponse : la requête suivante recommence.
+
+Bornes, de quoi rester en mémoire et en CPU connus face à une frame hostile :
+
+| Borne | Valeur | Au-delà |
+|---|---|---|
+| Décodages simultanés | 2, et 6 en attente | frame d'origine, repli `Busy` |
+| Largeurs différentes en cours sur une caméra | 4 | frame d'origine, repli `Busy` |
+| Dimensions annoncées par le JPEG | 16384 de côté, 64 Mpx | frame d'origine, repli `Undecodable` |
+| Mémoire du décodeur | 128 Mio | idem |
+| Passes d'un JPEG progressif | 64 | idem |
+
+**Replis.** `get_picture` avec `width` répond toujours par une image : quand la réduction n'est
+pas possible, la frame part **en pleine résolution**, et le serveur le journalise. Une ligne
+d'avertissement, domaine `ipcam`, une seule fois par raison pour la vie du processus, sans URL
+ni identifiant de caméra :
+
+| Raison | Journal |
+|---|---|
+| Serveur compilé sans libjpeg (voir le résumé de `configure`) | `Built without libjpeg: camera pictures are sent in full resolution` |
+| Frame illisible, tronquée ou hors bornes | `Camera frame cannot be resized: sent in full resolution` |
+| File de décodage pleine, trop de largeurs | `Too many pictures to resize: sent in full resolution` |
+
+Une frame vide (caméra muette) donne `camfail.jpg`, comme sans `width`. Le client n'a aucune
+marque du repli dans la réponse : il reçoit simplement une image plus lourde.
 
 ### `settings` — clé `action` (WS uniquement, 1)
 
@@ -2166,13 +2207,28 @@ façon, et c'est une source classique de confusion :
 | `action: get_cover` | **JSON**, avec le JPEG encodé : `{"success":"true","contenttype":"image/jpeg","encoding":"base64","data":"<base64>"}` ([JsonApiHandlerHttp.cpp:575-592](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) |
 | `action: get_camera_pic` | **JSON base64**, même forme (même fonction `exeFinished()`) |
 | `audio` / `audio_action: get_cover` | **octets JPEG bruts**, `Content-Type: image/jpeg` ([JsonApiHandlerHttp.cpp:753-757](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) |
-| `camera` / `get_picture` | octets JPEG bruts |
+| `camera` / `get_picture` | octets JPEG bruts ; `width` optionnel, voir [`camera`](#camera--clé-type-http-uniquement-2) |
 | `camera` / `get_video` | flux MJPEG |
 | `action: event_picture` | octets JPEG bruts, ou HTTP 404 si `pic_uid` est introuvable ([JsonApiHandlerHttp.cpp:1087-1108](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) |
 
 `get_cover` et `get_camera_pic` acceptent `width` (1…10000) et `rotate`
 (-360…360) ; toute autre valeur donne
 `{"success":"false","error_str":"invalid width or rotate parameter"}`.
+
+⚠️ **`get_cover` et `get_camera_pic` coûtent cher par requête.** Chacune lance son propre
+processus `calaos_picture`, qui télécharge l'image puis la réduit avec ImageMagick : ni
+téléchargement ni décodage partagés entre clients, et de l'ordre de 0,15 à 0,3 s de CPU et de
+100 à 150 Mo de RSS pour une frame de 11 Mpx réduite à 236 ou 640 pixels, contre 10 à 25 ms par
+`get_picture`. Pour une caméra, `camera` / `get_picture` avec `width` est le bon choix.
+
+Quatre de ces processus au plus tournent en même temps pour tout le serveur. Au-delà, la
+réponse immédiate est `{"success":"false","error_str":"too many pictures in progress"}` : le
+client réessaie plus tard.
+
+Sans ImageMagick, ou si `convert` échoue, l'image part **en pleine résolution** avec
+`success: "true"` : `calaos_picture` le signale au serveur par son code de sortie 3, et le
+serveur le journalise une fois, domaine `ipcam`, sans URL ni identifiant
+(`calaos_picture cannot resize (ImageMagick): sent in full resolution`).
 
 ---
 
@@ -2857,12 +2913,14 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `scenario still references missing IOs: <ids>` | [Scenario/AutoScenario.cpp:281](../src/bin/calaos_server/Scenario/AutoScenario.cpp) | `autoscenario reenable` refusé (T3.18) — la seule chaîne d'erreur de l'API à porter une **partie variable** |
 | `scope denied` | [JsonApiHandlerWS.cpp:162](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | message refusé en session `serviceScope` |
 | `invalid token` | [JsonApiHandlerWS.cpp:544, 555](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | `login_service` refusé |
+| `invalid width parameter` | [JsonApiHandlerHttp.cpp:1339](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `camera` / `get_picture` : `width` hors de 1…10000 |
 | `id not set` | [JsonApiHandlerHttp.cpp:436, 504](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : `id` invalide |
 | `invalid width or rotate parameter` | [JsonApiHandlerHttp.cpp:453, 521](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | |
 | `unable to get url` | [JsonApiHandlerHttp.cpp:470, 734](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | pas de pochette disponible |
 | `unable to load data from url` | [JsonApiHandlerHttp.cpp:581, 748](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `calaos_picture` a échoué |
+| `too many pictures in progress` | [JsonApiHandlerHttp.cpp:789](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : quatre `calaos_picture` tournent déjà |
 
-La clé porteuse est `error` dans tous les cas sauf les quatre dernières lignes,
+La clé porteuse est `error` dans tous les cas sauf les cinq dernières lignes,
 qui utilisent `{"success":"false","error_str":"…"}`.
 
 ---

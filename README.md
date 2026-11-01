@@ -79,7 +79,8 @@ lines of its summary):
 | `knxd-dev` (`eibclient.h`) | `calaos_knx` |
 | `libmosquitto-dev`, `libmosquittopp-dev` | `calaos_mqtt` |
 | `libola-dev` | `calaos_ola` |
-| `imagemagick` | picture resizing of camera snapshots (runtime, `convert`) |
+| `libjpeg62-turbo-dev` | camera thumbnails of `get_picture` (full-resolution frames without it) |
+| `imagemagick` | picture resizing of `get_cover` and `get_camera_pic` (runtime, `convert`) |
 | Python modules `roonapi`, `reolink_aio` | `calaos_roon`, `calaos_reolink` |
 | the set of `src/bin/calaos_mcp/pyproject.toml` | the `calaos_mcp` sidecar (Python >= 3.11) |
 
