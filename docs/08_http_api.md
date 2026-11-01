@@ -2155,7 +2155,7 @@ une `width` plus grande que la frame renvoie la frame d'origine. La frame d'orig
 quand la miniature ne serait pas plus légère qu'elle. Le client lit donc la taille reçue dans
 le JPEG, jamais dans sa requête.
 
-La réduction se fait dans `calaos_server`, sans processus, par libjpeg-turbo sur le pool de
+La réduction se fait dans `calaos_server`, sans processus, par libjpeg (libjpeg-turbo en pratique ; `configure` exige `jpeg_mem_src`) sur le pool de
 fils de libuv : la boucle principale ne s'arrête pas. Plusieurs clients sur la même caméra et
 la même largeur partagent **un** téléchargement et **un** décodage, y compris ceux qui arrivent
 pendant le décodage. Rien n'est gardé après la réponse : la requête suivante recommence.
@@ -2180,6 +2180,7 @@ ni identifiant de caméra :
 | Serveur compilé sans libjpeg (voir le résumé de `configure`) | `Built without libjpeg: camera pictures are sent in full resolution` |
 | Frame illisible, tronquée ou hors bornes | `Camera frame cannot be resized: sent in full resolution` |
 | File de décodage pleine, trop de largeurs | `Too many pictures to resize: sent in full resolution` |
+| `get_cover` / `get_camera_pic` : ImageMagick absent ou en échec | `calaos_picture cannot resize (ImageMagick): sent in full resolution` |
 
 Une frame vide (caméra muette) donne `camfail.jpg`, comme sans `width`. Le client n'a aucune
 marque du repli dans la réponse : il reçoit simplement une image plus lourde.
@@ -2224,15 +2225,24 @@ téléchargement ni décodage partagés entre clients, et de l'ordre de 0,15 à 
 Six de ces processus au plus tournent en même temps pour tout le serveur ; l'option
 `max_picture_processes` de `local_config.xml` (1…1000, voir [16](16_config_options.md))
 change ce plafond, sans redémarrage. Compter 100 à 150 Mo de RAM par processus sur une frame
-de 11 Mpx (extrapolé). Une valeur absente, vide, non numérique ou hors 1…1000 redonne 6, avec
-un avertissement dans le journal (domaine `ipcam`, une fois par valeur). Au-delà du plafond, la
+de 11 Mpx (extrapolé). Une valeur absente ou vide redonne 6 sans rien dire ; une valeur non
+numérique ou hors 1…1000 redonne 6 avec un avertissement dans le journal (domaine `ipcam`, une
+fois par valeur). Les téléchargements de pochettes audio partagent ce plafond. Au-delà, la
 réponse immédiate est `{"success":"false","error_str":"too many pictures in progress"}` : le
 client réessaie plus tard.
 
-Sans ImageMagick, ou si `convert` échoue, l'image part **en pleine résolution** avec
-`success: "true"` : `calaos_picture` le signale au serveur par son code de sortie 3, et le
-serveur le journalise une fois, domaine `ipcam`, sans URL ni identifiant
-(`calaos_picture cannot resize (ImageMagick): sent in full resolution`).
+Une place est rendue quand le processus `calaos_picture` est **réellement sorti**, pas quand
+le client part : un client qui se déconnecte fait envoyer SIGTERM au script, qui arrête son
+`curl` ou son `convert` et se termine, et la place reste prise jusque-là. `curl` est borné à
+30 s, chaque passage de `convert` à 30 s (`timeout -k 2 30`) : un processus qui ne sort pas
+libère donc sa place au plus tard après environ 100 s.
+
+Sans ImageMagick (`convert` ou `timeout` absent), ou si `convert` échoue ou dépasse son délai,
+l'image part **en pleine résolution** avec `success: "true"` : `calaos_picture` le signale au
+serveur par son code de sortie 3, et le serveur le journalise une fois, domaine `ipcam`, sans URL
+ni identifiant (`calaos_picture cannot resize (ImageMagick): sent in full resolution`). Cette
+raison est la quatrième du tableau des replis de `get_picture` : un seul avertissement par
+raison pour la vie du processus.
 
 ---
 
@@ -2917,12 +2927,12 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `scenario still references missing IOs: <ids>` | [Scenario/AutoScenario.cpp:281](../src/bin/calaos_server/Scenario/AutoScenario.cpp) | `autoscenario reenable` refusé (T3.18) — la seule chaîne d'erreur de l'API à porter une **partie variable** |
 | `scope denied` | [JsonApiHandlerWS.cpp:162](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | message refusé en session `serviceScope` |
 | `invalid token` | [JsonApiHandlerWS.cpp:544, 555](../src/bin/calaos_server/JsonApiHandlerWS.cpp) | `login_service` refusé |
-| `invalid width parameter` | [JsonApiHandlerHttp.cpp:1339](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `camera` / `get_picture` : `width` hors de 1…10000 |
+| `invalid width parameter` | [JsonApiHandlerHttp.cpp:1372](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `camera` / `get_picture` : `width` hors de 1…10000 |
 | `id not set` | [JsonApiHandlerHttp.cpp:436, 504](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : `id` invalide |
 | `invalid width or rotate parameter` | [JsonApiHandlerHttp.cpp:453, 521](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | |
 | `unable to get url` | [JsonApiHandlerHttp.cpp:470, 734](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | pas de pochette disponible |
 | `unable to load data from url` | [JsonApiHandlerHttp.cpp:581, 748](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `calaos_picture` a échoué |
-| `too many pictures in progress` | [JsonApiHandlerHttp.cpp:789](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : `max_picture_processes` (6 par défaut) `calaos_picture` tournent déjà |
+| `too many pictures in progress` | [JsonApiHandlerHttp.cpp:819-820](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) | `get_cover`/`get_camera_pic` : `max_picture_processes` (6 par défaut) `calaos_picture` tournent déjà |
 
 La clé porteuse est `error` dans tous les cas sauf les cinq dernières lignes,
 qui utilisent `{"success":"false","error_str":"…"}`.

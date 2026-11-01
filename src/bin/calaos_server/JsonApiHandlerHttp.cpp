@@ -225,15 +225,13 @@ JsonApiHandlerHttp::JsonApiHandlerHttp(HttpClient *client):
 
 JsonApiHandlerHttp::~JsonApiHandlerHttp()
 {
+    //Only asks calaos_picture to stop: the handle stays open so that libuv reaps
+    //the process, and its ExitEvent gives the slot back.
     //pid > 0 guard: a handle whose spawn failed keeps pid 0, and killing
     //pid 0 would SIGTERM our whole process group (see ~ExternProcServer)
-    if (exe_thumb && exe_thumb->referenced() && exe_thumb->pid() > 0)
-    {
+    if (exe_thumb_running && exe_thumb && exe_thumb->pid() > 0)
         exe_thumb->kill(SIGTERM);
-        exe_thumb->close();
-    }
 
-    releasePictureSlot();
     releaseCameraDl();
     FileUtils::unlink(tempfname);
 }
@@ -827,36 +825,38 @@ void JsonApiHandlerHttp::runPictureCommand(const vector<string> &args, std::func
     pictureProcesses++;
     exe_thumb_running = true;
 
+    //The slot is the process's, not the handler's: it comes back when the process
+    //has really exited, even if the client left meanwhile (~JsonApiHandlerHttp).
+    //Both callbacks only touch this after checking that the handler is still alive.
+    std::weak_ptr<bool> alive = handlerAlive;
+
     exe_thumb = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
-    exe_thumb->once<uvw::ExitEvent>([this, finished](const uvw::ExitEvent &ev, auto &h)
+    exe_thumb->once<uvw::ExitEvent>([this, alive, finished](const uvw::ExitEvent &ev, auto &h)
                                     {
         h.close();
-        releasePictureSlot();
+        pictureProcesses--;
+        if (alive.expired())
+            return;
+        exe_thumb_running = false;
 
         if (ev.status == CALAOS_PICTURE_NOT_RESIZED)
             PictureResizer::Instance().reportFallback(PictureResizer::Fallback::NoConvert);
 
         finished(ev.status == CALAOS_PICTURE_NOT_RESIZED ? 0 : ev.status);
     });
-    exe_thumb->once<uvw::ErrorEvent>([this, finished](const uvw::ErrorEvent &ev, auto &h)
+    exe_thumb->once<uvw::ErrorEvent>([this, alive, finished](const uvw::ErrorEvent &ev, auto &h)
                                      {
         cDebugDom("process") << "Process error: " << ev.what();
         h.close();
-        releasePictureSlot();
+        pictureProcesses--;
+        if (alive.expired())
+            return;
+        exe_thumb_running = false;
         finished(1);
     });
 
     Utils::CStrArray arr(args);
     exe_thumb->spawn(arr.at(0), arr.data());
-}
-
-void JsonApiHandlerHttp::releasePictureSlot()
-{
-    if (!exe_thumb_running)
-        return;
-
-    exe_thumb_running = false;
-    pictureProcesses--;
 }
 
 bool JsonApiHandlerHttp::checkPictureParams(const string &width, const string &rotate)

@@ -80,7 +80,9 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <cerrno>
 #include <condition_variable>
+#include <csignal>
 #include <cstdlib>
 #include <deque>
 #include <fstream>
@@ -306,31 +308,61 @@ const char *const NO_CONVERT_LINE = "calaos_picture cannot resize (ImageMagick):
 class FakePictureTool
 {
 public:
+    /* HoldsAChild: a run waits in the foreground for a child, like
+     * calaos_picture while convert works. SIGTERM makes it exit only once the
+     * child is done, because the trap waits for the foreground command; the
+     * child ends with release(). */
+    enum Hold { HoldsAChild };
+
     explicit FakePictureTool(const std::string &body)
     {
-        char tmpl[] = "/tmp/calaos_t317d_picture_XXXXXX";
-        const char *created = ::mkdtemp(tmpl);
-        dir = created ? created : "";
-        if (dir.empty())
-            return;
-
-        {
-            std::ofstream script(toolPath(), std::ios::out | std::ios::trunc);
-            script << "#!/bin/sh\necho \"$1\" >> '" << runsPath() << "'\n"
-                   << body;
-        }
-        ready = ::chmod(toolPath().c_str(), 0755) == 0 &&
-                ::setenv("CALAOS_BIN_PREFIX", dir.c_str(), 1) == 0;
+        if (makeDir())
+            install(body);
     }
 
+    explicit FakePictureTool(Hold)
+    {
+        if (makeDir())
+            install("trap 'exit 1' TERM\n"
+                    "sh -c 'while [ -d \"$0\" ] && [ ! -e \"$1\" ]; do sleep 0.02; done' '" +
+                    dir + "' '" + releasePath() + "'\n");
+    }
+
+    //Lets held runs go on, and waits until every run has been reaped: a place
+    //only comes back with the ExitEvent, so the next case must not start with
+    //places still taken.
     ~FakePictureTool()
     {
         ::unsetenv("CALAOS_BIN_PREFIX");
         if (dir.empty())
             return;
+        release();
+        EXPECT_TRUE(pumpUntil([this]()
+                              {
+            return allExited();
+        }));
         ::unlink(toolPath().c_str());
         ::unlink(runsPath().c_str());
+        ::unlink(pidsPath().c_str());
+        ::unlink(releasePath().c_str());
         ::rmdir(dir.c_str());
+    }
+
+    void release()
+    {
+        std::ofstream(releasePath()) << "go\n";
+    }
+
+    bool allExited() const
+    {
+        std::ifstream in(pidsPath());
+        for (long pid; in >> pid;)
+        {
+            //A zombie still answers: libuv reaps it from the loop
+            if (::kill(static_cast<pid_t>(pid), 0) == 0 || errno != ESRCH)
+                return false;
+        }
+        return true;
     }
 
     bool isReady() const { return ready; }
@@ -347,8 +379,30 @@ public:
     }
 
 private:
+    bool makeDir()
+    {
+        char tmpl[] = "/tmp/calaos_t317d_picture_XXXXXX";
+        const char *created = ::mkdtemp(tmpl);
+        dir = created ? created : "";
+        return !dir.empty();
+    }
+
+    void install(const std::string &body)
+    {
+        {
+            std::ofstream script(toolPath(), std::ios::out | std::ios::trunc);
+            script << "#!/bin/sh\necho \"$1\" >> '" << runsPath() << "'\n"
+                   << "echo $$ >> '" << pidsPath() << "'\n"
+                   << body;
+        }
+        ready = ::chmod(toolPath().c_str(), 0755) == 0 &&
+                ::setenv("CALAOS_BIN_PREFIX", dir.c_str(), 1) == 0;
+    }
+
     std::string toolPath() const { return dir + "/calaos_picture"; }
     std::string runsPath() const { return dir + "/runs"; }
+    std::string pidsPath() const { return dir + "/pids"; }
+    std::string releasePath() const { return dir + "/release"; }
 
     std::string dir;
     bool ready = false;
@@ -1342,16 +1396,69 @@ void JsonApiCameraSnapshotTest::expectPictureLimit(size_t limit)
     EXPECT_JSON_EQ(expected, refused.body());
     EXPECT_EQ(limit, tool.runs().size());
 
-    //A client that leaves gives its place back
+    //A client that leaves gives its place back, once its process has exited
     running.pop_back();
+
+    std::unique_ptr<HttpTestRequest> next;
+    EXPECT_TRUE(pumpUntil([&]()
+                          {
+        next = std::make_unique<HttpTestRequest>();
+        next->send(cameraPicRequest("320"));
+        return next->count() == 0;
+    }));
+    EXPECT_TRUE(pumpUntil([&]()
+                          {
+        return tool.runs().size() == limit + 1;
+    }));
+}
+
+//A run that is still going when its client leaves keeps its place: the limit
+//is about the processes that are alive, not about the clients waiting for them.
+TEST_F(JsonApiCameraSnapshotTest, CameraPicKeepsItsPlaceUntilTheProcessHasExited)
+{
+    addCamera(SNAPSHOT_BYTES);
+    const size_t limit = 6;
+    FakePictureTool holder(FakePictureTool::HoldsAChild);
+    ASSERT_TRUE(holder.isReady());
+
+    {
+        Requests running;
+        for (size_t i = 0; i < limit; i++)
+        {
+            running.push_back(std::make_unique<HttpTestRequest>());
+            running.back()->send(cameraPicRequest("320"));
+        }
+        ASSERT_TRUE(pumpUntil([&]()
+                              {
+            return holder.runs().size() == limit;
+        }));
+    }
+
+    //Every client has left and SIGTERM is delivered, but the runs wait for
+    //their foreground child: the places are still taken
+    EXPECT_FALSE(holder.allExited());
+
+    HttpTestRequest refused;
+    refused.send(cameraPicRequest("320"));
+    ASSERT_EQ(1u, refused.count());
+    const Json expected = Json{ { "error_str", "too many pictures in progress" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, refused.body());
+    EXPECT_EQ(limit, holder.runs().size());
+
+    //The child ends, the runs exit on the pending SIGTERM: the places come back
+    holder.release();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return holder.allExited();
+    }));
 
     HttpTestRequest next;
     next.send(cameraPicRequest("320"));
     EXPECT_TRUE(pumpUntil([&]()
                           {
-        return tool.runs().size() == limit + 1;
+        return holder.runs().size() == limit + 1;
     }));
-    EXPECT_EQ(0u, next.count());
 }
 
 TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsSixProcessesAtMostByDefault)

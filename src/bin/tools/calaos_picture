@@ -54,25 +54,27 @@ if ! command -v curl > /dev/null 2>&1 ; then
 fi
 
 work="${filename}_curl"
-curlPid=""
+converted="${filename}_conv"
+childPid=""
 
+# The server sends SIGTERM when its client leaves and counts this script as
+# running until it exits. A foreground command defers the trap until it ends,
+# so curl and convert run in the background and cleanup stops and reaps them.
 cleanup()
 {
-    if [ -n "$curlPid" ]; then
-        kill "$curlPid" 2> /dev/null
+    if [ -n "$childPid" ]; then
+        kill "$childPid" 2> /dev/null
+        wait "$childPid" 2> /dev/null
     fi
-    rm -f "$work"
+    rm -f "$work" "$converted"
 }
 trap cleanup EXIT
-
-# The server sends SIGTERM when its client leaves. In the foreground curl would
-# hold this script, and a process slot's worth of work, until the camera answers.
 trap 'exit 1' TERM
 
 curl -s --fail --max-time 30 --output "$work" --url "$url" &
-curlPid=$!
-wait "$curlPid" || exit 1
-curlPid=""
+childPid=$!
+wait "$childPid" || exit 1
+childPid=""
 
 if [ "$width" == "" ] && [ "$rotate" == "" ]; then
     mv "$work" "$filename"
@@ -86,17 +88,29 @@ keepOriginal()
     exit 3
 }
 
-if ! command -v convert > /dev/null 2>&1 ; then
-    keepOriginal "imagemagick is not installed."
+if ! command -v convert > /dev/null 2>&1 || ! command -v timeout > /dev/null 2>&1 ; then
+    keepOriginal "imagemagick or timeout is not installed."
 fi
+
+# convert goes to a file of its own: a convert stopped half way must not leave
+# a truncated frame in place of the original.
+transform()
+{
+    timeout -k 2 30 convert "$work" "$@" "$converted" &
+    childPid=$!
+    wait "$childPid"
+    local status=$?
+    childPid=""
+    [ "$status" -eq 0 ] && mv "$converted" "$work"
+}
 
 # Resize image and rotate before resizing
 if [ ! "$rotate" == "" ]; then
-    convert "$work" -rotate "$rotate" "$work" || keepOriginal "convert failed."
+    transform -rotate "$rotate" || keepOriginal "convert failed."
 fi
 
 if [ ! "$width" == "" ]; then
-    convert "$work" -thumbnail "$width" "$work" || keepOriginal "convert failed."
+    transform -thumbnail "$width" || keepOriginal "convert failed."
 fi
 
 mv "$work" "$filename"

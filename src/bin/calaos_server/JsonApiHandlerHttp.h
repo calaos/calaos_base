@@ -83,7 +83,6 @@ private:
     vector<string> buildPictureCommand(const string &url, const string &width, const string &rotate);
     //Too many running: answers the client itself, finished never fires
     void runPictureCommand(const vector<string> &args, std::function<void(int)> finished);
-    void releasePictureSlot();
 
     void releaseCameraDl();
 

@@ -114,7 +114,8 @@ partagent le décodage ; au-delà de 4 largeurs en cours sur une caméra, l'appe
 d'origine. Une caméra supprimée pendant le téléchargement ou le décodage ne rappelle personne : le
 callback est porté par `ioAlive`.
 
-libjpeg-turbo est **optionnelle** (`HAVE_LIBJPEG`, ligne `Camera thumbnails (libjpeg)` du résumé
+libjpeg est **optionnelle**, libjpeg-turbo en pratique : `configure` ne teste que l'en-tête
+`jpeglib.h` et `jpeg_mem_src` (`HAVE_LIBJPEG`, ligne `Camera thumbnails (libjpeg)` du résumé
 de `configure`). Sans elle, ou pour une frame illisible, hors bornes ou une file pleine, la frame
 part en pleine résolution : bornes et journal des replis sont dans
 [08_http_api.md](08_http_api.md).
