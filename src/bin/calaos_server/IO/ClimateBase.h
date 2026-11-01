@@ -94,6 +94,12 @@ public:
     static constexpr double DEFAULT_SENSOR_TIMEOUT = 9000;
     double sensorTimeout() const { return sensorTimeoutS; }
 
+    /* Replaces what loopNow() reads, null for the loop clock: a test of a
+     * spacing cannot depend on how long the host takes between two turns.
+     * The timers stay on the real loop clock. */
+    using LoopClock = uint64_t (*)();
+    static void setLoopClock(LoopClock clock);
+
 protected:
     ClimateBase(Params &p);
 

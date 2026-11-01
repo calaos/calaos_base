@@ -618,7 +618,7 @@ Les clés de `device_info` réellement consommées, et le paramètre d'IO où ch
 ```
 
 En cas d'échec : `{"status": "error", "error": "…"}`
-(dérivé, `…RemoteUIProvisioningHandler.cpp:245-246`).
+(dérivé, `…RemoteUIProvisioningHandler.cpp:246-248`).
 
 ⚠️ **Aucun identifiant Wi-Fi n'est jamais renvoyé** — ce document l'affirmait avant la revue
 E4.5e ; les six clés ci-dessus sont la réponse complète.
@@ -634,7 +634,7 @@ Un appareil provisionné se retrouve donc pointé sur `localhost`, ce qui est fa
 réel. Défaut connu, consigné dans `docs/refactoring/FINDINGS.md`, **non corrigé**.
 
 Token et secret font 32 octets aléatoires encodés en 64 caractères hexadécimaux
-(dérivé, `…RemoteUIProvisioningHandler.cpp:398`, `:408`, `:414-421` et
+(dérivé, `…RemoteUIProvisioningHandler.cpp:400`, `:410`, `:416-421` et
 `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:393-399`). La configuration est persistée par
 `Config::Instance().SaveConfigIO()` (`…ProvisioningHandler.cpp:208`). Si elle ne l'est pas, le
 serveur répond 500 et ne donne aucun identifiant : un panneau qui les aurait reçus se croirait
