@@ -678,6 +678,8 @@ const RelayRow relayTable[] = {
     { "system_reboot", "POST", "system/reboot", true, DaemonClient::DefaultTimeout, nullptr },
     { "system_restart", "POST", "system/restart", true, DaemonClient::RestartTimeout, nullptr },
     { "system_info", "GET", "system/info", true, DaemonClient::DefaultTimeout, nullptr },
+    //Ends the session it carries and no other; a session not live answers ended:false
+    { "admin_logout", "POST", "admin/logout", true, DaemonClient::DefaultTimeout, nullptr },
     { "approver_list", "GET", "admin/approvers", true, DaemonClient::DefaultTimeout, nullptr },
     //The daemon's list marks which push_tokens entries are approvers already
     { "approver_candidates", "GET", "admin/approvers", true, DaemonClient::DefaultTimeout, nullptr },

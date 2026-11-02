@@ -698,7 +698,7 @@ TEST(JsonApiAdminRules, DaemonCallTimeouts)
     EXPECT_EQ(120, JsonApi::adminRelayTimeout("update_check"));
     EXPECT_EQ(30, JsonApi::adminRelayTimeout("system_restart"));
     for (const char *action: { "update_status", "update_available", "update_upgrade_all", "update_upgrade",
-                               "system_reboot", "system_info" })
+                               "system_reboot", "system_info", "admin_logout" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
     for (const char *action: { "approver_list", "approver_candidates", "approver_enroll", "approver_confirm",
                                "approver_remove", "code_request", "code_verify", "console_open" })
@@ -726,7 +726,7 @@ TEST(JsonApiAdminRules, PackageNamesFollowTheDaemonRule)
 TEST(JsonApiAdminRules, AdminActionsComeFromTheClosedTable)
 {
     for (const char *action: { "update_status", "update_check", "update_available", "update_upgrade_all",
-                               "system_reboot", "system_restart", "system_info", "mcp_regenerate" })
+                               "system_reboot", "system_restart", "system_info", "admin_logout", "mcp_regenerate" })
         EXPECT_TRUE(JsonApi::adminRequestRefusal(action, Json::object()).is_null()) << action;
 
     for (const char *action: { "system_rollback_snapshot", "system/reboot", "update_installed", "admin_reset",
@@ -2022,6 +2022,43 @@ TEST_F(JsonApiAdminTest, EveryRelayedActionCallsItsFixedRoute)
     EXPECT_TRUE(results["system_reboot"].is_null());
     EXPECT_TRUE(results["system_restart"].is_null());
     EXPECT_EQ(1234, results["system_info"]["uptime"].get<int>());
+}
+
+TEST_F(JsonApiAdminTest, LogoutRelaysTheCallersSessionAndNothingElse)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    fakeDaemon.clearLog();
+    //Nothing but the session of the message reaches the daemon
+    const Json answer = ws.admin("admin", { { "action", "admin_logout" },
+                                            { "admin_session", FakeDaemon::Session },
+                                            { "params", { { "session", std::string(64, 'a') } } } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_TRUE(answer["result"]["ended"].get<bool>());
+    auto log = daemonCalls();
+    ASSERT_EQ(1u, log.size());
+    EXPECT_EQ("POST", log[0].method);
+    EXPECT_EQ("/api/v2/admin/logout", log[0].path);
+    EXPECT_EQ("Bearer " + std::string(kBearer), log[0].headers["authorization"]);
+    EXPECT_EQ(FakeDaemon::Session, log[0].headers["x-calaos-admin-session"]);
+    EXPECT_EQ("{}", log[0].body);
+
+    //A session the daemon does not know answers ended:false, not an error
+    fakeDaemon.clearLog();
+    const std::string stale(64, 'b');
+    const Json again = ws.admin("admin", { { "action", "admin_logout" }, { "admin_session", stale } });
+    ASSERT_EQ("true", str(again, "success")) << again.dump();
+    EXPECT_FALSE(again["result"]["ended"].get<bool>());
+    log = daemonCalls();
+    ASSERT_EQ(1u, log.size());
+    EXPECT_EQ(stale, log[0].headers["x-calaos-admin-session"]);
+
+    //Without a session the daemon is never called
+    fakeDaemon.clearLog();
+    expectError(ws.admin("admin", { { "action", "admin_logout" } }), "bad_session");
+    EXPECT_EQ(0u, daemonCalls().size());
 }
 
 TEST_F(JsonApiAdminTest, UpdateStatusWithoutASessionIsTheHouseholdView)
