@@ -54,6 +54,10 @@ protected:
     //Whether a logged-in client receives admin_event; never a service session
     virtual bool forwardsAdminEvents() const { return !serviceScope; }
 
+    //Whether this session's authentication does not rest on cn_user/cn_pass,
+    //so a change_cred leaves it open: the service token, and for RemoteUI the HMAC.
+    virtual bool survivesCredentialChange() const { return serviceScope; }
+
     //Names this client in the warning for a write to a protected output.
     virtual const char *setStateSource() const { return "set_state over WebSocket"; }
 

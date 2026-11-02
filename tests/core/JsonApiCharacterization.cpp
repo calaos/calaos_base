@@ -363,6 +363,13 @@ public:
 
     using JsonApiHandlerWS::setAuthenticated;
     void setScope(bool s) { serviceScope = s; }
+    void setRemoteUi(bool r) { remoteUi = r; }
+
+protected:
+    bool survivesCredentialChange() const override { return remoteUi || serviceScope; }
+
+private:
+    bool remoteUi = false;
 };
 
 WsTestSession::WsTestSession(bool authenticated, bool serviceScope):
@@ -428,6 +435,11 @@ void WsTestSession::clear()
 void WsTestSession::setAuthenticated(bool auth)
 {
     handler->setAuthenticated(auth);
+}
+
+void WsTestSession::setRemoteUi(bool remoteUi)
+{
+    handler->setRemoteUi(remoteUi);
 }
 
 void WsTestSession::setServiceScope(bool scope)

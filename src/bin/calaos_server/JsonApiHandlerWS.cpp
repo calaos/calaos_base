@@ -151,11 +151,13 @@ void JsonApiHandlerWS::endOtherSessions()
     const std::set<JsonApiHandlerWS *> snapshot = liveSessions();
     for (JsonApiHandlerWS *other: snapshot)
     {
-        if (other == this || !liveSessions().count(other) || !other->loggedin)
+        if (other == this || !liveSessions().count(other) || !other->loggedin ||
+            other->survivesCredentialChange())
             continue;
 
         //Refuse first: the close frame leaves a window where the socket still reads.
         other->loggedin = false;
+        CameraTokens::revoke(other);
         other->closeConnection.emit(WebSocketFrame::CloseCodeNormal, "credentials changed");
     }
 }
@@ -764,6 +766,7 @@ void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &clie
         if (ok)
         {
             endOtherSessions();
+            CameraTokens::revoke(this);
             loggedin = false; //user must login again with new password
         }
 

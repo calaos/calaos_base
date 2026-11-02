@@ -899,13 +899,13 @@ Json changeCredRequest(const std::string &oldUser, const std::string &oldPass)
 
 TEST_F(JsonApiSessionTest, ChangeCredEndsEveryOtherAuthenticatedSession)
 {
-    WsTestSession changer, intruder, service(true, true);
+    WsTestSession changer, intruder;
     WsTestSession anonymous(false);
 
     changer.send(changeCredRequest(apiUser(), apiPassword()));
     ASSERT_EQ("true", str(changer.lastData(), "success"));
 
-    for (WsTestSession *other: { &intruder, &service })
+    for (WsTestSession *other: { &intruder })
     {
         ASSERT_EQ(1u, other->closes().size());
         EXPECT_EQ(1000, other->closes()[0].first);
@@ -918,6 +918,32 @@ TEST_F(JsonApiSessionTest, ChangeCredEndsEveryOtherAuthenticatedSession)
 
     //Nothing to end for a session that never logged in.
     EXPECT_TRUE(anonymous.closes().empty());
+}
+
+TEST_F(JsonApiSessionTest, ChangeCredLeavesServiceAndRemoteUiSessionsOpen)
+{
+    CameraTokens::revokeAll();
+    WsTestSession changer, intruder, service(true, true), panel;
+    panel.setRemoteUi(true);
+
+    panel.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
+    const std::string token = str(panel.lastData(), "token");
+    ASSERT_EQ(64u, token.size());
+
+    changer.send(changeCredRequest(apiUser(), apiPassword()));
+    ASSERT_EQ("true", str(changer.lastData(), "success"));
+    ASSERT_EQ(1u, intruder.closes().size());
+
+    EXPECT_TRUE(service.closes().empty());
+    EXPECT_TRUE(panel.closes().empty());
+    EXPECT_TRUE(CameraTokens::accept(token, Utils::getMainLoopTime()));
+
+    for (WsTestSession *other: { &service, &panel })
+    {
+        other->clear();
+        other->send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
+        EXPECT_EQ(1u, other->count());
+    }
 }
 
 TEST_F(JsonApiSessionTest, ChangeCredKeepsTheSessionThatMadeTheChangeOpen)

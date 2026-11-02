@@ -270,7 +270,8 @@ puis `GET /api?action=camera&type=get_picture&id=<id>&camera_token=<jeton>`
 - **Durée** : 120 s, réutilisable pendant ce temps (rafraîchissement d'une vue).
   Le client en redemande un avant l'expiration.
 - **Révocation** : à la fermeture de la session qui l'a obtenu, et pour tous les
-  jetons quand `change_cred` change les identifiants. Des identifiants changés
+  jetons des sessions fermées par `change_cred` (pas ceux des sessions de service ni
+  RemoteUI, qui restent ouvertes). Des identifiants changés
   hors du serveur (outil `calaos_config`) laissent vivre les jetons au plus 120 s.
 - **Secret** : 32 octets tirés par `RAND_bytes`, rendus en 64 caractères
   hexadécimaux minuscules, sans lien avec le mot de passe. Le serveur ne garde
@@ -2240,12 +2241,13 @@ se relogguer avec les nouveaux identifiants
 ([JsonApiHandlerWS.cpp:516-528](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 Sa connexion reste ouverte.
 
-Toutes les **autres** sessions WebSocket authentifiées perdent aussi leur
-authentification : `loggedin = false` d'abord (elles ne répondent plus à rien),
-puis fermeture de la connexion (code 1000, raison `credentials changed`). Cela
-vaut pour les sessions de service (sidecar MCP) et les écrans RemoteUI, qui se
-reconnectent avec leur jeton ou leur HMAC. Les jetons de capture caméra de toutes
-les sessions sont révoqués. Un `change_cred` refusé (`success:"false"`) ne touche
+Toutes les **autres** sessions WebSocket ouvertes avec `cn_user`/`cn_pass` perdent aussi
+leur authentification : `loggedin = false` d'abord (elles ne répondent plus à rien),
+puis fermeture de la connexion (code 1000, raison `credentials changed`), et leurs
+jetons de capture caméra sont révoqués. Les sessions dont l'authentification ne
+dépend pas de ces identifiants restent ouvertes, jetons caméra compris : la session
+de service (sidecar MCP, jeton de service) et les écrans RemoteUI (HMAC). Un
+`change_cred` refusé (`success:"false"`) ne touche
 aucune session. HTTP n'a pas de session : chaque requête porte ses identifiants.
 Toute autre valeur d'`action` → aucune réponse.
 

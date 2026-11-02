@@ -380,6 +380,8 @@ public:
 
     void setAuthenticated(bool auth);
     void setServiceScope(bool scope);
+    //Authenticated by HMAC, not by cn_user/cn_pass, like a RemoteUI panel.
+    void setRemoteUi(bool remoteUi);
 
 private:
     class Handler;
