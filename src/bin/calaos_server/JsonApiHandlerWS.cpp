@@ -33,6 +33,10 @@
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
 #include "WebSocket.h"
+#include "ConsoleTunnel.h"
+#include "JsonApiHandlerHttp.h"
+
+#include <set>
 
 namespace
 {
@@ -117,11 +121,19 @@ inline void collectStringItems(const Json &jdata, vector<string> &iolist)
     }
 }
 
+//Every live handler, for change_cred to reach the other sessions.
+std::set<JsonApiHandlerWS *> &liveSessions()
+{
+    static std::set<JsonApiHandlerWS *> sessions;
+    return sessions;
+}
+
 } //namespace
 
 JsonApiHandlerWS::JsonApiHandlerWS(HttpClient *client):
     JsonApi(client)
 {
+    liveSessions().insert(this);
     evcon = EventManager::Instance().newEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleEvents));
     adminEvcon = Calaos::AdminEvents::Instance().householdEvent.connect(sigc::mem_fun(*this, &JsonApiHandlerWS::handleAdminEvent));
 }
@@ -131,6 +143,30 @@ JsonApiHandlerWS::~JsonApiHandlerWS()
     evcon.disconnect();
     adminEvcon.disconnect();
     CameraTokens::revoke(this);
+    liveSessions().erase(this);
+}
+
+void JsonApiHandlerWS::endOtherSessions()
+{
+    //A close is asynchronous, but a copy that is re-checked costs nothing
+    //against a slot that deletes a handler.
+    const std::set<JsonApiHandlerWS *> snapshot = liveSessions();
+    for (JsonApiHandlerWS *other: snapshot)
+    {
+        if (other == this || !liveSessions().count(other) || !other->loggedin ||
+            other->survivesCredentialChange())
+            continue;
+
+        //Refuse first: the close frame leaves a window where the socket still reads.
+        other->loggedin = false;
+        CameraTokens::revoke(other);
+        other->closeConnection.emit(WebSocketFrame::CloseCodeNormal, "credentials changed");
+    }
+
+    //A console or a video stream has no logged-out state and no tie to this
+    ///api session: even the changer's own close, as its household login is gone too
+    ConsoleTunnel::endHouseholdConsoles();
+    JsonApiHandlerHttp::endHouseholdStreams();
 }
 
 string JsonApiHandlerWS::clientIp() const
@@ -735,7 +771,11 @@ void JsonApiHandlerWS::processSettings(const Params &jsonReq, const string &clie
     {
         bool ok = changeCredentials(jsonReq["old_user"], jsonReq["old_pw"], jsonReq["new_user"], jsonReq["new_pw"]);
         if (ok)
+        {
+            endOtherSessions();
+            CameraTokens::revoke(this);
             loggedin = false; //user must login again with new password
+        }
 
         Json ret = {{ "action", "change_cred" },
                     { "success", ok?"true":"false" }};

@@ -121,6 +121,8 @@
 #include "EventManager.h"
 #include "HistLogger.h"
 #include "McpServerManager.h"
+#include "CameraTokens.h"
+#include "Utils.h"
 #include "HttpCodes.h"
 #include "PollListenner.h"
 #include "ListeRoom.h"
@@ -879,6 +881,128 @@ TEST_F(JsonApiSessionTest, SettingsChangeCredWithAWrongOldPasswordIsRefused)
 
     //...and the old credentials still work.
     EXPECT_TRUE(JsonApi::checkCredentials(apiUser(), apiPassword()));
+}
+
+/*******************************************************************************
+ * change_cred ends the other sessions
+ ******************************************************************************/
+
+namespace
+{
+
+Json changeCredRequest(const std::string &oldUser, const std::string &oldPass)
+{
+    return Json{ { "msg", "settings" }, { "msg_id", "cc" }, { "data", { { "action", "change_cred" }, { "old_user", oldUser }, { "old_pw", oldPass }, { "new_user", "e40e_newuser" }, { "new_pw", "e40e_newpass" } } } };
+}
+
+} //namespace
+
+TEST_F(JsonApiSessionTest, ChangeCredEndsEveryOtherAuthenticatedSession)
+{
+    WsTestSession changer, intruder, secondIntruder;
+    WsTestSession anonymous(false);
+
+    changer.send(changeCredRequest(apiUser(), apiPassword()));
+    ASSERT_EQ("true", str(changer.lastData(), "success"));
+
+    for (WsTestSession *other: { &intruder, &secondIntruder })
+    {
+        ASSERT_EQ(1u, other->closes().size());
+        EXPECT_EQ(1000, other->closes()[0].first);
+        EXPECT_EQ("credentials changed", other->closes()[0].second);
+
+        //Dropped before the close frame lands: the socket answers nothing in the meantime.
+        other->clear();
+        other->send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
+        EXPECT_EQ(0u, other->count());
+    }
+
+    //Nothing to end for a session that never logged in.
+    EXPECT_TRUE(anonymous.closes().empty());
+}
+
+TEST_F(JsonApiSessionTest, ChangeCredLeavesServiceSessionsOpen)
+{
+    WsTestSession changer, intruder, service(true, true);
+
+    changer.send(changeCredRequest(apiUser(), apiPassword()));
+    ASSERT_EQ("true", str(changer.lastData(), "success"));
+    ASSERT_EQ(1u, intruder.closes().size());
+
+    EXPECT_TRUE(service.closes().empty());
+
+    service.clear();
+    service.send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
+    EXPECT_EQ(1u, service.count());
+}
+
+TEST_F(JsonApiSessionTest, ChangeCredKeepsTheSessionThatMadeTheChangeOpen)
+{
+    WsTestSession changer, intruder;
+
+    changer.send(changeCredRequest(apiUser(), apiPassword()));
+    ASSERT_EQ("true", str(changer.lastData(), "success"));
+    ASSERT_EQ(1u, intruder.closes().size());
+
+    EXPECT_TRUE(changer.closes().empty());
+
+    LoginThrottle::clear();
+    changer.clear();
+    changer.send(Json{ { "msg", "login" }, { "msg_id", "3" }, { "data", { { "cn_user", "e40e_newuser" }, { "cn_pass", "e40e_newpass" } } } });
+    EXPECT_EQ("true", str(changer.lastData(), "success"));
+    EXPECT_TRUE(changer.closes().empty());
+}
+
+TEST_F(JsonApiSessionTest, ChangeCredRevokesTheCameraTokensOfTheOtherSessions)
+{
+    CameraTokens::revokeAll();
+    WsTestSession changer, intruder;
+
+    intruder.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
+    const std::string token = str(intruder.lastData(), "token");
+    ASSERT_EQ(64u, token.size());
+    ASSERT_TRUE(CameraTokens::accept(token, Utils::getMainLoopTime()));
+    changer.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
+    const std::string own = str(changer.lastData(), "token");
+    ASSERT_EQ(64u, own.size());
+
+    changer.send(changeCredRequest(apiUser(), apiPassword()));
+    ASSERT_EQ("true", str(changer.lastData(), "success"));
+
+    EXPECT_FALSE(CameraTokens::accept(token, Utils::getMainLoopTime()));
+    //The changer's own token stood for the old password too.
+    EXPECT_FALSE(CameraTokens::accept(own, Utils::getMainLoopTime()));
+
+    //Closed, and cannot ask for a new one either.
+    intruder.clear();
+    intruder.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct2" } });
+    EXPECT_EQ(0u, intruder.count());
+    EXPECT_EQ(0u, CameraTokens::count());
+}
+
+TEST_F(JsonApiSessionTest, ARefusedChangeCredTouchesNoSession)
+{
+    CameraTokens::revokeAll();
+    WsTestSession changer, other, service(true, true);
+
+    other.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
+    const std::string token = str(other.lastData(), "token");
+    ASSERT_EQ(64u, token.size());
+
+    changer.send(changeCredRequest(apiUser(), "wrong"));
+    ASSERT_EQ("false", str(changer.lastData(), "success"));
+
+    EXPECT_TRUE(changer.closes().empty());
+    EXPECT_TRUE(other.closes().empty());
+    EXPECT_TRUE(service.closes().empty());
+    EXPECT_TRUE(CameraTokens::accept(token, Utils::getMainLoopTime()));
+
+    other.clear();
+    other.send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
+    EXPECT_EQ(1u, other.count());
+    changer.clear();
+    changer.send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
+    EXPECT_EQ(1u, changer.count());
 }
 
 TEST_F(JsonApiSessionTest, SettingsWithAnUnknownActionIsAnError)

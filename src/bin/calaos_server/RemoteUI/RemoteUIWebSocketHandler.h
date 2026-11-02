@@ -63,6 +63,7 @@ protected:
     //Only the IO events of what the panel may read reach it.
     bool forwardsEvent(const CalaosEvent &event) override;
     bool forwardsAdminEvents() const override { return false; }
+    bool survivesCredentialChange() const override { return true; }
 
     const char *setStateSource() const override { return "set_state from a RemoteUI panel"; }
 
