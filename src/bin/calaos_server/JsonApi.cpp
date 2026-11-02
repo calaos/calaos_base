@@ -3354,9 +3354,6 @@ bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, 
     Utils::del_config_option("calaos_password");
     sync();
 
-    //A token stands for the old password: it goes with it
-    CameraTokens::revokeAll();
-
     return true;
 }
 

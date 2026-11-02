@@ -269,8 +269,10 @@ puis `GET /api?action=camera&type=get_picture&id=<id>&camera_token=<jeton>`
   par lui. Des `cn_user` / `cn_pass` valides à côté n'ouvrent rien de plus.
 - **Durée** : 120 s, réutilisable pendant ce temps (rafraîchissement d'une vue).
   Le client en redemande un avant l'expiration.
-- **Révocation** : à la fermeture de la session qui l'a obtenu, et pour tous les
-  jetons quand `change_cred` change les identifiants. Des identifiants changés
+- **Révocation** : à la fermeture de la session qui l'a obtenu, et, sur un
+  `change_cred` réussi, pour les jetons de la session qui l'a fait et des sessions
+  qu'il ferme (pas ceux des sessions de service ni RemoteUI, qui restent ouvertes,
+  voir [`settings`](#settings--clé-action-ws-uniquement-1)). Des identifiants changés
   hors du serveur (outil `calaos_config`) laissent vivre les jetons au plus 120 s.
 - **Secret** : 32 octets tirés par `RAND_bytes`, rendus en 64 caractères
   hexadécimaux minuscules, sans lien avec le mot de passe. Le serveur ne garde
@@ -1222,6 +1224,7 @@ Le serveur l'annonce une fois :
 | le navigateur ferme en `1000` ou `1001` | (réponse à sa fermeture) | le même code |
 | le navigateur ferme avec un autre code, ou sa connexion tombe | | `1001` |
 | calaos_server ferme le WebSocket lui-même (trois pongs manqués, message de plus de 4 Mio, trame invalide, message vide) | son code (`1000`, `1009`, `1002`…) | `1000` pour `1000`, `1001` sinon, aussitôt |
+| un `change_cred` réussi sur `/api` (voir [`settings`](#settings--clé-action-ws-uniquement-1)) | `1001`, `credentials_changed` | `1001` |
 | un message du navigateur dépasse 64 Kio | `1009`, `message too big` | `1000` |
 
 Raison de fermeture relayée depuis le daemon : un jeton exact de cette liste, jamais son
@@ -2272,10 +2275,40 @@ marque du repli dans la réponse : il reçoit simplement une image plus lourde.
 |---|---|---|
 | `change_cred` | `old_user`, `old_pw`, `new_user`, `new_pw` | `{"action":"change_cred","success":"true"\|"false"}` |
 
-En cas de succès, la session est **déconnectée** (`loggedin = false`) : il faut
-se relogguer avec les nouveaux identifiants
-([JsonApiHandlerWS.cpp:516-528](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-Toute autre valeur d'`action` → aucune réponse.
+En cas de succès, la session qui a fait le changement est **déconnectée**
+(`loggedin = false`) : il faut se relogguer avec les nouveaux identifiants
+([JsonApiHandlerWS.cpp:770-783](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+Sa connexion reste ouverte ; ses jetons de capture caméra sont révoqués.
+
+Sont fermées, parce qu'elles reposent sur les anciens `cn_user`/`cn_pass` :
+
+- les **autres** sessions `/api` connectées par `login` : `loggedin = false` d'abord
+  (elles ne répondent plus à rien), puis fermeture de la connexion (code 1000, raison
+  `credentials changed`) ; leurs jetons de capture caméra sont révoqués ;
+- toutes les [consoles web](#console-web-apiconsole) authentifiées, celle du navigateur
+  qui a fait le changement comprise : une console n'a pas d'état déconnecté, ni de lien
+  avec une session `/api`. Ouverte, elle reçoit `1001`, raison `credentials_changed`
+  (la socket du daemon reçoit `1001`) ; entre son message d'ouverture et `ready`, elle
+  reçoit le refus `login_failed` puis `1008` ;
+- tous les flux HTTP [`camera` / `get_video`](#camera--clé-type-http-uniquement-2) en
+  cours : ils n'ont été authentifiés qu'une fois, à leur requête, et n'ont pas de fin
+  propre. Le relais MJPEG est arrêté, la boucle image par image ne se ré-arme plus, et
+  la connexion se ferme sans réponse ni trame de fin. Un jeton caméra n'ouvre pas de
+  `get_video` : il n'y a pas de flux ouvert par jeton à couper.
+
+Restent ouvertes :
+
+- les sessions `/api` pas encore connectées et les consoles qui attendent leur message
+  d'ouverture : elles ne détiennent rien, et les anciens identifiants y sont refusés ;
+- la session de service (sidecar MCP, `login_service`, jeton de service de
+  `local_config`) et les écrans RemoteUI (HMAC à la montée) : leur authentification ne
+  dépend pas de `cn_pass`. Leurs jetons caméra restent valides.
+
+Un `change_cred` refusé (`success:"false"`) ne touche aucune session, console ni flux.
+Les autres requêtes HTTP n'ont pas de session : chacune porte ses identifiants (ou son
+jeton caméra), refusés dès le changement ; une requête déjà acceptée, comme un
+`get_picture` qui attend sa capture, reçoit encore sa réponse unique.
+Toute autre valeur d'`action` → `{"error":"unknown settings action"}` dans `data`.
 
 ---
 

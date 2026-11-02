@@ -47,6 +47,7 @@ public:
     static bool accept(const std::string &token, double now);
 
     static void revoke(const void *owner);
+    //Empties the table between tests: no server path calls it
     static void revokeAll();
 
     static size_t count();

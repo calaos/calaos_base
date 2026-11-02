@@ -44,6 +44,9 @@ public:
 
     virtual void processApi(const string &data, const Params &paramsGET);
 
+    //After change_cred: every get_video stream closes, its credentials are gone
+    static void endHouseholdStreams();
+
 private:
     //Each one downloads and decodes a whole frame, in its own process
     static int pictureProcesses;

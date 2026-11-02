@@ -2055,6 +2055,85 @@ TEST_F(JsonApiCameraTokenTest, ChangingThePasswordRevokesEveryToken)
     EXPECT_EQ(0, camera->downloadCount);
 }
 
+/* get_video is checked once, at its request, and then has no end of its own:
+ * without a camera video URL the handler re-arms a snapshot for ever. A change
+ * of password must cut it, as no next request will carry the old one.
+ */
+class JsonApiVideoStreamTest: public JsonApiCameraTokenTest
+{
+protected:
+    static Json videoRequest()
+    {
+        return authenticated(Json{ { "action", "camera" }, { "type", "get_video" }, { "id", CAMERA_ID } });
+    }
+
+    //The stream header sent, its first snapshot asked for
+    static void startStream(HttpTestRequest &stream, FakeSnapshotCamera *camera)
+    {
+        camera->deferred = true;
+        const size_t pending = camera->pendingCount();
+        stream.send(videoRequest());
+        ASSERT_EQ(pending + 1, camera->pendingCount());
+        ASSERT_EQ(1u, stream.count());
+    }
+
+    //One frame sent, and the next snapshot already asked for
+    static void frame(HttpTestRequest &stream, FakeSnapshotCamera *camera)
+    {
+        const size_t sent = stream.count();
+        ASSERT_TRUE(camera->fireNext());
+        ASSERT_TRUE(pumpUntil([camera]()
+                              {
+            return camera->pendingCount() == 1;
+        }));
+        ASSERT_EQ(sent + 2, stream.count());
+        ASSERT_TRUE(stream.closes().empty());
+    }
+
+    static std::string changeCred(const std::string &oldPassword)
+    {
+        WsTestSession admin;
+        admin.send(Json{ { "msg", "settings" }, { "msg_id", "1" }, { "data", { { "action", "change_cred" }, { "old_user", apiUser() }, { "old_pw", oldPassword }, { "new_user", "vs_newuser" }, { "new_pw", "vs_newpass" } } } });
+        return str(admin.lastData(), "success");
+    }
+};
+
+TEST_F(JsonApiVideoStreamTest, ChangingThePasswordEndsEveryVideoStream)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    HttpTestRequest first, second;
+    startStream(first, camera);
+    frame(first, camera);
+    startStream(second, camera);
+    ASSERT_EQ(2u, camera->pendingCount());
+
+    ASSERT_EQ("true", changeCred(apiPassword()));
+
+    EXPECT_EQ(1u, first.closes().size());
+    EXPECT_EQ(1u, second.closes().size());
+
+    //The snapshots asked before the change answer into nothing, and nothing re-arms
+    EXPECT_TRUE(camera->fireNext());
+    EXPECT_TRUE(camera->fireNext());
+    pumpFor(20);
+    EXPECT_EQ(0u, camera->pendingCount());
+    EXPECT_EQ(3u, first.count());
+    EXPECT_EQ(1u, second.count());
+}
+
+TEST_F(JsonApiVideoStreamTest, ARefusedCredentialChangeLeavesTheVideoStream)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    HttpTestRequest stream;
+    startStream(stream, camera);
+    frame(stream, camera);
+
+    ASSERT_EQ("false", changeCred("not the password"));
+
+    EXPECT_TRUE(stream.closes().empty());
+    frame(stream, camera);
+}
+
 TEST_F(JsonApiCameraTokenTest, NoTokenWithoutALogin)
 {
     WsTestSession ws(false);

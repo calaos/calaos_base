@@ -41,9 +41,17 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdlib>
+#include <set>
 
 namespace
 {
+
+//Handlers that stream get_video: the only HTTP answer with no end of its own
+std::set<JsonApiHandlerHttp *> &liveVideoStreams()
+{
+    static std::set<JsonApiHandlerHttp *> streams;
+    return streams;
+}
 
 //io_format the client declares in the put request: an integer or a decimal
 //string, wholly numeric. Absent, unusable or out of any plausible range means
@@ -233,8 +241,24 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
     if (exe_thumb_running && exe_thumb && exe_thumb->pid() > 0)
         exe_thumb->kill(SIGTERM);
 
+    liveVideoStreams().erase(this);
     releaseCameraDl();
     FileUtils::unlink(tempfname);
+}
+
+void JsonApiHandlerHttp::endHouseholdStreams()
+{
+    //Emptied first: closing one connection destroys only its own handler, whose
+    //destructor then erases from an already empty set.
+    const std::set<JsonApiHandlerHttp *> snapshot = std::move(liveVideoStreams());
+    liveVideoStreams().clear();
+    for (JsonApiHandlerHttp *h: snapshot)
+    {
+        h->releaseCameraDl();
+        //Expires the token the snapshot loop re-arms with, and every callback in flight
+        h->handlerAlive = std::make_shared<bool>(true);
+        h->closeConnection.emit(0, string());
+    }
 }
 
 string JsonApiHandlerHttp::clientIp() const
@@ -1456,6 +1480,9 @@ void JsonApiHandlerHttp::processCamera()
     }
     else if (jsonParam["type"] == "get_video")
     {
+        //Authenticated once, by cn_user/cn_pass: change_cred has to end it
+        liveVideoStreams().insert(this);
+
         if (camera->getVideoUrl().empty())
         {
             //Empty mjpeg url, build the stream with single pictures
