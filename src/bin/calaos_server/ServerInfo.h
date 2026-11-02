@@ -40,6 +40,7 @@ namespace ServerInfo
 //Bump only for an incompatible change of the wire protocol.
 constexpr int ProtocolVersion = 1;
 
+//Keep in step with the capability table of docs/08_http_api.md (get_server_info).
 inline const std::vector<std::string> &capabilities()
 {
     static const std::vector<std::string> caps = {
@@ -48,7 +49,7 @@ inline const std::vector<std::string> &capabilities()
         "admin_events",                //WS admin_event pushes
         "console",                     //WS /api/console tunnel
         "camera_width",                //optional width on camera/get_picture
-        "change_cred_closes_sessions", //change_cred ends the other sessions, consoles and get_video streams
+        "change_cred_closes_sessions", //change_cred ends the other household sessions, consoles and get_video streams
     };
     return caps;
 }

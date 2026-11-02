@@ -659,9 +659,26 @@ TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToALoggedInClient)
     std::vector<std::string> caps;
     for (const Json &c: data["capabilities"])
         caps.push_back(c.get<std::string>());
-    EXPECT_EQ(ServerInfo::capabilities(), caps);
-    for (const char *must: { "camera_token", "admin_relay", "change_cred_closes_sessions" })
-        EXPECT_NE(caps.end(), std::find(caps.begin(), caps.end(), string(must))) << must;
+    //Literal on purpose: these names are a stable contract, and comparing to
+    //ServerInfo::capabilities() would stay green when one is dropped or renamed.
+    const std::vector<std::string> expected = {
+        "camera_token", "admin_relay", "admin_events", "console", "camera_width",
+        "change_cred_closes_sessions"
+    };
+    EXPECT_EQ(expected, caps);
+}
+
+TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToAServiceScopedSession)
+{
+    WsClient ws;
+    ASSERT_TRUE(loginService(ws))
+        << "no service scoped session was opened, so this case measures nothing";
+
+    const Json env = parse(ws.ask(Json{
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } }));
+    ASSERT_TRUE(env.is_object());
+    EXPECT_EQ("get_server_info", str(env, "msg"));
+    EXPECT_EQ(PACKAGE_VERSION, str(env.value("data", Json::object()), "version"));
 }
 
 TEST_F(JsonApiServiceScopeTest, ServerInfoIsNotAnsweredBeforeTheLogin)
@@ -672,6 +689,15 @@ TEST_F(JsonApiServiceScopeTest, ServerInfoIsNotAnsweredBeforeTheLogin)
     const std::string answer = ws.ask(Json{
         { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } });
     EXPECT_TRUE(answer.empty()) << "version leaked to an unauthenticated client: " << answer;
+
+    //A dead socket would also give an empty answer: the next frame must be the
+    //login reply, not a queued get_server_info.
+    const Json login = parse(ws.ask(Json{
+        { "msg", "login" }, { "msg_id", "l" }, { "data", { { "cn_user", kAdminUser }, { "cn_pass", kAdminPass } } } }));
+    ASSERT_TRUE(login.is_object()) << "the socket did not survive the early question";
+    EXPECT_EQ("login", str(login, "msg"));
+    EXPECT_EQ("l", str(login, "msg_id"));
+    EXPECT_EQ("true", str(login["data"], "success"));
 }
 
 /*******************************************************************************

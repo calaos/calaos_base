@@ -271,9 +271,10 @@ puis `GET /api?action=camera&type=get_picture&id=<id>&camera_token=<jeton>`
   Le client en redemande un avant l'expiration.
 - **Révocation** : à la fermeture de la session qui l'a obtenu, et, sur un
   `change_cred` réussi, pour les jetons de la session qui l'a fait et des sessions
-  qu'il ferme : ces jetons sont refusés dès le changement. Ceux de la session de
-  service et des écrans RemoteUI **survivent** (ces sessions restent ouvertes, voir
-  [`settings`](#settings--clé-action-ws-uniquement-1)). Des identifiants changés
+  qu'il ferme : ces jetons sont refusés dès le changement. La session de service et
+  les écrans RemoteUI, qui restent ouverts (voir
+  [`settings`](#settings--clé-action-ws-uniquement-1)), ne peuvent pas obtenir de
+  jeton caméra (`scope denied`, liste blanche RemoteUI) : il n'y a rien à révoquer. Des identifiants changés
   hors du serveur (outil `calaos_config`) laissent vivre les jetons au plus 120 s.
 - **Secret** : 32 octets tirés par `RAND_bytes`, rendus en 64 caractères
   hexadécimaux minuscules, sans lien avec le mot de passe. Le serveur ne garde
@@ -380,7 +381,7 @@ entier en chaîne (incrémenté seulement pour une rupture du protocole),
 | `admin_events` | événements `admin_event` |
 | `console` | WebSocket `/api/console` |
 | `camera_width` | paramètre optionnel `width` sur `camera`/`get_picture` |
-| `change_cred_closes_sessions` | un `change_cred` réussi ferme les autres sessions `/api`, toutes les consoles et tous les flux `get_video` en cours ([détail](#settings--clé-action-ws-uniquement-1)) ; sans elle, un client ne doit pas compter sur cette coupure |
+| `change_cred_closes_sessions` | un `change_cred` réussi ferme les autres sessions `/api` ouvertes par `login`, toutes les consoles et tous les flux `get_video` en cours ([détail](#settings--clé-action-ws-uniquement-1)) ; sans elle, un client ne doit pas compter sur cette coupure |
 
 **Règle pour les clients** : une capacité absente de la liste, ou un serveur qui ne
 répond pas à `get_server_info` (un ancien serveur ignore ce message, sans erreur),
@@ -2309,17 +2310,22 @@ Restent ouvertes :
   d'ouverture : elles ne détiennent rien, et les anciens identifiants y sont refusés ;
 - la session de service (sidecar MCP, `login_service`, jeton de service de
   `local_config`) et les écrans RemoteUI (HMAC à la montée) : leur authentification ne
-  dépend pas de `cn_pass`. Leurs jetons caméra restent valides.
+  dépend pas de `cn_pass`. Ils ne peuvent pas obtenir de jeton caméra (`scope denied`,
+  liste blanche RemoteUI) : aucun jeton ne leur survit.
 
 **Risque accepté : `mcp_service_token` n'est pas renouvelé par `change_cred`.** Ce jeton
 (`local_config.xml`) ne dépend pas de `cn_pass` : un `change_cred` ne le change pas, et la
 session de service qui l'a présenté reste valide, comme les écrans RemoteUI. Décision de
 Raoul du 2026-11-02.
 
+Conséquences : ce jeton se lit par `config` `get` et par `config_backup`, et l'accès
+service reste ouvert après un `change_cred`. Remède manuel : vider ou changer l'option
+`mcp_service_token`, puis redémarrer calaos_server.
+
 Un `change_cred` refusé (`success:"false"`) ne touche aucune session, console ni flux.
 Les autres requêtes HTTP n'ont pas de session : chacune porte ses identifiants (ou son
-jeton caméra), refusés dès le changement (un jeton de la session de service ou d'un
-écran RemoteUI, lui, reste accepté) ; une requête déjà acceptée, comme un
+jeton caméra), refusés dès le changement (la session de service et les écrans RemoteUI
+n'en obtiennent pas) ; une requête déjà acceptée, comme un
 `get_picture` qui attend sa capture, reçoit encore sa réponse unique.
 Toute autre valeur d'`action` → `{"error":"unknown settings action"}` dans `data`.
 
