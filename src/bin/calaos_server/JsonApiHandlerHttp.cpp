@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "JsonApiHandlerHttp.h"
 #include "AdminConfig.h"
+#include "CameraTokens.h"
 #include "JsonField.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
@@ -335,6 +336,28 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
     const string ip = clientIp();
     const double now = Utils::getMainLoopTime();
+
+    /* A camera token replaces the credentials, never adds to them: whatever
+     * else the request carries, it opens a snapshot or nothing. Out of the
+     * login throttle, which guards the password; 256 random bits need no
+     * guard, and a refusal there would lock out a client renewing its token.
+     */
+    if (jsonParam.Exists("camera_token"))
+    {
+        if (jsonParam["action"] != "camera" || jsonParam["type"] != "get_picture" ||
+            !CameraTokens::accept(jsonParam["camera_token"], now))
+        {
+            cDebugDom("network") << "Camera token refused";
+
+            sendLoginFailed();
+
+            return;
+        }
+
+        processCamera();
+
+        return;
+    }
 
     if (LoginThrottle::isBlocked(ip, now))
     {
@@ -1403,11 +1426,14 @@ void JsonApiHandlerHttp::processCamera()
             if (alive.expired())
                 return;
 
+            //no-store: the URL of a polled snapshot may not change between two
+            //frames, and no cache may keep a picture of the house
             if (downloadedData.empty())
             {
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
+                headers.Add("Cache-Control", "no-store");
                 string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers,
                                                                    Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
                 sendData.emit(res);
@@ -1417,6 +1443,7 @@ void JsonApiHandlerHttp::processCamera()
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
+                headers.Add("Cache-Control", "no-store");
                 string res = httpClient->buildHttpResponse(HTTP_200, headers, downloadedData);
                 sendData.emit(res);
             }
