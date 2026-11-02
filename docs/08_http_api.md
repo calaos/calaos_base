@@ -2238,6 +2238,15 @@ marque du repli dans la réponse : il reçoit simplement une image plus lourde.
 En cas de succès, la session est **déconnectée** (`loggedin = false`) : il faut
 se relogguer avec les nouveaux identifiants
 ([JsonApiHandlerWS.cpp:516-528](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+Sa connexion reste ouverte.
+
+Toutes les **autres** sessions WebSocket authentifiées perdent aussi leur
+authentification : `loggedin = false` d'abord (elles ne répondent plus à rien),
+puis fermeture de la connexion (code 1000, raison `credentials changed`). Cela
+vaut pour les sessions de service (sidecar MCP) et les écrans RemoteUI, qui se
+reconnectent avec leur jeton ou leur HMAC. Les jetons de capture caméra de toutes
+les sessions sont révoqués. Un `change_cred` refusé (`success:"false"`) ne touche
+aucune session. HTTP n'a pas de session : chaque requête porte ses identifiants.
 Toute autre valeur d'`action` → aucune réponse.
 
 ---

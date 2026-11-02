@@ -95,6 +95,8 @@ private:
     void processSetTimerange(const Json &jdata, const string &client_id = string());
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
+    //Drops the authentication of every other live session and closes it
+    void endOtherSessions();
     void processSettings(const Params &jsonReq, const string &client_id = string());
     void processCameraToken(const string &client_id);
 
