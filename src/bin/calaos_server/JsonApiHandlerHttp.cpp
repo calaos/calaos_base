@@ -248,13 +248,12 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
 
 void JsonApiHandlerHttp::endHouseholdStreams()
 {
-    const std::set<JsonApiHandlerHttp *> snapshot = liveVideoStreams();
+    //Emptied first: closing one connection destroys only its own handler, whose
+    //destructor then erases from an already empty set.
+    const std::set<JsonApiHandlerHttp *> snapshot = std::move(liveVideoStreams());
+    liveVideoStreams().clear();
     for (JsonApiHandlerHttp *h: snapshot)
     {
-        if (!liveVideoStreams().count(h))
-            continue;
-
-        liveVideoStreams().erase(h);
         h->releaseCameraDl();
         //Expires the token the snapshot loop re-arms with, and every callback in flight
         h->handlerAlive = std::make_shared<bool>(true);
