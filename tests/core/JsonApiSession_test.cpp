@@ -892,13 +892,10 @@ namespace
 
 Json changeCredRequest(const std::string &oldUser, const std::string &oldPass)
 {
-    return Json{{ "msg", "settings" }, { "msg_id", "cc" },
-                { "data", {{ "action", "change_cred" },
-                           { "old_user", oldUser }, { "old_pw", oldPass },
-                           { "new_user", "e40e_newuser" }, { "new_pw", "e40e_newpass" }} }};
+    return Json{ { "msg", "settings" }, { "msg_id", "cc" }, { "data", { { "action", "change_cred" }, { "old_user", oldUser }, { "old_pw", oldPass }, { "new_user", "e40e_newuser" }, { "new_pw", "e40e_newpass" } } } };
 }
 
-}
+} //namespace
 
 TEST_F(JsonApiSessionTest, ChangeCredEndsEveryOtherAuthenticatedSession)
 {
@@ -915,7 +912,7 @@ TEST_F(JsonApiSessionTest, ChangeCredEndsEveryOtherAuthenticatedSession)
 
         //Dropped before the close frame lands: the socket answers nothing in the meantime.
         other->clear();
-        other->send(Json{{ "msg", "get_home" }, { "msg_id", "2" }});
+        other->send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
         EXPECT_EQ(0u, other->count());
     }
 
@@ -935,8 +932,7 @@ TEST_F(JsonApiSessionTest, ChangeCredKeepsTheSessionThatMadeTheChangeOpen)
 
     LoginThrottle::clear();
     changer.clear();
-    changer.send(Json{{ "msg", "login" }, { "msg_id", "3" },
-                      { "data", {{ "cn_user", "e40e_newuser" }, { "cn_pass", "e40e_newpass" }} }});
+    changer.send(Json{ { "msg", "login" }, { "msg_id", "3" }, { "data", { { "cn_user", "e40e_newuser" }, { "cn_pass", "e40e_newpass" } } } });
     EXPECT_EQ("true", str(changer.lastData(), "success"));
     EXPECT_TRUE(changer.closes().empty());
 }
@@ -946,7 +942,7 @@ TEST_F(JsonApiSessionTest, ChangeCredRevokesTheCameraTokensOfTheOtherSessions)
     CameraTokens::revokeAll();
     WsTestSession changer, intruder;
 
-    intruder.send(Json{{ "msg", "camera_token" }, { "msg_id", "ct" }});
+    intruder.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
     const std::string token = str(intruder.lastData(), "token");
     ASSERT_EQ(64u, token.size());
     ASSERT_TRUE(CameraTokens::accept(token, Utils::getMainLoopTime()));
@@ -958,7 +954,7 @@ TEST_F(JsonApiSessionTest, ChangeCredRevokesTheCameraTokensOfTheOtherSessions)
 
     //Closed, and cannot ask for a new one either.
     intruder.clear();
-    intruder.send(Json{{ "msg", "camera_token" }, { "msg_id", "ct2" }});
+    intruder.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct2" } });
     EXPECT_EQ(0u, intruder.count());
     EXPECT_EQ(0u, CameraTokens::count());
 }
@@ -968,7 +964,7 @@ TEST_F(JsonApiSessionTest, ARefusedChangeCredTouchesNoSession)
     CameraTokens::revokeAll();
     WsTestSession changer, other, service(true, true);
 
-    other.send(Json{{ "msg", "camera_token" }, { "msg_id", "ct" }});
+    other.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
     const std::string token = str(other.lastData(), "token");
     ASSERT_EQ(64u, token.size());
 
@@ -981,10 +977,10 @@ TEST_F(JsonApiSessionTest, ARefusedChangeCredTouchesNoSession)
     EXPECT_TRUE(CameraTokens::accept(token, Utils::getMainLoopTime()));
 
     other.clear();
-    other.send(Json{{ "msg", "get_home" }, { "msg_id", "2" }});
+    other.send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
     EXPECT_EQ(1u, other.count());
     changer.clear();
-    changer.send(Json{{ "msg", "get_home" }, { "msg_id", "2" }});
+    changer.send(Json{ { "msg", "get_home" }, { "msg_id", "2" } });
     EXPECT_EQ(1u, changer.count());
 }
 
