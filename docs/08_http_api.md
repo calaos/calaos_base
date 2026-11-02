@@ -2240,7 +2240,7 @@ marque du repli dans la réponse : il reçoit simplement une image plus lourde.
 
 En cas de succès, la session qui a fait le changement est **déconnectée**
 (`loggedin = false`) : il faut se relogguer avec les nouveaux identifiants
-([JsonApiHandlerWS.cpp:768-781](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+([JsonApiHandlerWS.cpp:770-783](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 Sa connexion reste ouverte ; ses jetons de capture caméra sont révoqués.
 
 Sont fermées, parce qu'elles reposent sur les anciens `cn_user`/`cn_pass` :
@@ -2252,7 +2252,12 @@ Sont fermées, parce qu'elles reposent sur les anciens `cn_user`/`cn_pass` :
   qui a fait le changement comprise : une console n'a pas d'état déconnecté, ni de lien
   avec une session `/api`. Ouverte, elle reçoit `1001`, raison `credentials_changed`
   (la socket du daemon reçoit `1001`) ; entre son message d'ouverture et `ready`, elle
-  reçoit le refus `login_failed` puis `1008`.
+  reçoit le refus `login_failed` puis `1008` ;
+- tous les flux HTTP [`camera` / `get_video`](#camera--clé-type-http-uniquement-2) en
+  cours : ils n'ont été authentifiés qu'une fois, à leur requête, et n'ont pas de fin
+  propre. Le relais MJPEG est arrêté, la boucle image par image ne se ré-arme plus, et
+  la connexion se ferme sans réponse ni trame de fin. Un jeton caméra n'ouvre pas de
+  `get_video` : il n'y a pas de flux ouvert par jeton à couper.
 
 Restent ouvertes :
 
@@ -2262,9 +2267,11 @@ Restent ouvertes :
   `local_config`) et les écrans RemoteUI (HMAC à la montée) : leur authentification ne
   dépend pas de `cn_pass`. Leurs jetons caméra restent valides.
 
-Un `change_cred` refusé (`success:"false"`) ne touche aucune session ni console. HTTP
-n'a pas de session : chaque requête porte ses identifiants, refusés dès le changement.
-Toute autre valeur d'`action` → aucune réponse.
+Un `change_cred` refusé (`success:"false"`) ne touche aucune session, console ni flux.
+Les autres requêtes HTTP n'ont pas de session : chacune porte ses identifiants (ou son
+jeton caméra), refusés dès le changement ; une requête déjà acceptée, comme un
+`get_picture` qui attend sa capture, reçoit encore sa réponse unique.
+Toute autre valeur d'`action` → `{"error":"unknown settings action"}` dans `data`.
 
 ---
 
