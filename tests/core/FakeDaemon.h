@@ -924,6 +924,20 @@ private:
 
         const auto sessionIt = req.headers.find("x-calaos-admin-session");
         const bool hasSession = sessionIt != req.headers.end();
+        if (req.method == "POST" && req.path == "/api/v2/admin/logout")
+        {
+            //Like the daemon: a session that is not live is not an error
+            if (!hasSession)
+            {
+                res.status = 401;
+                res.body = err("bad_session");
+            }
+            else
+            {
+                res.body = ok({ { "ended", sessionIt->second == Session } });
+            }
+            return res;
+        }
         if (hasSession && sessionIt->second != Session)
         {
             res.status = 401;
