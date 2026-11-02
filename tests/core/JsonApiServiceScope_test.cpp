@@ -640,12 +640,11 @@ TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToALoggedInClient)
     ASSERT_TRUE(ws.open());
 
     const Json login = parse(ws.ask(Json{
-        { "msg", "login" }, { "msg_id", "l" },
-        { "data", {{ "cn_user", kAdminUser }, { "cn_pass", kAdminPass }} }}));
+        { "msg", "login" }, { "msg_id", "l" }, { "data", { { "cn_user", kAdminUser }, { "cn_pass", kAdminPass } } } }));
     ASSERT_EQ("true", str(login["data"], "success"));
 
     const std::string answer = ws.ask(Json{
-        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() }});
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } });
     ASSERT_FALSE(answer.empty()) << "get_server_info answered nothing";
 
     const Json env = parse(answer);
@@ -671,7 +670,7 @@ TEST_F(JsonApiServiceScopeTest, ServerInfoIsNotAnsweredBeforeTheLogin)
     ASSERT_TRUE(ws.open());
 
     const std::string answer = ws.ask(Json{
-        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() }});
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } });
     EXPECT_TRUE(answer.empty()) << "version leaked to an unauthenticated client: " << answer;
 }
 

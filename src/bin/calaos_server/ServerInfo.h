@@ -42,13 +42,12 @@ constexpr int ProtocolVersion = 1;
 
 inline const std::vector<std::string> &capabilities()
 {
-    static const std::vector<std::string> caps =
-    {
-        "camera_token",   //WS camera_token + &camera_token= on camera/get_picture
-        "admin_relay",    //WS admin_unlock, admin_set, admin
-        "admin_events",   //WS admin_event pushes
-        "console",        //WS /api/console tunnel
-        "camera_width",   //optional width on camera/get_picture
+    static const std::vector<std::string> caps = {
+        "camera_token",                //WS camera_token + &camera_token= on camera/get_picture
+        "admin_relay",                 //WS admin_unlock, admin_set, admin
+        "admin_events",                //WS admin_event pushes
+        "console",                     //WS /api/console tunnel
+        "camera_width",                //optional width on camera/get_picture
         "change_cred_closes_sessions", //change_cred ends the other sessions, consoles and get_video streams
     };
     return caps;
@@ -62,7 +61,7 @@ inline nlohmann::json toJson()
                            { "capabilities", capabilities() } };
 }
 
-}
-}
+} //namespace ServerInfo
+} //namespace Calaos
 
 #endif
