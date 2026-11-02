@@ -1660,27 +1660,34 @@ TEST_F(HttpRequestLogSecretTest, ARefusedCameraTokenNeverReachesTheJournal)
     ASSERT_EQ(CameraTokens::TokenLength, expired.size()) << "no token was issued, this case measures nothing";
     ASSERT_NE(unknown, expired);
 
-    const std::vector<std::pair<std::string, std::string>> tokens = {
-        { "malformed", "coquelicot-lierre-sureau-brume" },
-        { "unknown", unknown },
-        { "expired", expired },
+    //The malformed one is a fixed word, not drawn from the token alphabet: kMaxEcho applies
+    struct Case
+    {
+        std::string name;
+        std::string token;
+        size_t ceiling;
+    };
+    const std::vector<Case> tokens = {
+        { "malformed", "coquelicot-lierre-sureau-brume", kMaxEcho },
+        { "unknown", unknown, kMaxDrawnEcho },
+        { "expired", expired, kMaxDrawnEcho },
     };
 
     for (const auto &t: tokens)
     {
-        const std::string &token = t.second;
+        const std::string &token = t.token;
         const Exchange ex = exchange(buildRequest(
             "/api.php?action=camera&type=get_picture&id=absente&camera_token=" + token,
             { { "Connection", "close" } }));
 
-        ASSERT_TRUE(ex.connected) << t.first << ": no connection to the server, this case measures nothing";
+        ASSERT_TRUE(ex.connected) << t.name << ": no connection to the server, this case measures nothing";
         ASSERT_NE(std::string::npos, ex.wire.find(token));
         ASSERT_NE(std::string::npos, ex.log.find("Camera token refused"))
-            << t.first << ": the refusal branch was not reached, this case measures nothing:\n"
+            << t.name << ": the refusal branch was not reached, this case measures nothing:\n"
             << ex.log;
 
-        EXPECT_LT(longestEcho(ex.log, token), kMaxDrawnEcho)
-            << t.first << ": the journal gives back a refused capture token:\n"
+        EXPECT_LT(longestEcho(ex.log, token), t.ceiling)
+            << t.name << ": the journal gives back a refused capture token:\n"
             << ex.log;
     }
     CameraTokens::revokeAll();

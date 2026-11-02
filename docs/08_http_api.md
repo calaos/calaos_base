@@ -764,7 +764,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `system_reboot` | | `POST system/reboot` | oui | `null` |
 | `system_restart` | | `POST system/restart` (relance le kiosque `calaos-home`) | oui | `null` |
 | `system_info` | | `GET system/info` | oui | `{hostname, uptime, cpu_usage, mem_usage}` |
-| `admin_logout` | | `POST admin/logout` | oui | `{"ended": <bool>}` : termine la session portée par le message et aucune autre ; `false` si elle n'était plus vivante |
+| `admin_logout` | | `POST admin/logout` | oui | `{"ended": <bool>}` : termine la session portée par le message et aucune autre ; `false` si elle n'était plus vivante ; sans session, `bad_session` sans appel au démon |
 | `mcp_regenerate` | | aucun : traité dans calaos_server | oui | `{}` |
 | `approver_list` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[<Approver>]` : `{id, device_name, token_id, created_at}` plus `platform`, `registered_at`, `last_seen`, `secure` (phase 3), jamais de jeton |
 | `approver_candidates` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[{token_id, device_name, platform, registered_at, last_seen, approver, secure}]`, jamais de jeton |
