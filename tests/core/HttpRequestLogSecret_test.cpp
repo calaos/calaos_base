@@ -1627,15 +1627,21 @@ TEST_F(HttpRequestLogSecretTest, ACameraTokenInTheQueryOfAnAcceptedSnapshotNever
     ASSERT_EQ(CameraTokens::TokenLength, token.size()) << "no token was issued, this case measures nothing";
 
     const Exchange ex = exchange(buildRequest(
-        "/api.php?action=camera&type=get_picture&camera_id=absente&camera_token=" + token,
+        "/api.php?action=camera&type=get_picture&id=absente&camera_token=" + token,
         { { "Connection", "close" } }));
     CameraTokens::revokeAll();
 
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
     ASSERT_NE(std::string::npos, ex.wire.find(token));
-    ASSERT_FALSE(ex.response.empty()) << "the server never answered";
     ASSERT_NE(std::string::npos, ex.log.find("network"))
         << "nothing of the network domain was printed, so finding no token proves nothing";
+    //The accepted branch is the one that reaches processCamera and its unknown-camera answer.
+    ASSERT_EQ(std::string::npos, ex.log.find("Camera token refused"))
+        << "the token was refused, this case measures the refusal and not the accepted branch:\n"
+        << ex.log;
+    ASSERT_NE(std::string::npos, ex.response.find("unkown camera id"))
+        << "the accepted branch was not reached, this case measures nothing:\n"
+        << ex.response;
 
     EXPECT_LT(longestEcho(ex.log, token), kMaxDrawnEcho)
         << "the journal gives back the capture token of a snapshot request:\n"
@@ -1644,25 +1650,76 @@ TEST_F(HttpRequestLogSecretTest, ACameraTokenInTheQueryOfAnAcceptedSnapshotNever
 
 TEST_F(HttpRequestLogSecretTest, ARefusedCameraTokenNeverReachesTheJournal)
 {
-    const std::string token = "coquelicot-lierre-sureau-brume";
+    //The first is too short for accept() to look past its length; the others are well formed
+    //and reach the lookup and the expiry branches, which handle a real token.
+    int owner = 0;
+    const std::string unknown = CameraTokens::issue(&owner, Utils::getMainLoopTime());
+    CameraTokens::revokeAll();
+    const std::string expired = CameraTokens::issue(&owner, Utils::getMainLoopTime() - 100000.0);
+    ASSERT_EQ(CameraTokens::TokenLength, unknown.size()) << "no token was issued, this case measures nothing";
+    ASSERT_EQ(CameraTokens::TokenLength, expired.size()) << "no token was issued, this case measures nothing";
+    ASSERT_NE(unknown, expired);
 
-    const Exchange ex = exchange(buildRequest(
-        "/api.php?action=camera&type=get_picture&camera_id=absente&camera_token=" + token,
-        { { "Connection", "close" } }));
+    const std::vector<std::pair<std::string, std::string>> tokens = {
+        { "malformed", "coquelicot-lierre-sureau-brume" },
+        { "unknown", unknown },
+        { "expired", expired },
+    };
+
+    for (const auto &t: tokens)
+    {
+        const std::string &token = t.second;
+        const Exchange ex = exchange(buildRequest(
+            "/api.php?action=camera&type=get_picture&id=absente&camera_token=" + token,
+            { { "Connection", "close" } }));
+
+        ASSERT_TRUE(ex.connected) << t.first << ": no connection to the server, this case measures nothing";
+        ASSERT_NE(std::string::npos, ex.wire.find(token));
+        ASSERT_NE(std::string::npos, ex.log.find("Camera token refused"))
+            << t.first << ": the refusal branch was not reached, this case measures nothing:\n"
+            << ex.log;
+
+        EXPECT_LT(longestEcho(ex.log, token), kMaxDrawnEcho)
+            << t.first << ": the journal gives back a refused capture token:\n"
+            << ex.log;
+    }
+    CameraTokens::revokeAll();
+}
+
+TEST_F(HttpRequestLogSecretTest, ACameraTokenInAPostBodyNeverReachesTheJournal)
+{
+    int owner = 0;
+    const std::string token = CameraTokens::issue(&owner, Utils::getMainLoopTime());
+    ASSERT_EQ(CameraTokens::TokenLength, token.size()) << "no token was issued, this case measures nothing";
+
+    const Exchange ex = exchange(jsonPost(
+        "{\"action\":\"camera\",\"type\":\"get_picture\",\"id\":\"absente\",\"camera_token\":\"" + token + "\"}"));
+    CameraTokens::revokeAll();
 
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
     ASSERT_NE(std::string::npos, ex.wire.find(token));
-    ASSERT_NE(std::string::npos, ex.log.find("Camera token refused"))
-        << "the refusal branch was not reached, this case measures nothing:\n"
-        << ex.log;
+    ASSERT_NE(std::string::npos, ex.log.find("network"))
+        << "nothing of the network domain was printed, so finding no token proves nothing";
+    ASSERT_NE(std::string::npos, ex.response.find("unkown camera id"))
+        << "the accepted branch was not reached, this case measures nothing:\n"
+        << ex.response;
 
-    EXPECT_LT(longestEcho(ex.log, token), kMaxEcho)
-        << "the journal gives back a refused capture token:\n"
+    EXPECT_LT(longestEcho(ex.log, token), kMaxDrawnEcho)
+        << "the journal gives back the capture token of a POST body:\n"
         << ex.log;
 }
 
 TEST_F(HttpRequestLogSecretTest, ACameraTokenIssuedOverAWebsocketNeverReachesTheJournal)
 {
+    //Cleans up even when one of the two options fails to be set.
+    struct CredGuard
+    {
+        ~CredGuard()
+        {
+            Utils::del_config_option("cn_user");
+            Utils::del_config_option("cn_pass");
+        }
+    } guard;
     ASSERT_TRUE(Utils::set_config_option("cn_user", "operateur-synthetique"));
     ASSERT_TRUE(Utils::set_config_option("cn_pass", "sesame-synthetique-aubepine"));
 
@@ -1674,8 +1731,6 @@ TEST_F(HttpRequestLogSecretTest, ACameraTokenIssuedOverAWebsocketNeverReachesThe
     const Exchange ex = websocketExchange(buildRequest("/api", websocketHeaders()),
                                           maskedTextFrame(login) + maskedTextFrame(ask));
     CameraTokens::revokeAll();
-    Utils::del_config_option("cn_user");
-    Utils::del_config_option("cn_pass");
 
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
 
