@@ -22,6 +22,7 @@
 #include "AdminConfig.h"
 #include "AdminEvents.h"
 #include "CameraTokens.h"
+#include "ServerInfo.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -428,6 +429,8 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             processSettings(jsonData, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "camera_token")
             processCameraToken(jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "get_server_info")
+            sendJson("get_server_info", ServerInfo::toJson(), jsonRoot["msg_id"]);
 
         //        else if (jsonParam["action"] == "get_cover")
         //            processGetCover();
