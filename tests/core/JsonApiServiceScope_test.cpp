@@ -661,7 +661,7 @@ TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToALoggedInClient)
     for (const Json &c: data["capabilities"])
         caps.push_back(c.get<std::string>());
     EXPECT_EQ(ServerInfo::capabilities(), caps);
-    for (const char *must: { "camera_token", "admin_relay" })
+    for (const char *must: { "camera_token", "admin_relay", "change_cred_closes_sessions" })
         EXPECT_NE(caps.end(), std::find(caps.begin(), caps.end(), string(must))) << must;
 }
 

@@ -49,6 +49,7 @@ inline const std::vector<std::string> &capabilities()
         "admin_events",   //WS admin_event pushes
         "console",        //WS /api/console tunnel
         "camera_width",   //optional width on camera/get_picture
+        "change_cred_closes_sessions", //change_cred ends the other sessions, consoles and get_video streams
     };
     return caps;
 }

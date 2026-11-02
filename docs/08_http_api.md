@@ -271,8 +271,9 @@ puis `GET /api?action=camera&type=get_picture&id=<id>&camera_token=<jeton>`
   Le client en redemande un avant l'expiration.
 - **Révocation** : à la fermeture de la session qui l'a obtenu, et, sur un
   `change_cred` réussi, pour les jetons de la session qui l'a fait et des sessions
-  qu'il ferme (pas ceux des sessions de service ni RemoteUI, qui restent ouvertes,
-  voir [`settings`](#settings--clé-action-ws-uniquement-1)). Des identifiants changés
+  qu'il ferme : ces jetons sont refusés dès le changement. Ceux de la session de
+  service et des écrans RemoteUI **survivent** (ces sessions restent ouvertes, voir
+  [`settings`](#settings--clé-action-ws-uniquement-1)). Des identifiants changés
   hors du serveur (outil `calaos_config`) laissent vivre les jetons au plus 120 s.
 - **Secret** : 32 octets tirés par `RAND_bytes`, rendus en 64 caractères
   hexadécimaux minuscules, sans lien avec le mot de passe. Le serveur ne garde
@@ -363,7 +364,8 @@ Réponse :
 
 ```json
 {"msg":"get_server_info","msg_id":"3","data":{"version":"<version du build>","protocol":"1",
- "capabilities":["camera_token","admin_relay","admin_events","console","camera_width"]}}
+ "capabilities":["camera_token","admin_relay","admin_events","console","camera_width",
+ "change_cred_closes_sessions"]}}
 ```
 
 `version` est la version de `calaos_server` (`PACKAGE_VERSION`), `protocol` un
@@ -378,6 +380,7 @@ entier en chaîne (incrémenté seulement pour une rupture du protocole),
 | `admin_events` | événements `admin_event` |
 | `console` | WebSocket `/api/console` |
 | `camera_width` | paramètre optionnel `width` sur `camera`/`get_picture` |
+| `change_cred_closes_sessions` | un `change_cred` réussi ferme les autres sessions `/api`, toutes les consoles et tous les flux `get_video` en cours ([détail](#settings--clé-action-ws-uniquement-1)) ; sans elle, un client ne doit pas compter sur cette coupure |
 
 **Règle pour les clients** : une capacité absente de la liste, ou un serveur qui ne
 répond pas à `get_server_info` (un ancien serveur ignore ce message, sans erreur),
@@ -463,6 +466,7 @@ valide**, sinon HTTP 400 + fermeture
 ([JsonApiHandlerHttp.cpp:189-214](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
 Message WS inconnu (session authentifiée) → **aucune réponse**, il n'y a pas de
 branche `else` ([JsonApiHandlerWS.cpp:156-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+Exception : une `action` inconnue de `settings` répond `{"error":"unknown settings action"}`.
 
 ⚠️ **« Paramètres dérivés refusés » a une contrepartie, et elle n'est pas une
 faille : `config` / `put` reste ouvert sous la MÊME authentification.** Le refus
@@ -2222,8 +2226,11 @@ est corrompu.
 | `get_picture` | un JPEG (`Content-Type: image/jpeg`) ; `camfail.jpg` si la caméra ne répond pas ; argument optionnel `width` |
 | `get_video` | flux MJPEG relayé, ou flux construit image par image si la caméra n'a pas d'URL vidéo |
 
-`id` inconnu → `{"error":"unkown camera id"}`. `type` inconnu → **rien**, pas de
-branche `else` ([JsonApiHandlerHttp.cpp:903-1029](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+`id` inconnu → `{"error":"unkown camera id"}` (testé avant le `type`, donc aussi pour un
+`type` inconnu). `type` inconnu ou absent, avec un `id` de caméra valide →
+`{"error":"unknown camera type"}` : la réponse libère la connexion, qui sinon resterait
+comptée contre la limite par IP. Avec un jeton de capture, un `type` autre que `get_picture`
+est refusé plus tôt (HTTP 400 et fermeture, voir [Portée](#http--jeton-de-capture-camera_token)).
 
 #### `get_picture` et `width`
 
@@ -2304,9 +2311,15 @@ Restent ouvertes :
   `local_config`) et les écrans RemoteUI (HMAC à la montée) : leur authentification ne
   dépend pas de `cn_pass`. Leurs jetons caméra restent valides.
 
+**Risque accepté : `mcp_service_token` n'est pas renouvelé par `change_cred`.** Ce jeton
+(`local_config.xml`) ne dépend pas de `cn_pass` : un `change_cred` ne le change pas, et la
+session de service qui l'a présenté reste valide, comme les écrans RemoteUI. Décision de
+Raoul du 2026-11-02.
+
 Un `change_cred` refusé (`success:"false"`) ne touche aucune session, console ni flux.
 Les autres requêtes HTTP n'ont pas de session : chacune porte ses identifiants (ou son
-jeton caméra), refusés dès le changement ; une requête déjà acceptée, comme un
+jeton caméra), refusés dès le changement (un jeton de la session de service ou d'un
+écran RemoteUI, lui, reste accepté) ; une requête déjà acceptée, comme un
 `get_picture` qui attend sa capture, reçoit encore sa réponse unique.
 Toute autre valeur d'`action` → `{"error":"unknown settings action"}` dans `data`.
 
