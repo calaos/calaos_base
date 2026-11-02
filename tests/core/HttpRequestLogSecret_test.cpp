@@ -1638,7 +1638,8 @@ TEST_F(HttpRequestLogSecretTest, ACameraTokenInTheQueryOfAnAcceptedSnapshotNever
         << "nothing of the network domain was printed, so finding no token proves nothing";
 
     EXPECT_LT(longestEcho(ex.log, token), kMaxDrawnEcho)
-        << "the journal gives back the capture token of a snapshot request:\n" << ex.log;
+        << "the journal gives back the capture token of a snapshot request:\n"
+        << ex.log;
 }
 
 TEST_F(HttpRequestLogSecretTest, ARefusedCameraTokenNeverReachesTheJournal)
@@ -1652,10 +1653,12 @@ TEST_F(HttpRequestLogSecretTest, ARefusedCameraTokenNeverReachesTheJournal)
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
     ASSERT_NE(std::string::npos, ex.wire.find(token));
     ASSERT_NE(std::string::npos, ex.log.find("Camera token refused"))
-        << "the refusal branch was not reached, this case measures nothing:\n" << ex.log;
+        << "the refusal branch was not reached, this case measures nothing:\n"
+        << ex.log;
 
     EXPECT_LT(longestEcho(ex.log, token), kMaxEcho)
-        << "the journal gives back a refused capture token:\n" << ex.log;
+        << "the journal gives back a refused capture token:\n"
+        << ex.log;
 }
 
 TEST_F(HttpRequestLogSecretTest, ACameraTokenIssuedOverAWebsocketNeverReachesTheJournal)
@@ -1680,13 +1683,15 @@ TEST_F(HttpRequestLogSecretTest, ACameraTokenIssuedOverAWebsocketNeverReachesThe
     const std::string key = "\"token\":\"";
     const size_t at = ex.response.find(key);
     ASSERT_NE(std::string::npos, at)
-        << "no camera_token answer came back, this case measures nothing:\n" << ex.response;
+        << "no camera_token answer came back, this case measures nothing:\n"
+        << ex.response;
     const std::string token = ex.response.substr(at + key.size(), CameraTokens::TokenLength);
     ASSERT_EQ(CameraTokens::TokenLength, token.size());
     ASSERT_NE(std::string::npos, ex.log.find("network"));
 
     EXPECT_LT(longestEcho(ex.log, token), kMaxDrawnEcho)
-        << "the journal gives back the capture token the server just issued:\n" << ex.log;
+        << "the journal gives back the capture token the server just issued:\n"
+        << ex.log;
 }
 
 /*
