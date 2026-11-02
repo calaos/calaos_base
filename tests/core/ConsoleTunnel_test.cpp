@@ -168,7 +168,8 @@ public:
     }
 
     //The head of the upgrade answer
-    std::string connect(const std::string &xfp = "https", const std::string &origin = std::string(), bool protocol = true)
+    std::string connect(const std::string &xfp = "https", const std::string &origin = std::string(), bool protocol = true,
+                        const std::string &path = ConsoleTunnel::Path)
     {
         fd = socket(AF_INET, SOCK_STREAM, 0);
         //A small window, so that a client that stops reading is felt soon
@@ -183,7 +184,7 @@ public:
             return std::string();
 
         std::ostringstream req;
-        req << "GET /api/console HTTP/1.1\r\n"
+        req << "GET " << path << " HTTP/1.1\r\n"
             << "Host: 127.0.0.1:" << env.serverPort << "\r\n"
             << "Connection: Upgrade\r\n"
             << "Upgrade: websocket\r\n"
@@ -1388,6 +1389,100 @@ TEST_F(ConsoleTunnelTest, AConsoleThatEndsWhileTheBrowserIsPausedStillReadsItsCl
     },
                           8000));
     EXPECT_LT(std::chrono::duration_cast<milliseconds>(steady_clock::now() - start).count(), 5000);
+}
+
+/*******************************************************************************
+ * change_cred on /api
+ ******************************************************************************/
+
+namespace
+{
+
+//A household session of /api that logs in, then asks change_cred
+std::string changeCredentials(ConsoleClient &api, const std::string &oldPass)
+{
+    api.connect("https", std::string(), false, "/api");
+    EXPECT_TRUE(api.upgraded()) << api.answerHead();
+    api.sendText(Json{ { "msg", "login" }, { "msg_id", "l" }, { "data", { { "cn_user", kUser }, { "cn_pass", kPass } } } });
+    const Json login = api.nextText();
+    EXPECT_EQ("true", str(login["data"], "success")) << login.dump();
+    api.sendText(Json{ { "msg", "settings" }, { "msg_id", "cc" }, { "data", { { "action", "change_cred" }, { "old_user", kUser }, { "old_pw", oldPass }, { "new_user", kUser }, { "new_pw", "co2-new-household-password" } } } });
+    const Json answer = api.nextText();
+    return str(answer["data"], "success");
+}
+
+} //namespace
+
+TEST_F(ConsoleTunnelTest, ACredentialChangeClosesEveryOpenConsole)
+{
+    Json ready;
+    ConsoleClient c, waiting;
+    attached(c, ready);
+    waiting.connect();
+    ASSERT_TRUE(waiting.upgraded()) << waiting.answerHead();
+
+    ConsoleClient api;
+    ASSERT_EQ("true", changeCredentials(api, kPass));
+
+    EXPECT_EQ(1001, c.waitClose());
+    EXPECT_EQ("credentials_changed", c.closeReason());
+    EXPECT_TRUE(pumpUntil([]()
+                          {
+        return socketCloseCode() == 1001;
+    }));
+
+    //Not authenticated yet: it stays, and the old password no longer opens it
+    EXPECT_EQ(0, waiting.waitClose(200));
+    EXPECT_EQ("login_failed", str(refusal(waiting, openMessage()), "error"));
+}
+
+TEST_F(ConsoleTunnelTest, ACredentialChangeRefusesAConsoleStillOpening)
+{
+    adminDefined();
+    fakeDaemon.grant(kCode);
+    ASSERT_TRUE(fakeConsole.start(socketPath()));
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/admin/console")
+            return false;
+        res.delayMs = 300;
+        res.body = FakeDaemon::ok({ { "console_id", FakeDaemon::DefaultConsoleId }, { "socket", socketPath() }, { "ws_path", "/ws" }, { "ws_protocol", "calaos-console.v1" } });
+        return true;
+    });
+
+    ConsoleClient c;
+    c.connect();
+    c.sendText(openMessage());
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return consoleCalls() == 1;
+    }));
+
+    ConsoleClient api;
+    ASSERT_EQ("true", changeCredentials(api, kPass));
+
+    const Json e = c.nextText();
+    EXPECT_EQ("login_failed", str(e, "error")) << e.dump();
+    EXPECT_EQ(1008, c.waitClose());
+    drainLoop(600);
+    EXPECT_EQ(0u, fakeConsole.connections());
+}
+
+TEST_F(ConsoleTunnelTest, ARefusedCredentialChangeLeavesTheConsoleOpen)
+{
+    Json ready;
+    ConsoleClient c;
+    attached(c, ready);
+
+    ConsoleClient api;
+    ASSERT_EQ("false", changeCredentials(api, "wrong"));
+
+    EXPECT_EQ(0, c.waitClose(200));
+    c.sendText(Json{ { "type", "input" }, { "data", "still here\n" } });
+    EXPECT_TRUE(pumpUntil([]()
+                          {
+        return fakeConsole.input() == "still here\n";
+    }));
 }
 
 /*

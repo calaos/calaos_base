@@ -33,6 +33,7 @@
 #include "InPlageHoraire.h"
 #include "HttpCodes.h"
 #include "WebSocket.h"
+#include "ConsoleTunnel.h"
 
 #include <set>
 
@@ -160,6 +161,10 @@ void JsonApiHandlerWS::endOtherSessions()
         CameraTokens::revoke(other);
         other->closeConnection.emit(WebSocketFrame::CloseCodeNormal, "credentials changed");
     }
+
+    //The console has no logged-out state and no tie to this /api session: even
+    //the changer's own console closes, as its household login is gone too
+    ConsoleTunnel::endHouseholdConsoles();
 }
 
 string JsonApiHandlerWS::clientIp() const
