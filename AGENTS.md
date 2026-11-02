@@ -46,7 +46,7 @@ The main binary is `calaos_server`. Several drivers run as **separate subprocess
 
 An additional Python subprocess, `calaos_mcp`, exposes the home to LLM clients (Claude Desktop, etc.) via the **Model Context Protocol**. Unlike the ExternProc drivers it does *not* use the binary IPC framing: it runs an MCPServer/uvicorn HTTP server on a Unix domain socket and is reverse-proxied through the `/mcp` path of the main HTTP port (5454). See [docs/15_mcp_server.md](docs/15_mcp_server.md).
 
-Other binaries of this repository (`src/bin/tools/`): `calaos_config` (CLI and terminal UI over `local_config.xml`, also the generator of docs/16), `calaos_mail` (sends one notification mail, spawned by the server), `wago_test`, and the `calaos_picture` script (ImageMagick resize of camera snapshots).
+Other binaries of this repository (`src/bin/tools/`): `calaos_config` (CLI and terminal UI over `local_config.xml`, also the generator of docs/16), `calaos_mail` (sends one notification mail, spawned by the server), `wago_test`, and the `calaos_picture` script (ImageMagick resize for `get_cover` and `get_camera_pic`; `get_picture` with `width` resizes in-process with libjpeg, libjpeg-turbo in practice).
 
 Ports (`src/lib/Constants.h`): 5454/tcp JSON API (`JSONAPI_PORT`, overridable with `port_api`), 4545/udp discovery (`BCAST_UDP_PORT`), 4646/udp Wago/KNX input events (`WAGO_LISTEN_PORT`). `-noudp` disables both UDP servers. The server speaks plain HTTP: TLS is the job of a reverse proxy.
 
@@ -267,6 +267,7 @@ Adding a GoogleTest program: copy a recent block of `tests/Makefile.am` (`TESTS 
 | knxd (`eibclient.h`) | KNX bus (`calaos_knx`) |
 | libmosquitto (`mosquitto.h`) | MQTT broker (`calaos_mqtt`; the code also links `libmosquittopp`) |
 | libola (pkg-config) | DMX512 lighting (`calaos_ola`) |
+| libjpeg (`jpeglib.h` and `jpeg_mem_src`; libjpeg-turbo in practice) | camera thumbnails of `get_picture`; without it, full-resolution frames and one warning |
 | gtest (`gtest/gtest.h`) | the GoogleTest programs of `make check` |
 | `convert` (ImageMagick) | runtime tool of `calaos_picture` |
 

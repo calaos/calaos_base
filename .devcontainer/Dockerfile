@@ -12,7 +12,7 @@ RUN apt-get update -qq && \
         build-essential wget git curl \
         libsigc++-2.0-dev libcurl4-openssl-dev libluajit2-5.1-dev libsqlite3-dev \
         libcurl4-openssl-dev libusb-dev libow-dev imagemagick libev-dev libusb-1.0-0-dev \
-        libpugixml-dev \
+        libpugixml-dev libjpeg62-turbo-dev \
         knxd knxd-dev googletest libuv1-dev libmosquitto-dev libmosquittopp-dev \
         libola-dev ola \
         unzip zip cmake automake autoconf libtool autopoint gettext ccache \

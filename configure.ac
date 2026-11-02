@@ -148,6 +148,17 @@ else
     CONVERT_INFO="No, install imagemagick convert tool"
 fi
 
+# Without it, get_picture?width= answers the full resolution frame (docs/08)
+have_libjpeg="no"
+JPEG_LIBS=""
+AC_CHECK_HEADERS([jpeglib.h],
+                 [AC_CHECK_LIB([jpeg], [jpeg_mem_src], [have_libjpeg="yes"; JPEG_LIBS="-ljpeg"])])
+if test "x${have_libjpeg}" == "xyes"
+then
+    AC_DEFINE([HAVE_LIBJPEG], [1], [libjpeg, for camera thumbnails])
+fi
+AC_SUBST([JPEG_LIBS])
+
 have_mosquitto="no"
 AC_CHECK_HEADERS([mosquitto.h], [have_mosquitto="yes"])
 AM_CONDITIONAL([HAVE_LIBMOSQUITTO], [test "x${have_mosquitto}" = "xyes"])
@@ -404,6 +415,7 @@ echo "  prefix...............................: $prefix"
 echo
 echo "Dependencies:"
 echo "  UrlDownloader picture resizing.......: $(colorOut $CONVERT_INFO)"
+echo "  Camera thumbnails (libjpeg)..........: $(colorOut $have_libjpeg)"
 echo "  pugixml (XML + XPath 1.0)............: $PUGIXML_INFO"
 echo
 echo "Hardware support:"

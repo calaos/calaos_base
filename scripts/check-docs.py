@@ -36,7 +36,9 @@ WHAT A PIN IS NOT.  It says what a reference designates, never that it
 designates the right thing -- regenerating the file after a refactoring is
 exactly the gesture that once carried a wrong target forward with fidelity.
 The red is a TRIGGER for the reader of the diff; `--write-pins` is the reader's
-answer, not a way to make the red go away.
+answer, not a way to make the red go away.  `--write-pins --only <doc>`
+(repeatable; `docs/x.md` or `x.md`) repins just the named documents and keeps
+every other pin as it is, so only the references actually read are accepted.
 
 DELIBERATELY NON-BLOCKING, DELIBERATELY OUT OF `make check`.  A false red on
 documentation at every refactoring would end up disarmed, and a check one
@@ -653,6 +655,97 @@ def wiring_test():
     return ['wiring: ' + line for line in bad]
 
 
+def only_test():
+    """`--write-pins --only` repins one document and leaves the rest alone."""
+    import shutil
+    import tempfile
+
+    bad = []
+    top = tempfile.mkdtemp(prefix='check-docs-only.')
+    try:
+        os.makedirs(os.path.join(top, 'docs'))
+        os.makedirs(os.path.join(top, 'src'))
+        os.makedirs(os.path.join(top, os.path.dirname(PIN_NAME)))
+        for name in ('d.md', 'e.md'):
+            with open(os.path.join(top, 'docs', name), 'w') as fh:
+                fh.write('see `src/a.cpp:2`.\n')
+        with open(os.path.join(top, 'src/a.cpp'), 'w') as fh:
+            fh.write('a\ntarget();\n')
+        docs = ['docs/d.md', 'docs/e.md']
+        pin_path = os.path.join(top, PIN_NAME)
+
+        def pinfile():
+            with open(pin_path, encoding='utf-8') as fh:
+                return fh.read()
+
+        rc, said = sweep(top, docs, do_write=True)
+        full = pinfile()
+        with open(os.path.join(top, 'src/a.cpp'), 'w') as fh:
+            fh.write('inserted\na\ntarget();\n')
+
+        rc, said = sweep(top, docs, do_write=True, only=['nope.md'])
+        if rc != 2 or pinfile() != full:
+            bad.append('an unknown document was not refused untouched: rc=%d'
+                       % rc)
+
+        rc, said = sweep(top, docs, do_write=True, only=['d.md'])
+        after = pinfile()
+        rc2, said2 = sweep(top, docs)
+        lines = [l for l in said2 if l.startswith('FAIL')]
+        if rc != 0 or after == full:
+            bad.append('--only wrote nothing for the named document: rc=%d'
+                       % rc)
+        if (len(lines) != 1 or 'docs/e.md' not in lines[0]
+                or 'docs/d.md' in lines[0]):
+            bad.append('--only did not leave exactly the other document '
+                       'drifted: %r' % lines)
+        if [l for l in after.splitlines() if 'docs/e.md' in l] != \
+                [l for l in full.splitlines() if 'docs/e.md' in l]:
+            bad.append('--only changed the pins of a document it was not '
+                       'given')
+
+        rc, said = sweep(top, docs, do_write=True, only=['docs/d.md', 'e.md'])
+        rc2, said2 = sweep(top, docs)
+        if rc != 0 or rc2 != 0:
+            bad.append('repeated --only did not repin both: %r' % said2)
+
+        sweep(top, docs, do_write=True)
+        settled = pinfile()
+        rc, said = sweep(top, docs, do_write=True,
+                         only=['d.md', 'docs/d.md'])
+        rc2, said2 = sweep(top, docs)
+        if rc != 0 or rc2 != 0 or pinfile() != settled:
+            bad.append('the same document given twice to --only duplicated '
+                       'its pins: rc=%d, then %d' % (rc, rc2))
+
+        for argv, want in ((['--write-pins', '--only=d.md'], ['d.md']),
+                           (['--write-pins', '--only', 'd.md'], ['d.md'])):
+            got = parse_args(argv)
+            if got[0] != want or got[2]:
+                bad.append('%r was not read as --only d.md: %r' % (argv, got))
+        if not parse_args(['--only=d.md'])[2]:
+            bad.append('--only= without --write-pins was accepted')
+        if not parse_args(['--write-pins', '--only='])[2]:
+            bad.append('--only= with no document was accepted')
+
+        os.remove(pin_path)
+        rc, said = sweep(top, docs, do_write=True, only=['d.md'])
+        if (rc != 2 or os.path.exists(pin_path)
+                or not any('full `--write-pins`' in l for l in said)):
+            bad.append('--only with no pin file was not refused untouched: '
+                       'rc=%d, %r' % (rc, said))
+        with open(pin_path, 'w') as fh:
+            fh.write('docs/d.md\t1\tbroken\n')
+        rc, said = sweep(top, docs, do_write=True, only=['d.md'])
+        if rc != 2 or not any('restore' in l for l in said) \
+                or any('full `--write-pins`' in l for l in said):
+            bad.append('a malformed pin file got the full-repin advice: %r'
+                       % said)
+    finally:
+        shutil.rmtree(top, ignore_errors=True)
+    return ['only: ' + line for line in bad]
+
+
 # Measured on the real tree (2026-09-14): 1448 pins over 1260 DISTINCT
 # designated scopes.  The corpus below is built at that scale on purpose --
 # a width is only falsifiable against the number of things it must separate.
@@ -770,6 +863,7 @@ def self_test():
                                % (label, fragment, said))
 
     bad.extend(wiring_test())
+    bad.extend(only_test())
     bad.extend(digest_width_test())
 
     counted, stat = read_once(COUNTED[0], COUNTED[1])
@@ -790,7 +884,9 @@ def self_test():
           '%d accepted), plus seven passes through `sweep()` itself -- the '
           'pin file absent, written, honoured, drifted, repaired by hand in '
           'its digest, rewritten by hand in its readable column, and '
-          'malformed -- plus %d scopes pinned at the scale of the tree, whose '
+          'malformed -- plus the `--only` passes (unknown, repeated, '
+          'duplicated, pin file absent or malformed, `--only=` parsed) '
+          'plus %d scopes pinned at the scale of the tree, whose '
           'digests must stay pairwise distinct and must all redden under a '
           'one-line shift, the collision detector reddened against a digest '
           'narrowed to two characters'
@@ -802,8 +898,12 @@ def self_test():
     return True
 
 
-def sweep(top, docs, do_write=False):
+def sweep(top, docs, do_write=False, only=None):
     """Everything main() does once the self-test has passed, as a value.
+
+    `only` (with `do_write`) is a list of documents, as `docs/x.md` or `x.md`:
+    just their pins are recalculated, every other line of the pin file is kept
+    as it is, so drift in the other documents stays red until it is read.
 
     Factored out because the hole already measured on this very probe
     (`F-DOCS-1`) is that its corpora call `scan()` with the documents in
@@ -812,6 +912,31 @@ def sweep(top, docs, do_write=False):
     """
     said = []
     pin_path = os.path.join(top, PIN_NAME)
+    if do_write and only:
+        chosen = []
+        for name in only:
+            doc = name if name.startswith('docs/') else 'docs/' + name
+            if doc not in docs:
+                return 2, ['FAIL: --only %s: no such document; nothing '
+                           'written' % name]
+            if doc not in chosen:
+                chosen.append(doc)
+        pins, why = load_pins(pin_path)
+        if pins is None:
+            advice = ('`--only` amends a pin file, run a full `--write-pins` '
+                      'first' if not os.path.exists(pin_path) else
+                      'restore the pin file from git')
+            return 2, ['FAIL: ' + why + ' -- ' + advice]
+        records = []
+        problems, _stat = scan(top, chosen, records=records)
+        kept = [(d, n, q, dg, h) for (d, n, q), (dg, h) in pins.items()
+                if d not in chosen]
+        write_pins(pin_path, kept + records)
+        said.append('check-docs: %d references of %s pinned into %s, %d '
+                    'others left as they were; read the diff before '
+                    'committing it'
+                    % (len(records), ', '.join(chosen), PIN_NAME, len(kept)))
+        return (1 if problems else 0), said
     if do_write:
         records = []
         problems, _stat = scan(top, docs, records=records)
@@ -848,13 +973,36 @@ def sweep(top, docs, do_write=False):
     return (1 if problems else 0), said
 
 
+def parse_args(argv):
+    """(only, given, error).  `--only=X` must narrow like `--only X`: read as
+    an unknown flag it would silently become a full repin."""
+    only = []
+    given = []
+    args = iter(argv)
+    for a in args:
+        if a == '--only':
+            only.append(next(args, ''))
+        elif a.startswith('--only='):
+            only.append(a[len('--only='):])
+        elif not a.startswith('-'):
+            given.append(a)
+    if only and '--write-pins' not in argv:
+        return only, given, '--only narrows --write-pins; it does nothing alone'
+    if '' in only:
+        return only, given, '--only needs a document'
+    return only, given, None
+
+
 def main(argv):
     if not self_test():
         return 2
     if '--self-test' in argv:
         return 0
 
-    given = [a for a in argv if not a.startswith('-')]
+    only, given, err = parse_args(argv)
+    if err:
+        print('FAIL: ' + err)
+        return 2
     top = (given[0] if given else os.environ.get('abs_top_srcdir')
            or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
     top = os.path.abspath(top)
@@ -862,7 +1010,8 @@ def main(argv):
     docs = sorted('docs/' + n for n in os.listdir(docdir)
                   if n.endswith('.md'))
 
-    rc, said = sweep(top, docs, do_write='--write-pins' in argv)
+    rc, said = sweep(top, docs, do_write='--write-pins' in argv,
+                     only=only or None)
     for line in said:
         print(line)
     return rc

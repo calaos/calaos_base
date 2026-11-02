@@ -37,13 +37,16 @@
 #include <chrono>
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "CalaosCoreFixture.h"
 #include "IPCam.h"
+#include "ListeRoom.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -56,6 +59,7 @@ struct Reply
 {
     std::string contentType;
     std::string body;
+    std::string status = "200 OK";
 };
 
 //Answers each connection with the next reply of its script, and holds the
@@ -132,8 +136,8 @@ private:
 
             const Reply &r = replies[std::min<size_t>(i, replies.size() - 1)];
             const std::string resp =
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: " +
+                "HTTP/1.1 " + r.status + "\r\n"
+                                         "Content-Type: " +
                 r.contentType + "\r\n"
                                 "Content-Length: " +
                 std::to_string(r.body.size()) + "\r\n"
@@ -236,6 +240,24 @@ Params synoParams(const std::string &id, const ScriptedPeer &peer)
              { "visible", "true" } };
 }
 
+//The plain IPCam download, on the URL the test gives. Owned by its room.
+class UrlCamera: public IPCam
+{
+public:
+    UrlCamera(Params &p, std::string pictureUrl):
+        IPCam(p),
+        url(std::move(pictureUrl))
+    {
+    }
+
+    std::string getPictureUrl() override { return url; }
+
+private:
+    std::string url;
+};
+
+using Frames = std::vector<std::string>;
+
 } //namespace
 
 class InFlightDownloadTest: public CoreFixture
@@ -245,6 +267,21 @@ protected:
     {
         CoreFixture::SetUp();
         loadConfig();
+    }
+
+    static UrlCamera *addUrlCamera(const std::string &url)
+    {
+        Params p = { { "type", "UrlCamera" }, { "id", "fb5_url_camera" }, { "name", "fb5" } };
+        UrlCamera *camera = new UrlCamera(p, url);
+
+        firstRoom()->AddIO(camera);
+        ListeRoom::Instance().addIOHash(camera);
+        return camera;
+    }
+
+    static std::string urlOf(const ScriptedPeer &peer)
+    {
+        return "http://" + peer.hostPort() + "/snapshot";
     }
 };
 
@@ -309,6 +346,37 @@ TEST_F(InFlightDownloadTest, ASynologyCameraWalksTheWholeChain)
     EXPECT_EQ(peer.requests(), 4);
 }
 
+//The two api probes (hops 0 and 2) answering an error end the chain with an
+//empty frame, and the next download starts over from the first probe.
+TEST_F(InFlightDownloadTest, ASynologyApiProbeFailureAnswersAnEmptyFrame)
+{
+    for (int hop: { 0, 2 })
+    {
+        SCOPED_TRACE("hop " + std::to_string(hop));
+
+        std::vector<Reply> chain = synoChain();
+        chain[hop] = { "text/plain", "", "503 Service Unavailable" };
+
+        ScriptedPeer peer(chain, -1);
+        IPCam *cam = dynamic_cast<IPCam *>(createIO(synoParams("fb5_syno_probe_" + std::to_string(hop), peer)));
+        ASSERT_NE(cam, nullptr);
+
+        auto frame = std::make_shared<std::string>("unset");
+        cam->downloadSnapshot([frame](const string &data)
+                              {
+            *frame = data;
+        });
+
+        ASSERT_TRUE(pumpUntil([frame]()
+                              {
+            return *frame != "unset";
+        },
+                              5000));
+        EXPECT_EQ(*frame, "");
+        EXPECT_EQ(peer.requests(), hop + 1);
+    }
+}
+
 //Each of the four requests of the chain in turn is the one in flight when
 //the camera is deleted: nothing of the camera runs once it answers, and the
 //chain stops there.
@@ -347,4 +415,257 @@ TEST_F(InFlightDownloadTest, ADeletedSynologyCameraStopsItsChainAtEveryHop)
         EXPECT_EQ(peer.requests(), hop + 1);
         EXPECT_FALSE(*called);
     }
+}
+
+/* Whoever asks while a download is running is answered by that download: an
+ * empty frame would show as the broken camera picture on that client. */
+TEST_F(InFlightDownloadTest, ClientsOfARunningDownloadShareItsFrame)
+{
+    ScriptedPeer peer({ { "image/jpeg", "FB5FRAME" } }, 0);
+    UrlCamera *cam = addUrlCamera(urlOf(peer));
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot(collect);
+    cam->downloadSnapshot(collect);
+    cam->downloadSnapshot(collect);
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.held();
+    },
+                          5000));
+    cam->downloadSnapshot(collect);
+    EXPECT_TRUE(frames.empty());
+
+    peer.release();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 4;
+    },
+                          5000));
+
+    EXPECT_EQ(Frames(4, "FB5FRAME"), frames);
+    EXPECT_EQ(peer.requests(), 1);
+}
+
+TEST_F(InFlightDownloadTest, AFinishedDownloadIsNotKept)
+{
+    ScriptedPeer peer({ { "image/jpeg", "FB5ONE" }, { "image/jpeg", "FB5TWO" } }, -1);
+    UrlCamera *cam = addUrlCamera(urlOf(peer));
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot(collect);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 1;
+    },
+                          5000));
+
+    cam->downloadSnapshot(collect);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
+
+    EXPECT_EQ(Frames({ "FB5ONE", "FB5TWO" }), frames);
+    EXPECT_EQ(peer.requests(), 2);
+}
+
+//Restarting clears the buffer of the downloader: the next waiter of the same
+//frame must not read it after that.
+TEST_F(InFlightDownloadTest, AWaiterAskingAgainLeavesTheFrameOfTheNextOne)
+{
+    ScriptedPeer peer({ { "image/jpeg", "FB5ONE" }, { "image/jpeg", "FB5TWO" } }, -1);
+    UrlCamera *cam = addUrlCamera(urlOf(peer));
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot([&](const string &data)
+                          {
+        frames.push_back(data);
+        cam->downloadSnapshot(collect);
+    });
+    cam->downloadSnapshot(collect);
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 3;
+    },
+                          5000));
+    EXPECT_EQ(Frames({ "FB5ONE", "FB5ONE", "FB5TWO" }), frames);
+}
+
+//No signal comes out of a download that cannot start: nobody may keep waiting.
+TEST_F(InFlightDownloadTest, ACameraWithoutUrlAnswersEveryClient)
+{
+    UrlCamera *cam = addUrlCamera(std::string());
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot(collect);
+    cam->downloadSnapshot(collect);
+
+    EXPECT_EQ(Frames(2, std::string()), frames);
+}
+
+TEST_F(InFlightDownloadTest, AnErrorStatusAnswersEveryClientWithoutTheHost)
+{
+    ScriptedPeer peer({ { "text/plain", "FB5ERROR", "503 Service Unavailable" } }, 0);
+    UrlCamera *cam = addUrlCamera(urlOf(peer));
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot(collect);
+    cam->downloadSnapshot(collect);
+
+    std::ostringstream sink;
+    std::streambuf *saved = std::cout.rdbuf(sink.rdbuf());
+    const bool answered = pumpUntil([&]()
+                                    {
+        if (peer.held())
+            peer.release();
+        return frames.size() == 2;
+    },
+                                    5000);
+    std::cout.rdbuf(saved);
+
+    ASSERT_TRUE(answered);
+    EXPECT_EQ(Frames(2, std::string()), frames);
+    EXPECT_EQ(std::string::npos, sink.str().find("127.0.0.1")) << sink.str();
+}
+
+TEST_F(InFlightDownloadTest, AnUnreachableCameraAnswersEveryClient)
+{
+    int closedPort = 0;
+    {
+        ScriptedPeer gone({ { "image/jpeg", "FB5" } }, -1);
+        closedPort = gone.port;
+    }
+    UrlCamera *cam = addUrlCamera("http://127.0.0.1:" + std::to_string(closedPort) + "/snapshot");
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot(collect);
+    cam->downloadSnapshot(collect);
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
+    EXPECT_EQ(Frames(2, std::string()), frames);
+}
+
+TEST_F(InFlightDownloadTest, ClientsOfASynologyChainShareIt)
+{
+    ScriptedPeer peer(synoChain(), 3);
+    IPCam *cam = dynamic_cast<IPCam *>(createIO(synoParams("fb5_syno_shared", peer)));
+    ASSERT_NE(cam, nullptr);
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadSnapshot(collect);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.held();
+    },
+                          5000));
+    cam->downloadSnapshot(collect);
+
+    peer.release();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
+
+    EXPECT_EQ(Frames(2, "FB5JPEG"), frames);
+    EXPECT_EQ(peer.requests(), 4);
+}
+
+//The Synology override goes through the shared path too: not a jpeg here, so
+//the clients of the width receive the frame as it came.
+TEST_F(InFlightDownloadTest, AWidthOnASynologyCameraSharesTheChain)
+{
+    ScriptedPeer peer(synoChain(), -1);
+    IPCam *cam = dynamic_cast<IPCam *>(createIO(synoParams("fb5_syno_width", peer)));
+    ASSERT_NE(cam, nullptr);
+
+    Frames frames;
+    const auto collect = [&frames](const string &data)
+    {
+        frames.push_back(data);
+    };
+
+    cam->downloadThumbnail(236, collect);
+    cam->downloadThumbnail(236, collect);
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return frames.size() == 2;
+    },
+                          5000));
+
+    EXPECT_EQ(Frames(2, "FB5JPEG"), frames);
+    EXPECT_EQ(peer.requests(), 4);
+}
+
+TEST_F(InFlightDownloadTest, ADeletedCameraDropsTheThumbnailItWasDownloading)
+{
+    ScriptedPeer peer({ { "image/jpeg", "FB5FRAME" } }, 0);
+    UrlCamera *cam = addUrlCamera(urlOf(peer));
+
+    auto called = std::make_shared<bool>(false);
+    cam->downloadThumbnail(236, [called](const string &)
+                           {
+        *called = true;
+    });
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.held();
+    },
+                          5000));
+    ASSERT_TRUE(deleteIO(cam));
+
+    peer.release();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return peer.served() == 1;
+    },
+                          3000));
+    pumpFor(100);
+
+    EXPECT_FALSE(*called);
 }

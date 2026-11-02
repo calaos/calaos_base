@@ -51,15 +51,17 @@
  * ON THE HARNESS: the E4.0a harness (JsonApiCharacterization.h) gives the
  * single-shot HTTP request over a real HttpClient. Read its header, in
  * particular the "TRAPS" section. Trap 2 (an HttpTestRequest kept alive across
- * a long pump fires HttpClient's read timeout Timer) is avoided here: no case
- * pumps the loop, and the deferred cases fire the parked callback by hand.
+ * a long pump fires HttpClient's read timeout Timer) is avoided here: without
+ * a width no case pumps the loop and the deferred cases fire the parked
+ * callback by hand; with one, pumpUntil() only waits for a worker thread or a
+ * child process, a few milliseconds.
  *
  * ON THE CAMERA: the reference house of the harness carries two StandardMjpeg
  * cameras, whose downloadSnapshot() really talks to the network. A local fake
  * is used instead, in two modes - immediate (the answer comes back inside
  * processApi()) and deferred (the test parks the callback and decides when, or
  * whether, it fires). Deferred is how a real camera behaves: IPCam holds the
- * callback in a member (IPCam.cpp:130) and hands it back when the HTTP GET to
+ * callback in a member (snapshotWaiters) and hands it back when the HTTP GET to
  * the camera completes, which can be long after the client hung up.
  *
  * IO ids are prefixed t317d_ and used nowhere else: Config's IO state cache is
@@ -68,13 +70,33 @@
 
 #include "JsonApiCharacterization.h"
 
+#include "AudioPlayer.h"
 #include "IPCam.h"
 #include "ListeRoom.h"
+#include "PictureResizer.h"
+#include "Timer.h"
 #include "Utils.h"
+#include "core/JpegTestFrames.h"
+#include "libuvw.h"
 
+#include <chrono>
+#include <cerrno>
+#include <condition_variable>
+#include <csignal>
+#include <cstdlib>
 #include <deque>
+#include <fstream>
 #include <functional>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <stdexcept>
 #include <string>
+#include <sys/stat.h>
+#include <thread>
+#include <unistd.h>
+#include <vector>
 
 using namespace CalaosTest;
 using namespace Calaos;
@@ -83,6 +105,9 @@ namespace
 {
 
 const char *const CAMERA_ID = "t317d_camera";
+const char *const PLAYER_ID = "p3cp_player";
+const char *const COVER_URL = "http://p3cp-cover.invalid/cover.jpg";
+const char *const CAMERA_URL = "http://t317d-camera.invalid/snapshot?token=t317d";
 
 //A recognisable, non empty "jpeg". The production code never looks at the
 //bytes, it just puts them in the body, so any payload with a NUL in it is a
@@ -121,6 +146,8 @@ public:
             dataCb(snapshot);
     }
 
+    std::string getPictureUrl() override { return CAMERA_URL; }
+
     size_t pendingCount() const { return pending.size(); }
 
     //Deliver the oldest parked answer. False when nothing is parked.
@@ -150,6 +177,258 @@ private:
     std::deque<std::function<void(const std::string &)>> pending;
 };
 
+//Workers and child processes finish on their own time: the loop has to turn
+//until they do, and a timeout makes a lost answer a failure instead of a hang.
+bool pumpUntil(const std::function<bool()> &done, int timeoutMs = 10000)
+{
+    auto loop = uvw::Loop::getDefault();
+    const auto limit = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    while (!done())
+    {
+        if (std::chrono::steady_clock::now() > limit)
+            return false;
+        loop->run<uvw::Loop::Mode::NOWAIT>();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return true;
+}
+
+void pumpFor(int ms)
+{
+    const auto limit = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    pumpUntil([&limit]()
+              {
+        return std::chrono::steady_clock::now() > limit;
+    });
+}
+
+PictureResizer &resizer()
+{
+    return PictureResizer::Instance();
+}
+
+JpegThumbnail::Result thumbOf(int width)
+{
+    return { JpegThumbnail::Status::Resized, "thumb:" + std::to_string(width) };
+}
+
+JpegThumbnail::Result fakeDecode(const std::string &, int width)
+{
+    return thumbOf(width);
+}
+
+//Holds the decoder on its worker until the case lets it go. The wait is bounded
+//so that a decoder running on the loop thread fails the case rather than hangs.
+class DecoderGate
+{
+public:
+    JpegThumbnail::Result pass(int width)
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        entries++;
+        worker = std::this_thread::get_id();
+        changed.wait_for(lock, std::chrono::seconds(5), [this]()
+                         {
+            return isOpen;
+        });
+        return thumbOf(width);
+    }
+
+    void open()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        isOpen = true;
+        changed.notify_all();
+    }
+
+    int entered()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        return entries;
+    }
+
+    std::thread::id workerThread()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        return worker;
+    }
+
+private:
+    std::mutex mutex;
+    std::condition_variable changed;
+    bool isOpen = false;
+    int entries = 0;
+    std::thread::id worker;
+};
+
+using Requests = std::vector<std::unique_ptr<HttpTestRequest>>;
+
+bool allAnswered(const Requests &clients)
+{
+    for (const std::unique_ptr<HttpTestRequest> &client: clients)
+    {
+        if (client->count() != 1)
+            return false;
+    }
+    return true;
+}
+
+//The logger writes to std::cout: what a case produces is read back from there.
+std::string captureStdout(const std::function<void()> &fn)
+{
+    std::ostringstream sink;
+    std::streambuf *saved = std::cout.rdbuf(sink.rdbuf());
+    fn();
+    std::cout.rdbuf(saved);
+    return sink.str();
+}
+
+size_t countOf(const std::string &text, const std::string &needle)
+{
+    size_t count = 0;
+    for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + 1))
+        count++;
+    return count;
+}
+
+void expectNoCameraIdentity(const std::string &log)
+{
+    EXPECT_EQ(std::string::npos, log.find(CAMERA_ID)) << log;
+    EXPECT_EQ(std::string::npos, log.find(CAMERA_URL)) << log;
+    EXPECT_EQ(std::string::npos, log.find("t317d-camera")) << log;
+}
+
+const char *const NO_DECODER_LINE = "Built without libjpeg: camera pictures are sent in full resolution";
+const char *const UNDECODABLE_LINE = "Camera frame cannot be resized: sent in full resolution";
+const char *const BUSY_LINE = "Too many pictures to resize: sent in full resolution";
+const char *const NO_CONVERT_LINE = "calaos_picture cannot resize (ImageMagick): sent in full resolution";
+
+/* A calaos_picture of the test's own, found through CALAOS_BIN_PREFIX. Every
+ * run notes its first argument in a file, which is how a case counts them. */
+class FakePictureTool
+{
+public:
+    /* HoldsAChild: a run waits in the foreground for a child, like
+     * calaos_picture while convert works. SIGTERM makes it exit only once the
+     * child is done, because the trap waits for the foreground command; the
+     * child ends with release(). */
+    enum Hold
+    {
+        HoldsAChild
+    };
+
+    explicit FakePictureTool(const std::string &body)
+    {
+        if (makeDir())
+            install(body);
+    }
+
+    explicit FakePictureTool(Hold)
+    {
+        if (makeDir())
+            install("trap 'exit 1' TERM\n"
+                    "sh -c 'while [ -d \"$0\" ] && [ ! -e \"$1\" ]; do sleep 0.02; done' '" +
+                    dir + "' '" + releasePath() + "'\n");
+    }
+
+    //Lets held runs go on, and waits until every run has been reaped: a place
+    //only comes back with the ExitEvent, so the next case must not start with
+    //places still taken.
+    ~FakePictureTool()
+    {
+        ::unsetenv("CALAOS_BIN_PREFIX");
+        if (dir.empty())
+            return;
+        release();
+        EXPECT_TRUE(pumpUntil([this]()
+                              {
+            return allExited();
+        }));
+        ::unlink(toolPath().c_str());
+        ::unlink(runsPath().c_str());
+        ::unlink(pidsPath().c_str());
+        ::unlink(releasePath().c_str());
+        ::rmdir(dir.c_str());
+    }
+
+    void release()
+    {
+        std::ofstream(releasePath()) << "go\n";
+    }
+
+    bool allExited() const
+    {
+        std::ifstream in(pidsPath());
+        for (long pid; in >> pid;)
+        {
+            //A zombie still answers: libuv reaps it from the loop
+            if (::kill(static_cast<pid_t>(pid), 0) == 0 || errno != ESRCH)
+                return false;
+        }
+        return true;
+    }
+
+    bool isReady() const { return ready; }
+
+    void uninstall() { ::unlink(toolPath().c_str()); }
+
+    std::vector<std::string> runs() const
+    {
+        std::vector<std::string> lines;
+        std::ifstream in(runsPath());
+        for (std::string line; std::getline(in, line);)
+            lines.push_back(line);
+        return lines;
+    }
+
+private:
+    bool makeDir()
+    {
+        char tmpl[] = "/tmp/calaos_t317d_picture_XXXXXX";
+        const char *created = ::mkdtemp(tmpl);
+        dir = created ? created : "";
+        return !dir.empty();
+    }
+
+    void install(const std::string &body)
+    {
+        {
+            std::ofstream script(toolPath(), std::ios::out | std::ios::trunc);
+            script << "#!/bin/sh\necho \"$1\" >> '" << runsPath() << "'\n"
+                   << "echo $$ >> '" << pidsPath() << "'\n"
+                   << body;
+        }
+        ready = ::chmod(toolPath().c_str(), 0755) == 0 &&
+                ::setenv("CALAOS_BIN_PREFIX", dir.c_str(), 1) == 0;
+    }
+
+    std::string toolPath() const { return dir + "/calaos_picture"; }
+    std::string runsPath() const { return dir + "/runs"; }
+    std::string pidsPath() const { return dir + "/pids"; }
+    std::string releasePath() const { return dir + "/release"; }
+
+    std::string dir;
+    bool ready = false;
+};
+
+//Answers the cover url synchronously, like a player whose cover is already known.
+class FakeCoverPlayer: public AudioPlayer
+{
+public:
+    FakeCoverPlayer(Params &p):
+        AudioPlayer(p)
+    {
+    }
+
+    std::string coverUrl;
+
+    void get_album_cover(AudioRequest_cb cb, AudioPlayerData = AudioPlayerData()) override
+    {
+        AudioPlayerData d;
+        d.svalue = coverUrl;
+        cb(d);
+    }
+};
 }
 
 class JsonApiCameraSnapshotTest: public JsonApiCharacterizationTest
@@ -160,9 +439,45 @@ protected:
         JsonApiCharacterizationTest::SetUp();
 
         forgetIOState(CAMERA_ID);
+        forgetIOState(PLAYER_ID);
 
         loadConfig();
+
+        resizer().resetForTest(fakeDecode);
     }
+
+    //The cameras die in the parent teardown: their resizes have to end before.
+    void TearDown() override
+    {
+        gate.open();
+        EXPECT_TRUE(pumpUntil([]()
+                              {
+            return resizer().idle();
+        }));
+        resizer().resetForTest();
+
+        JsonApiCharacterizationTest::TearDown();
+    }
+
+    void useGate()
+    {
+        resizer().resetForTest([this](const std::string &, int width)
+                               {
+            return gate.pass(width);
+        });
+    }
+
+    //Occupies every place of the resizer. Needs useGate().
+    void saturateResizer()
+    {
+        auto source = std::make_shared<const std::string>("frame");
+        for (size_t i = 0; i < PictureResizer::maxRunning + PictureResizer::maxPending; i++)
+            EXPECT_TRUE(resizer().submit(source, 100, [](JpegThumbnail::Result)
+                                         {
+                                         }));
+    }
+
+    DecoderGate gate;
 
     /* Register a fake camera in ListeRoom exactly like a config loaded IO:
      * owned by its room (clearCoreState() deletes it) and reachable through
@@ -190,6 +505,71 @@ protected:
                                  { "type", "get_picture" },
                                  { "id", id },
                              });
+    }
+
+    static Json pictureRequest(const std::string &id, const std::string &width)
+    {
+        Json request = pictureRequest(id);
+        request["width"] = width;
+        return request;
+    }
+
+    static Requests sendPictures(int clients, const std::string &width)
+    {
+        Requests requests;
+        for (int i = 0; i < clients; i++)
+        {
+            requests.push_back(std::make_unique<HttpTestRequest>());
+            requests.back()->send(pictureRequest(CAMERA_ID, width));
+        }
+        return requests;
+    }
+
+    static FakeCoverPlayer *addPlayer(const std::string &cover)
+    {
+        Params p;
+        p.Add("id", PLAYER_ID);
+        p.Add("name", "Fake cover player");
+        p.Add("type", "FakeCoverPlayer");
+
+        FakeCoverPlayer *player = new FakeCoverPlayer(p);
+        player->coverUrl = cover;
+
+        firstRoom()->AddIO(player);
+        ListeRoom::Instance().addIOHash(player);
+        return player;
+    }
+
+    static Json coverRequest()
+    {
+        return authenticated(Json{
+            { "action", "get_cover" },
+            { "id", PLAYER_ID },
+        });
+    }
+
+    static Json audioCoverRequest()
+    {
+        return authenticated(Json{
+            { "action", "audio" },
+            { "audio_action", "get_cover" },
+            { "id", PLAYER_ID },
+        });
+    }
+
+    //Fills the process limit with `limit` sleeping runs, checks that one more
+    //request is refused at once, then that a freed place is given back.
+    void expectPictureLimit(size_t limit);
+
+    static Json cameraPicRequest(const std::string &width = std::string())
+    {
+        Json request = authenticated(Json{
+            { "action", "get_camera_pic" },
+            { "id", CAMERA_ID },
+        });
+        if (!width.empty())
+            request["width"] = width;
+        return request;
     }
 };
 
@@ -448,4 +828,864 @@ TEST_F(JsonApiCameraSnapshotTest, ClientAndCameraGoneIsIgnored)
 
     lateAnswer();
     lateAnswer = std::function<void()>();
+}
+
+/*******************************************************************************
+ * The width of get_picture: answered from a worker, never from the loop.
+ ******************************************************************************/
+
+TEST_F(JsonApiCameraSnapshotTest, WidthAnswersTheThumbnail)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID, "236"));
+
+    EXPECT_EQ(0u, req.count());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("image/jpeg", req.header("Content-Type"));
+    EXPECT_EQ("thumb:236", req.body());
+    EXPECT_EQ(1, camera->downloadCount);
+    EXPECT_EQ(1u, resizer().decodesStarted());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, TheLoopKeepsTurningDuringADecode)
+{
+    addCamera(SNAPSHOT_BYTES);
+    useGate();
+
+    HttpTestRequest thumbnail;
+    thumbnail.send(pictureRequest(CAMERA_ID, "236"));
+    ASSERT_TRUE(pumpUntil([this]()
+                          {
+        return gate.entered() == 1;
+    }));
+
+    bool fired = false;
+    Timer::singleShot(0.001, [&fired]()
+                      {
+        fired = true;
+    });
+    EXPECT_TRUE(pumpUntil([&fired]()
+                          {
+        return fired;
+    }));
+
+    HttpTestRequest other;
+    other.send(pictureRequest(CAMERA_ID));
+    ASSERT_EQ(1u, other.count());
+    EXPECT_EQ(SNAPSHOT_BYTES, other.body());
+
+    EXPECT_NE(std::this_thread::get_id(), gate.workerThread());
+    EXPECT_EQ(0u, thumbnail.count());
+
+    gate.open();
+    ASSERT_TRUE(pumpUntil([&thumbnail]()
+                          {
+        return thumbnail.count() == 1;
+    }));
+    EXPECT_EQ("thumb:236", thumbnail.body());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, NoWidthAndEmptyWidthSkipTheResizer)
+{
+    addCamera(SNAPSHOT_BYTES);
+
+    for (const Json &request: { pictureRequest(CAMERA_ID), pictureRequest(CAMERA_ID, "") })
+    {
+        HttpTestRequest req;
+        req.send(request);
+
+        ASSERT_EQ(1u, req.count());
+        EXPECT_EQ(SNAPSHOT_BYTES, req.body());
+    }
+
+    EXPECT_EQ(0u, resizer().decodesStarted());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, InvalidWidthIsRefusedBeforeAnyDownload)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+
+    for (const char *width: { "0", "-1", "10001", "abc", "12a", " 12", "1.5", "99999999999999999999" })
+    {
+        SCOPED_TRACE(width);
+
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID, width));
+
+        ASSERT_EQ(1u, req.count());
+        const Json expected = Json{ { "error", "invalid width parameter" } };
+        EXPECT_JSON_EQ(expected, req.body());
+    }
+
+    EXPECT_EQ(0, camera->downloadCount);
+    EXPECT_EQ(0u, resizer().decodesStarted());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, LargestWidthIsAccepted)
+{
+    addCamera(SNAPSHOT_BYTES);
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID, "10000"));
+
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+    EXPECT_EQ("thumb:10000", req.body());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, WidthChangesNothingToAuthentication)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+
+    Json request = Json{
+        { "action", "camera" },
+        { "type", "get_picture" },
+        { "id", CAMERA_ID },
+    };
+
+    HttpTestRequest refused;
+    refused.send(request);
+
+    request["width"] = "236";
+    HttpTestRequest refusedWithWidth;
+    refusedWithWidth.send(request);
+
+    ASSERT_EQ(1u, refused.count());
+    EXPECT_EQ(refused.rawResponses(), refusedWithWidth.rawResponses());
+    EXPECT_EQ(0, camera->downloadCount);
+}
+
+/*******************************************************************************
+ * One download and one decode, however many clients poll the same width.
+ ******************************************************************************/
+
+TEST_F(JsonApiCameraSnapshotTest, ClientsOfOneWidthShareTheDownloadAndTheDecode)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    Requests clients = sendPictures(5, "236");
+    EXPECT_EQ(1, camera->downloadCount);
+
+    ASSERT_TRUE(camera->fireNext());
+    ASSERT_TRUE(pumpUntil([&clients]()
+                          {
+        return allAnswered(clients);
+    }));
+
+    for (const std::unique_ptr<HttpTestRequest> &client: clients)
+        EXPECT_EQ("thumb:236", client->body());
+
+    EXPECT_EQ(1, camera->downloadCount);
+    EXPECT_EQ(1u, resizer().decodesStarted());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, ClientArrivingDuringTheDecodeJoinsIt)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    useGate();
+
+    Requests clients = sendPictures(1, "236");
+    ASSERT_TRUE(pumpUntil([this]()
+                          {
+        return gate.entered() == 1;
+    }));
+
+    clients.push_back(std::make_unique<HttpTestRequest>());
+    clients.back()->send(pictureRequest(CAMERA_ID, "236"));
+
+    gate.open();
+    ASSERT_TRUE(pumpUntil([&clients]()
+                          {
+        return allAnswered(clients);
+    }));
+
+    EXPECT_EQ("thumb:236", clients.back()->body());
+    EXPECT_EQ(1, camera->downloadCount);
+    EXPECT_EQ(1u, resizer().decodesStarted());
+}
+
+//A frame is never kept: the next poll has to get a fresh picture.
+TEST_F(JsonApiCameraSnapshotTest, AFinishedDecodeIsNotReused)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+
+    for (int i = 0; i < 2; i++)
+    {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID, "236"));
+        ASSERT_TRUE(pumpUntil([&req]()
+                              {
+            return req.count() == 1;
+        }));
+    }
+
+    EXPECT_EQ(2, camera->downloadCount);
+    EXPECT_EQ(2u, resizer().decodesStarted());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, EachWidthHasItsOwnDecode)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+
+    Requests narrow = sendPictures(1, "236");
+    Requests wide = sendPictures(1, "640");
+
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return allAnswered(narrow) && allAnswered(wide);
+    }));
+
+    EXPECT_EQ("thumb:236", narrow[0]->body());
+    EXPECT_EQ("thumb:640", wide[0]->body());
+    EXPECT_EQ(2u, resizer().decodesStarted());
+    EXPECT_EQ(2, camera->downloadCount);
+}
+
+//Without this bound a client looping on width would queue a decode per value.
+TEST_F(JsonApiCameraSnapshotTest, TooManyWidthsOfOneCameraAnswerTheFullFrame)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    Requests clients;
+    for (const char *width: { "100", "200", "300", "400", "500", "600" })
+    {
+        clients.push_back(std::make_unique<HttpTestRequest>());
+        clients.back()->send(pictureRequest(CAMERA_ID, width));
+    }
+
+    while (camera->fireNext())
+        ;
+    ASSERT_TRUE(pumpUntil([&clients]()
+                          {
+        return allAnswered(clients);
+    }));
+
+    EXPECT_EQ("thumb:400", clients[3]->body());
+    EXPECT_EQ(SNAPSHOT_BYTES, clients[4]->body());
+    EXPECT_EQ(SNAPSHOT_BYTES, clients[5]->body());
+    EXPECT_EQ(4u, resizer().decodesStarted());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, TheFifthWidthLogsTheBusyFallbackOnce)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    Requests clients;
+    const std::string log = captureStdout([&]()
+                                          {
+        for (const char *width: { "100", "200", "300", "400", "500", "600" })
+        {
+            clients.push_back(std::make_unique<HttpTestRequest>());
+            clients.back()->send(pictureRequest(CAMERA_ID, width));
+        }
+    });
+
+    EXPECT_EQ(1u, countOf(log, BUSY_LINE)) << log;
+    expectNoCameraIdentity(log);
+
+    while (camera->fireNext())
+        ;
+    EXPECT_TRUE(pumpUntil([&clients]()
+                          {
+        return allAnswered(clients);
+    }));
+}
+
+TEST_F(JsonApiCameraSnapshotTest, ResizerRunsTwoQueuesSixThenRefuses)
+{
+    useGate();
+
+    const size_t accepted = PictureResizer::maxRunning + PictureResizer::maxPending;
+    auto source = std::make_shared<const std::string>("frame");
+
+    size_t finished = 0;
+    for (size_t i = 0; i < accepted; i++)
+    {
+        EXPECT_TRUE(resizer().submit(source, 100, [&finished](JpegThumbnail::Result result)
+                                     {
+            EXPECT_EQ("thumb:100", result.data);
+            finished++;
+        }));
+    }
+
+    EXPECT_FALSE(resizer().submit(source, 100, [](JpegThumbnail::Result)
+                                  {
+        ADD_FAILURE() << "A refused job must not be called";
+    }));
+
+    ASSERT_TRUE(pumpUntil([this]()
+                          {
+        return gate.entered() == 2;
+    }));
+    pumpFor(30);
+    EXPECT_EQ(2, gate.entered());
+    EXPECT_EQ(0u, finished);
+
+    gate.open();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return finished == accepted;
+    }));
+    EXPECT_EQ(accepted, resizer().decodesStarted());
+    EXPECT_TRUE(resizer().idle());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, SaturatedResizerAnswersTheFullFrame)
+{
+    addCamera(SNAPSHOT_BYTES);
+    useGate();
+    saturateResizer();
+
+    const std::string log = captureStdout([]()
+                                          {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID, "236"));
+
+        ASSERT_EQ(1u, req.count());
+        EXPECT_EQ(SNAPSHOT_BYTES, req.body());
+    });
+
+    EXPECT_EQ(1u, countOf(log, BUSY_LINE)) << log;
+    expectNoCameraIdentity(log);
+}
+
+/*******************************************************************************
+ * Every fallback is the full frame and one log line, without any identity.
+ ******************************************************************************/
+
+TEST_F(JsonApiCameraSnapshotTest, FallbacksSendTheFrameAndLogOnce)
+{
+    addCamera(SNAPSHOT_BYTES);
+
+    const struct
+    {
+        const char *name;
+        PictureResizer::Decoder decoder;
+        const char *line;
+    } cases[] = {
+        { "undecodable",
+          [](const std::string &, int)
+          {
+        return JpegThumbnail::Result{ JpegThumbnail::Status::Failed, {} };
+         },
+          UNDECODABLE_LINE },
+        { "no decoder",
+          [](const std::string &, int)
+          {
+        return JpegThumbnail::Result{ JpegThumbnail::Status::Unavailable, {} };
+         },
+          NO_DECODER_LINE },
+      { "exception on the worker", [](const std::string &, int) -> JpegThumbnail::Result
+        {
+        throw std::runtime_error("decoder");
+       },
+        UNDECODABLE_LINE },
+        };
+
+    for (const auto &fallback: cases)
+    {
+        SCOPED_TRACE(fallback.name);
+        resizer().resetForTest(fallback.decoder);
+
+        const std::string log = captureStdout([]()
+                                              {
+            for (int i = 0; i < 2; i++)
+            {
+                HttpTestRequest req;
+                req.send(pictureRequest(CAMERA_ID, "236"));
+
+                ASSERT_TRUE(pumpUntil([&req]()
+                                      {
+                    return req.count() == 1;
+                }));
+                EXPECT_EQ(SNAPSHOT_BYTES, req.body());
+            }
+        });
+
+        EXPECT_EQ(1u, countOf(log, fallback.line)) << log;
+        expectNoCameraIdentity(log);
+    }
+}
+
+//A frame narrower than asked is the normal answer, not a degradation.
+TEST_F(JsonApiCameraSnapshotTest, UnchangedFrameLogsNothing)
+{
+    addCamera(SNAPSHOT_BYTES);
+    resizer().resetForTest([](const std::string &, int)
+                           {
+        return JpegThumbnail::Result{ JpegThumbnail::Status::Unchanged, {} };
+    });
+
+    const std::string log = captureStdout([]()
+                                          {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID, "236"));
+
+        ASSERT_TRUE(pumpUntil([&req]()
+                              {
+            return req.count() == 1;
+        }));
+        EXPECT_EQ(SNAPSHOT_BYTES, req.body());
+    });
+
+    EXPECT_EQ(0u, countOf(log, "full resolution")) << log;
+}
+
+TEST_F(JsonApiCameraSnapshotTest, EmptyDownloadWithAWidthDecodesNothing)
+{
+    addCamera(std::string());
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID, "236"));
+
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("image/jpeg", req.header("Content-Type"));
+    EXPECT_EQ(0u, resizer().decodesStarted());
+}
+
+/*******************************************************************************
+ * Whoever leaves during a decode: the result lands on a worker's way back.
+ ******************************************************************************/
+
+TEST_F(JsonApiCameraSnapshotTest, ClientGoneDuringTheDecodeLeavesTheOtherServed)
+{
+    addCamera(SNAPSHOT_BYTES);
+    useGate();
+
+    Requests clients = sendPictures(2, "236");
+    ASSERT_TRUE(pumpUntil([this]()
+                          {
+        return gate.entered() == 1;
+    }));
+
+    clients.erase(clients.begin());
+
+    gate.open();
+    ASSERT_TRUE(pumpUntil([&clients]()
+                          {
+        return allAnswered(clients);
+    }));
+    EXPECT_EQ("thumb:236", clients[0]->body());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraDeletedDuringTheDecodeIsIgnored)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    useGate();
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID, "236"));
+    ASSERT_TRUE(pumpUntil([this]()
+                          {
+        return gate.entered() == 1;
+    }));
+
+    ASSERT_TRUE(deleteIO(camera));
+
+    gate.open();
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return resizer().idle();
+    }));
+    EXPECT_EQ(0u, req.count());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, FrameArrivingAfterTheCameraIsDeletedDecodesNothing)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    camera->deferred = true;
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID, "236"));
+
+    std::function<void()> lateAnswer = camera->takeNext();
+    ASSERT_TRUE(bool(lateAnswer));
+    ASSERT_TRUE(deleteIO(camera));
+
+    lateAnswer();
+
+    EXPECT_EQ(0u, resizer().decodesStarted());
+    EXPECT_EQ(0u, req.count());
+}
+
+/*******************************************************************************
+ * The real decoder, end to end.
+ ******************************************************************************/
+
+#ifdef HAVE_LIBJPEG
+
+TEST_F(JsonApiCameraSnapshotTest, RealFrameIsResized)
+{
+    resizer().resetForTest();
+    addCamera(JpegTestFrames::solid(1600, 900));
+
+    HttpTestRequest req;
+    req.send(pictureRequest(CAMERA_ID, "320"));
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    const JpegTestFrames::Decoded picture = JpegTestFrames::decode(req.body());
+    EXPECT_EQ(320, picture.width);
+    EXPECT_EQ(180, picture.height);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, RealTruncatedFrameIsSentAsItCame)
+{
+    resizer().resetForTest();
+    std::string frame = JpegTestFrames::solid(1600, 900);
+    frame.resize(frame.size() / 2);
+    addCamera(frame);
+
+    const std::string log = captureStdout([&frame]()
+                                          {
+        HttpTestRequest req;
+        req.send(pictureRequest(CAMERA_ID, "320"));
+
+        ASSERT_TRUE(pumpUntil([&req]()
+                              {
+            return req.count() == 1;
+        }));
+        EXPECT_EQ(frame, req.body());
+    });
+
+    EXPECT_EQ(1u, countOf(log, UNDECODABLE_LINE)) << log;
+    expectNoCameraIdentity(log);
+}
+
+#endif
+
+/*******************************************************************************
+ * get_camera_pic still spawns calaos_picture: its one process per request is
+ * bounded, and it tells a frame it could not resize from a failure.
+ ******************************************************************************/
+
+void JsonApiCameraSnapshotTest::expectPictureLimit(size_t limit)
+{
+    FakePictureTool tool("exec sleep 30\n");
+    ASSERT_TRUE(tool.isReady());
+
+    Requests running;
+    for (size_t i = 0; i < limit; i++)
+    {
+        running.push_back(std::make_unique<HttpTestRequest>());
+        running.back()->send(cameraPicRequest("320"));
+    }
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return tool.runs().size() == limit;
+    }));
+
+    HttpTestRequest refused;
+    refused.send(cameraPicRequest("320"));
+
+    ASSERT_EQ(1u, refused.count());
+    const Json expected = Json{ { "error_str", "too many pictures in progress" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, refused.body());
+    EXPECT_EQ(limit, tool.runs().size());
+
+    //A client that leaves gives its place back, once its process has exited
+    running.pop_back();
+
+    std::unique_ptr<HttpTestRequest> next;
+    EXPECT_TRUE(pumpUntil([&]()
+                          {
+        next = std::make_unique<HttpTestRequest>();
+        next->send(cameraPicRequest("320"));
+        return next->count() == 0;
+    }));
+    EXPECT_TRUE(pumpUntil([&]()
+                          {
+        return tool.runs().size() == limit + 1;
+    }));
+}
+
+//A run that is still going when its client leaves keeps its place: the limit
+//is about the processes that are alive, not about the clients waiting for them.
+TEST_F(JsonApiCameraSnapshotTest, CameraPicKeepsItsPlaceUntilTheProcessHasExited)
+{
+    addCamera(SNAPSHOT_BYTES);
+    const size_t limit = 6;
+    FakePictureTool holder(FakePictureTool::HoldsAChild);
+    ASSERT_TRUE(holder.isReady());
+
+    {
+        Requests running;
+        for (size_t i = 0; i < limit; i++)
+        {
+            running.push_back(std::make_unique<HttpTestRequest>());
+            running.back()->send(cameraPicRequest("320"));
+        }
+        ASSERT_TRUE(pumpUntil([&]()
+                              {
+            return holder.runs().size() == limit;
+        }));
+    }
+
+    //Every client has left and SIGTERM is delivered, but the runs wait for
+    //their foreground child: the places are still taken
+    EXPECT_FALSE(holder.allExited());
+
+    HttpTestRequest refused;
+    refused.send(cameraPicRequest("320"));
+    ASSERT_EQ(1u, refused.count());
+    const Json expected = Json{ { "error_str", "too many pictures in progress" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, refused.body());
+    EXPECT_EQ(limit, holder.runs().size());
+
+    //The child ends, the runs exit on the pending SIGTERM: the places come back
+    holder.release();
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return holder.allExited();
+    }));
+
+    HttpTestRequest next;
+    next.send(cameraPicRequest("320"));
+    EXPECT_TRUE(pumpUntil([&]()
+                          {
+        return holder.runs().size() == limit + 1;
+    }));
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsSixProcessesAtMostByDefault)
+{
+    addCamera(SNAPSHOT_BYTES);
+    expectPictureLimit(6);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicRunsAsManyProcessesAsConfigured)
+{
+    addCamera(SNAPSHOT_BYTES);
+    ASSERT_TRUE(Utils::set_config_option("max_picture_processes", "2"));
+    expectPictureLimit(2);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicLimitAboveTheDefaultIsHonoured)
+{
+    addCamera(SNAPSHOT_BYTES);
+    ASSERT_TRUE(Utils::set_config_option("max_picture_processes", "8"));
+    expectPictureLimit(8);
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicInvalidLimitFallsBackToSixAndWarnsOnce)
+{
+    addCamera(SNAPSHOT_BYTES);
+
+    for (const char *bad: { "0", "-3", "lots", "4x", "1001", " " })
+    {
+        ASSERT_TRUE(Utils::set_config_option("max_picture_processes", bad));
+
+        const std::string log = captureStdout([this]()
+                                              {
+            expectPictureLimit(6);
+        });
+
+        //Two refusals-worth of requests ran: the warning is not repeated
+        EXPECT_EQ(1u, countOf(log, "max_picture_processes is not a whole number")) << bad << "\n"
+                                                                                   << log;
+        expectNoCameraIdentity(log);
+    }
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicGetsTheUrlOfTheCamera)
+{
+    addCamera(SNAPSHOT_BYTES);
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(cameraPicRequest("320"));
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    const Json expected = Json{ { "contenttype", "image/jpeg" },
+                                { "data", "ZnJhbWU=" },
+                                { "encoding", "base64" },
+                                { "success", "true" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_EQ(std::vector<std::string>{ CAMERA_URL }, tool.runs());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicUnresizedFrameIsASuccessLoggedOnce)
+{
+    addCamera(SNAPSHOT_BYTES);
+    FakePictureTool tool("printf frame > \"$2\"\nexit 3\n");
+    ASSERT_TRUE(tool.isReady());
+
+    const std::string log = captureStdout([]()
+                                          {
+        for (int i = 0; i < 2; i++)
+        {
+            HttpTestRequest req;
+            req.send(cameraPicRequest("320"));
+            ASSERT_TRUE(pumpUntil([&req]()
+                                  {
+                return req.count() == 1;
+            }));
+
+            const Json expected = Json{ { "contenttype", "image/jpeg" },
+                                        { "data", "ZnJhbWU=" },
+                                        { "encoding", "base64" },
+                                        { "success", "true" } };
+            EXPECT_JSON_EQ(expected, req.body());
+        }
+    });
+
+    EXPECT_EQ(1u, countOf(log, NO_CONVERT_LINE)) << log;
+    expectNoCameraIdentity(log);
+}
+
+//More failures in a row than places: a failed run has to give its place back.
+TEST_F(JsonApiCameraSnapshotTest, CameraPicFailureAnswersAndFreesItsPlace)
+{
+    addCamera(SNAPSHOT_BYTES);
+    FakePictureTool tool("exit 1\n");
+    ASSERT_TRUE(tool.isReady());
+
+    for (int i = 0; i < 5; i++)
+    {
+        HttpTestRequest req;
+        req.send(cameraPicRequest("320"));
+        ASSERT_TRUE(pumpUntil([&req]()
+                              {
+            return req.count() == 1;
+        }));
+
+        const Json expected = Json{ { "error_str", "unable to load data from url" },
+                                    { "success", "false" } };
+        EXPECT_JSON_EQ(expected, req.body());
+    }
+}
+
+/*******************************************************************************
+ * Album covers go through the same helper as the camera pictures.
+ ******************************************************************************/
+
+TEST_F(JsonApiCameraSnapshotTest, GetCoverRunsTheToolOnTheCoverUrl)
+{
+    addPlayer(COVER_URL);
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(coverRequest());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    const Json expected = Json{ { "contenttype", "image/jpeg" },
+                                { "data", "ZnJhbWU=" },
+                                { "encoding", "base64" },
+                                { "success", "true" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_EQ(std::vector<std::string>{ COVER_URL }, tool.runs());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, GetCoverWithoutUrlRunsNothing)
+{
+    addPlayer("");
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(coverRequest());
+
+    ASSERT_EQ(1u, req.count());
+    const Json expected = Json{ { "error_str", "unable to get url" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_TRUE(tool.runs().empty());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, AudioGetCoverAnswersTheFileAsAJpeg)
+{
+    addPlayer(COVER_URL);
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(audioCoverRequest());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("image/jpeg", req.header("Content-Type"));
+    EXPECT_EQ("frame", req.body());
+    EXPECT_EQ(std::vector<std::string>{ COVER_URL }, tool.runs());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, AudioGetCoverWithoutUrlRunsNothing)
+{
+    addPlayer("");
+    FakePictureTool tool("printf frame > \"$2\"\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(audioCoverRequest());
+
+    ASSERT_EQ(1u, req.count());
+    const Json expected = Json{ { "error_str", "unable to get url" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, req.body());
+    EXPECT_TRUE(tool.runs().empty());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, AudioGetCoverFailureAnswersTheError)
+{
+    addPlayer(COVER_URL);
+    FakePictureTool tool("exit 1\n");
+    ASSERT_TRUE(tool.isReady());
+
+    HttpTestRequest req;
+    req.send(audioCoverRequest());
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    const Json expected = Json{ { "error_str", "unable to load data from url" },
+                                { "success", "false" } };
+    EXPECT_JSON_EQ(expected, req.body());
+}
+
+TEST_F(JsonApiCameraSnapshotTest, CameraPicMissingToolAnswersAndFreesItsPlace)
+{
+    addCamera(SNAPSHOT_BYTES);
+    FakePictureTool tool("exit 0\n");
+    ASSERT_TRUE(tool.isReady());
+    tool.uninstall();
+
+    Requests clients;
+    for (int i = 0; i < 5; i++)
+    {
+        clients.push_back(std::make_unique<HttpTestRequest>());
+        clients.back()->send(cameraPicRequest("320"));
+
+        ASSERT_EQ(1u, clients.back()->count());
+        const Json expected = Json{ { "error_str", "unable to load data from url" },
+                                    { "success", "false" } };
+        EXPECT_JSON_EQ(expected, clients.back()->body());
+    }
 }

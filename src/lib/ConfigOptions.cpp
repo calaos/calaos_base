@@ -616,6 +616,18 @@ std::vector<ConfigOption> buildTable()
             .advanced()
             .seeAlso("url_connect_timeout"));
 
+    add(ConfigOption("max_picture_processes", C::Network, T::Int)
+            .label(N_("Maximum calaos_picture processes"))
+            .doc(N_("Number of calaos_picture processes that may run at the same time for the "
+                    "get_cover and get_camera_pic requests. Each one downloads and decodes a whole "
+                    "camera frame: about 100 to 150 MB of memory per process for an 11 Mpx frame "
+                    "(estimated). Above the limit a request is refused at once with \"too many "
+                    "pictures in progress\". A value that is not a plain number between 1 and "
+                    "1000 falls back to the default, with a warning in the log."))
+            .def("6")
+            .range(1, 1000)
+            .advanced());
+
     add(ConfigOption("wwwroot", C::Network, T::Path)
         .label(N_("Web interface directory"))
         .doc(N_("Directory served under /app/ for the main web interface. Leave it empty to "
