@@ -346,6 +346,42 @@ Réponse `{"msg":"login","msg_id":"1","data":{"success":"true"}}`. La session
 reste authentifiée pour toute la durée de la connexion ; en cas d'échec la
 réponse porte `"success":"false"` et la connexion est fermée.
 
+### WebSocket — `get_server_info` (version et capacités)
+
+Aucun message existant (`login`, `get_home`…) ne porte la version : ce message est
+nouveau. Il exige une session authentifiée (`login` ou `login_service`) ; avant,
+il est ignoré sans réponse comme tout message protégé, la version n'est pas
+révélée à un inconnu. Il n'est pas dans la liste refusée en session service.
+
+```json
+{"msg": "get_server_info", "msg_id": "3"}
+```
+
+Réponse :
+
+```json
+{"msg":"get_server_info","msg_id":"3","data":{"version":"<version du build>","protocol":"1",
+ "capabilities":["camera_token","admin_relay","admin_events","console","camera_width"]}}
+```
+
+`version` est la version de `calaos_server` (`PACKAGE_VERSION`), `protocol` un
+entier en chaîne (incrémenté seulement pour une rupture du protocole),
+`capabilities` un tableau de chaînes stables, déclaré à un seul endroit
+(`src/bin/calaos_server/ServerInfo.h`).
+
+| Capacité | Sens |
+|---|---|
+| `camera_token` | message `camera_token` et paramètre `camera_token` sur `camera`/`get_picture` |
+| `admin_relay` | messages `admin_unlock`, `admin_set`, `admin` |
+| `admin_events` | événements `admin_event` |
+| `console` | WebSocket `/api/console` |
+| `camera_width` | paramètre optionnel `width` sur `camera`/`get_picture` |
+
+**Règle pour les clients** : une capacité absente de la liste, ou un serveur qui ne
+répond pas à `get_server_info` (un ancien serveur ignore ce message, sans erreur),
+est un ancien serveur : le client se replie sur l'ancien comportement (par exemple
+`cn_user`/`cn_pass` pour la caméra) après un délai d'attente.
+
 ### WebSocket — `login_service` (session restreinte, sidecar MCP)
 Le sidecar `calaos_mcp` ne se connecte pas en admin : il utilise un compte de
 service à portée restreinte (`serviceScope`). Voir
@@ -413,6 +449,7 @@ et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 | `login_service` | ❌ | ✅ | |
 | `settings` | ❌ | ✅ | |
 | `camera_token` | ❌ | ✅ | jeton de capture pour `camera` / `get_picture` ; `scope denied` en session service |
+| `get_server_info` | ❌ | ✅ | version, protocole et capacités du serveur ; session authentifiée requise ([détail](#websocket--get_server_info-version-et-capacités)) |
 
 Les messages `admin_unlock`, `admin_set` et `admin` ne sont pas comptés ici : voir
 [Administration](#administration-admin_unlock-admin_set-admin).

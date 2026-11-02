@@ -54,6 +54,7 @@
 #include "JsonApi.h"
 #include "JsonApiHandlerHttp.h"
 #include "McpServerManager.h"
+#include "ServerInfo.h"
 #include "json.hpp"
 
 #include "libuvw.h"
@@ -627,6 +628,51 @@ TEST_F(JsonApiServiceScopeTest, TheReadCommandsAreNotRefusedOnTheSameRealSession
         EXPECT_NE("scope denied", str(data, "error"))
                 << command << " is refused although it is not in the guarded set";
     }
+}
+
+/*******************************************************************************
+ * get_server_info: version and capabilities, behind the login
+ ******************************************************************************/
+
+TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToALoggedInClient)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.open());
+
+    const Json login = parse(ws.ask(Json{
+        { "msg", "login" }, { "msg_id", "l" },
+        { "data", {{ "cn_user", kAdminUser }, { "cn_pass", kAdminPass }} }}));
+    ASSERT_EQ("true", str(login["data"], "success"));
+
+    const std::string answer = ws.ask(Json{
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() }});
+    ASSERT_FALSE(answer.empty()) << "get_server_info answered nothing";
+
+    const Json env = parse(answer);
+    EXPECT_EQ("get_server_info", str(env, "msg"));
+    EXPECT_EQ("si", str(env, "msg_id"));
+
+    const Json data = env.value("data", Json::object());
+    EXPECT_EQ(PACKAGE_VERSION, str(data, "version"));
+    EXPECT_EQ("1", str(data, "protocol"));
+
+    ASSERT_TRUE(data["capabilities"].is_array()) << answer;
+    std::vector<std::string> caps;
+    for (const Json &c: data["capabilities"])
+        caps.push_back(c.get<std::string>());
+    EXPECT_EQ(ServerInfo::capabilities(), caps);
+    for (const char *must: { "camera_token", "admin_relay" })
+        EXPECT_NE(caps.end(), std::find(caps.begin(), caps.end(), string(must))) << must;
+}
+
+TEST_F(JsonApiServiceScopeTest, ServerInfoIsNotAnsweredBeforeTheLogin)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.open());
+
+    const std::string answer = ws.ask(Json{
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() }});
+    EXPECT_TRUE(answer.empty()) << "version leaked to an unauthenticated client: " << answer;
 }
 
 /*******************************************************************************
