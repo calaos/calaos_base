@@ -393,12 +393,12 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
         else if (jsonRoot["msg"] == "camera_token")
             processCameraToken(jsonRoot["msg_id"]);
 
-//        else if (jsonParam["action"] == "get_cover")
-//            processGetCover();
-//        else if (jsonParam["action"] == "get_camera_pic")
-//            processGetCameraPic();
-//        else if (jsonParam["action"] == "config")
-//            processConfig(jroot);
+        //        else if (jsonParam["action"] == "get_cover")
+        //            processGetCover();
+        //        else if (jsonParam["action"] == "get_camera_pic")
+        //            processGetCameraPic();
+        //        else if (jsonParam["action"] == "config")
+        //            processConfig(jroot);
     }
 }
 

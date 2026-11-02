@@ -1867,6 +1867,24 @@ TEST_F(JsonApiCameraTokenTest, ATokenExpires)
     EXPECT_EQ(0u, CameraTokens::count());
 }
 
+TEST_F(JsonApiCameraTokenTest, IssuingPurgesTheExpiredTokensOfEveryOwner)
+{
+    const int ownerA = 0;
+    const int ownerB = 0;
+    const double t0 = 1000.0;
+    const std::string stale = CameraTokens::issue(&ownerA, t0);
+    ASSERT_FALSE(stale.empty());
+    EXPECT_EQ(1u, CameraTokens::count());
+
+    const double later = t0 + CameraTokens::Lifetime + 1;
+    const std::string fresh = CameraTokens::issue(&ownerB, later);
+    ASSERT_FALSE(fresh.empty());
+
+    EXPECT_EQ(1u, CameraTokens::count());
+    EXPECT_TRUE(CameraTokens::accept(fresh, later));
+    EXPECT_FALSE(CameraTokens::accept(stale, t0));
+}
+
 TEST_F(JsonApiCameraTokenTest, AnExpiredTokenServesNothingOverHttp)
 {
     FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
@@ -1919,11 +1937,15 @@ TEST_F(JsonApiCameraTokenTest, OnlyAnIssuedTokenIsAccepted)
     for (char &ch: upper)
         ch = static_cast<char>(toupper(static_cast<unsigned char>(ch)));
     std::string flipped = token;
-    flipped[63] = flipped[63] == '0'? '1': '0';
+    flipped[63] = flipped[63] == '0' ? '1' : '0';
 
     const std::vector<std::string> forged = {
-        std::string(), std::string(64, '0'), token.substr(0, 63), token + "0",
-        upper == token? std::string(64, 'f'): upper, flipped,
+        std::string(),
+        std::string(64, '0'),
+        token.substr(0, 63),
+        token + "0",
+        upper == token ? std::string(64, 'f') : upper,
+        flipped,
         std::string(apiPassword()),
     };
 
@@ -2023,10 +2045,7 @@ TEST_F(JsonApiCameraTokenTest, ChangingThePasswordRevokesEveryToken)
     ASSERT_FALSE(token.empty());
 
     WsTestSession admin;
-    admin.send(Json{ { "msg", "settings" }, { "msg_id", "1" },
-                     { "data", { { "action", "change_cred" },
-                                 { "old_user", apiUser() }, { "old_pw", apiPassword() },
-                                 { "new_user", "ct_newuser" }, { "new_pw", "ct_newpass" } } } });
+    admin.send(Json{ { "msg", "settings" }, { "msg_id", "1" }, { "data", { { "action", "change_cred" }, { "old_user", apiUser() }, { "old_pw", apiPassword() }, { "new_user", "ct_newuser" }, { "new_pw", "ct_newpass" } } } });
     ASSERT_EQ("true", str(admin.lastData(), "success"));
     EXPECT_EQ(0u, CameraTokens::count());
 

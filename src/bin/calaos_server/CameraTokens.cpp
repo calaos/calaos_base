@@ -36,12 +36,12 @@ std::string digestOf(const std::string &token)
     unsigned int len = 0;
 
     if (EVP_Digest(token.data(), token.size(), md, &len, EVP_sha256(), nullptr) != 1)
-        return std::string();
+        return std::string(); //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-256
 
     return std::string(reinterpret_cast<const char *>(md), len);
 }
 
-}
+} //namespace
 
 std::string CameraTokens::issue(const void *owner, double now)
 {
@@ -69,8 +69,10 @@ std::string CameraTokens::issue(const void *owner, double now)
     unsigned char raw[TokenLength / 2];
     if (RAND_bytes(raw, sizeof(raw)) != 1)
     {
+        //LCOV_EXCL_START only reached when OpenSSL has no entropy
         cErrorDom("network") << "No random bytes for a camera token";
         return std::string();
+        //LCOV_EXCL_STOP
     }
 
     static const char hex[] = "0123456789abcdef";
@@ -84,7 +86,7 @@ std::string CameraTokens::issue(const void *owner, double now)
 
     const std::string key = digestOf(token);
     if (key.empty())
-        return std::string();
+        return std::string(); //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-256
 
     tokens[key] = Entry{ owner, now + Lifetime, ++lastSerial };
 
@@ -98,7 +100,7 @@ bool CameraTokens::accept(const std::string &token, double now)
 
     const std::string key = digestOf(token);
     if (key.empty())
-        return false;
+        return false; //LCOV_EXCL_LINE only reached when OpenSSL has no SHA-256
 
     auto it = tokens.find(key);
     if (it == tokens.end())
