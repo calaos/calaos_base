@@ -1468,6 +1468,36 @@ TEST_F(ConsoleTunnelTest, ACredentialChangeRefusesAConsoleStillOpening)
     EXPECT_EQ(0u, fakeConsole.connections());
 }
 
+TEST_F(ConsoleTunnelTest, ACredentialChangeRefusesAConsoleStillAttaching)
+{
+    adminDefined();
+    fakeDaemon.grant(kCode);
+    //The socket reads the upgrade and never answers: the tunnel stays Attaching
+    ASSERT_TRUE(fakeConsole.start(socketPath(), FakeConsole::Mode::Silent));
+
+    ConsoleClient c;
+    c.connect();
+    c.sendText(openMessage());
+    ASSERT_TRUE(pumpUntil([]()
+                          {
+        return !fakeConsole.request().empty();
+    }));
+
+    ConsoleClient api;
+    ASSERT_EQ("true", changeCredentials(api, kPass));
+
+    //Not the attach timeout's daemon_unreachable: that one is ten seconds away
+    const Json e = c.nextText();
+    EXPECT_EQ("login_failed", str(e, "error")) << e.dump();
+    EXPECT_EQ(1008, c.waitClose());
+    EXPECT_TRUE(pumpUntil([]()
+                          {
+        return fakeConsole.sawEof();
+    },
+                          2000));
+    EXPECT_FALSE(fakeConsole.isUpgraded());
+}
+
 TEST_F(ConsoleTunnelTest, ARefusedCredentialChangeLeavesTheConsoleOpen)
 {
     Json ready;
