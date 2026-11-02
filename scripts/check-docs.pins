@@ -844,6 +844,7 @@ docs/08_http_api.md	1	HttpClient.cpp:186-193	3d6b08be0c2d	//A client that opens 
 docs/08_http_api.md	1	HttpClient.cpp:195-215	557202c3fcd3	this->CloseConnection(); }); } HttpClient::~HttpClient() { i
 docs/08_http_api.md	1	HttpClient.cpp:266-281	dc21083e1cee	cWarningDom("network") << "Request headers are bigger than "
 docs/08_http_api.md	1	HttpClient.cpp:273-281	f8a139ceafe1	return HTTP_PROCESS_DONE; } if (bodyTooLarge) { bodyTooLarge
+docs/08_http_api.md	1	HttpClient.cpp:349	6dfe9dfd2f4f	<< Utils::requestTargetForLog(parse_url);
 docs/08_http_api.md	1	HttpClient.cpp:458-470	2d59ac63ce32	sendToClient(res); return HTTP_PROCESS_DONE; } if (Utils::st
 docs/08_http_api.md	1	HttpClient.cpp:611-673	cb3410e26fc0	conn_close = false; //headers for (int i = 0;i < resHeaders.
 docs/08_http_api.md	1	HttpClient.cpp:650-659	589eddfd7517	this->DataWritten(dataSize); }); } void HttpClient::handleJs

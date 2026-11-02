@@ -71,6 +71,7 @@
 #include "JsonApiCharacterization.h"
 
 #include "AudioPlayer.h"
+#include "CameraTokens.h"
 #include "IPCam.h"
 #include "ListeRoom.h"
 #include "PictureResizer.h"
@@ -79,6 +80,7 @@
 #include "core/JpegTestFrames.h"
 #include "libuvw.h"
 
+#include <cctype>
 #include <chrono>
 #include <cerrno>
 #include <condition_variable>
@@ -1688,4 +1690,416 @@ TEST_F(JsonApiCameraSnapshotTest, CameraPicMissingToolAnswersAndFreesItsPlace)
                                     { "success", "false" } };
         EXPECT_JSON_EQ(expected, clients.back()->body());
     }
+}
+
+/*******************************************************************************
+ * The capture token: what an <img> URL carries in place of cn_user/cn_pass.
+ *
+ * The table is process wide, so every case starts and ends with it empty.
+ ******************************************************************************/
+
+class JsonApiCameraTokenTest: public JsonApiCameraSnapshotTest
+{
+protected:
+    void SetUp() override
+    {
+        JsonApiCameraSnapshotTest::SetUp();
+        CameraTokens::revokeAll();
+    }
+
+    void TearDown() override
+    {
+        CameraTokens::revokeAll();
+        JsonApiCameraSnapshotTest::TearDown();
+    }
+
+    static std::string askToken(WsTestSession &ws)
+    {
+        ws.clear();
+        ws.send(Json{ { "msg", "camera_token" }, { "msg_id", "ct" } });
+        return str(ws.lastData(), "token");
+    }
+
+    static Json tokenPicture(const std::string &token)
+    {
+        return Json{
+            { "action", "camera" },
+            { "type", "get_picture" },
+            { "id", CAMERA_ID },
+            { "camera_token", token },
+        };
+    }
+
+    static void expectRefused(const HttpTestRequest &req, const std::string &what)
+    {
+        ASSERT_EQ(1u, req.count()) << what;
+        EXPECT_EQ("HTTP/1.0 400 Bad Request", req.statusLine()) << what;
+        EXPECT_NE(SNAPSHOT_BYTES, req.body()) << what;
+        EXPECT_FALSE(req.closes().empty()) << what << ": a refusal closes the connection";
+    }
+};
+
+TEST_F(JsonApiCameraTokenTest, ALoggedInSessionGetsAToken)
+{
+    WsTestSession ws;
+    ws.send(Json{ { "msg", "camera_token" }, { "msg_id", "7" } });
+
+    ASSERT_EQ(1u, ws.count());
+    const Json env = ws.lastEnvelope();
+    EXPECT_EQ("camera_token", str(env, "msg"));
+    EXPECT_EQ("7", str(env, "msg_id"));
+
+    const Json data = ws.lastData();
+    EXPECT_EQ(2u, data.size()) << ws.lastMessage();
+    EXPECT_EQ("120", str(data, "expires_in"));
+
+    const std::string token = str(data, "token");
+    ASSERT_EQ(64u, token.size());
+    EXPECT_EQ(std::string::npos, token.find_first_not_of("0123456789abcdef")) << token;
+    EXPECT_EQ(1u, CameraTokens::count());
+}
+
+TEST_F(JsonApiCameraTokenTest, ATokenServesTheSnapshotWithoutThePassword)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession ws;
+    const std::string token = askToken(ws);
+    ASSERT_FALSE(token.empty());
+
+    HttpTestRequest req;
+    req.send(tokenPicture(token));
+
+    ASSERT_EQ(1u, req.count());
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("image/jpeg", req.header("Content-Type"));
+    EXPECT_EQ("no-store", req.header("Cache-Control"));
+    EXPECT_EQ(SNAPSHOT_BYTES, req.body());
+    EXPECT_EQ(1, camera->downloadCount);
+
+    //Polling: the same token serves the next frame too, within its life
+    HttpTestRequest again;
+    again.send(tokenPicture(token));
+    EXPECT_EQ(SNAPSHOT_BYTES, again.body());
+    EXPECT_EQ(2, camera->downloadCount);
+}
+
+TEST_F(JsonApiCameraTokenTest, ATokenInTheUrlServesTheSnapshot)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession ws;
+    const std::string token = askToken(ws);
+    ASSERT_FALSE(token.empty());
+
+    Params url;
+    url.Add("action", "camera");
+    url.Add("type", "get_picture");
+    url.Add("id", CAMERA_ID);
+    url.Add("width", "236");
+    url.Add("camera_token", token);
+
+    HttpTestRequest req;
+    req.send(std::string(), url);
+    ASSERT_TRUE(pumpUntil([&req]()
+                          {
+        return req.count() == 1;
+    }));
+
+    EXPECT_EQ("HTTP/1.0 200 OK", req.statusLine());
+    EXPECT_EQ("no-store", req.header("Cache-Control"));
+    EXPECT_FALSE(req.body().empty());
+    EXPECT_EQ(1, camera->downloadCount);
+}
+
+TEST_F(JsonApiCameraTokenTest, ATokenOpensTheSnapshotAndNothingElse)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession ws;
+    const std::string token = askToken(ws);
+    ASSERT_FALSE(token.empty());
+
+    const std::vector<Json> others = {
+        Json{ { "action", "get_home" } },
+        Json{ { "action", "get_state" }, { "items", Json::array({ CAMERA_ID }) } },
+        Json{ { "action", "set_state" }, { "id", CAMERA_ID }, { "value", "true" } },
+        Json{ { "action", "camera" }, { "type", "get_video" }, { "id", CAMERA_ID } },
+        Json{ { "action", "camera" }, { "type", "no_such_type" }, { "id", CAMERA_ID } },
+        Json{ { "action", "get_camera_pic" }, { "camera_id", CAMERA_ID } },
+        Json{ { "action", "event_picture" }, { "pic_uid", "x" } },
+        Json{ { "action", "config" }, { "type", "get" } },
+        Json{ { "action", "get_param" }, { "id", CAMERA_ID }, { "param", "name" } },
+    };
+
+    for (Json request: others)
+    {
+        request["camera_token"] = token;
+
+        HttpTestRequest req;
+        req.send(request);
+        expectRefused(req, request.dump());
+    }
+
+    //The token replaces the credentials, it never adds to them: valid ones
+    //beside it do not open another action either
+    HttpTestRequest both;
+    both.send(authenticated(Json{ { "action", "get_home" }, { "camera_token", token } }));
+    expectRefused(both, "get_home with a token and the password");
+
+    EXPECT_EQ(0, camera->downloadCount);
+
+    //Still valid for what it is for
+    HttpTestRequest picture;
+    picture.send(tokenPicture(token));
+    EXPECT_EQ(SNAPSHOT_BYTES, picture.body());
+}
+
+TEST_F(JsonApiCameraTokenTest, ATokenExpires)
+{
+    const int owner = 0;
+    const double t0 = 1000.0;
+    const std::string token = CameraTokens::issue(&owner, t0);
+    ASSERT_EQ(CameraTokens::TokenLength, token.size());
+
+    EXPECT_TRUE(CameraTokens::accept(token, t0));
+    EXPECT_TRUE(CameraTokens::accept(token, t0 + CameraTokens::Lifetime - 0.5));
+    EXPECT_FALSE(CameraTokens::accept(token, t0 + CameraTokens::Lifetime));
+    //Gone for good once seen expired, even by a clock read earlier
+    EXPECT_FALSE(CameraTokens::accept(token, t0));
+    EXPECT_EQ(0u, CameraTokens::count());
+}
+
+TEST_F(JsonApiCameraTokenTest, IssuingPurgesTheExpiredTokensOfEveryOwner)
+{
+    const int ownerA = 0;
+    const int ownerB = 0;
+    const double t0 = 1000.0;
+    const std::string stale = CameraTokens::issue(&ownerA, t0);
+    ASSERT_FALSE(stale.empty());
+    EXPECT_EQ(1u, CameraTokens::count());
+
+    const double later = t0 + CameraTokens::Lifetime + 1;
+    const std::string fresh = CameraTokens::issue(&ownerB, later);
+    ASSERT_FALSE(fresh.empty());
+
+    EXPECT_EQ(1u, CameraTokens::count());
+    EXPECT_TRUE(CameraTokens::accept(fresh, later));
+    EXPECT_FALSE(CameraTokens::accept(stale, t0));
+}
+
+TEST_F(JsonApiCameraTokenTest, AnExpiredTokenServesNothingOverHttp)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    const int owner = 0;
+    const double now = Utils::getMainLoopTime();
+
+    //The HTTP path reads the loop clock: one token issued just over a
+    //lifetime ago, one just under
+    const std::string stale = CameraTokens::issue(&owner, now - CameraTokens::Lifetime - 1);
+    const std::string fresh = CameraTokens::issue(&owner, now - CameraTokens::Lifetime + 30);
+    ASSERT_FALSE(stale.empty());
+    ASSERT_FALSE(fresh.empty());
+
+    HttpTestRequest refused;
+    refused.send(tokenPicture(stale));
+    expectRefused(refused, "stale token");
+    EXPECT_EQ(0, camera->downloadCount);
+
+    HttpTestRequest served;
+    served.send(tokenPicture(fresh));
+    EXPECT_EQ(SNAPSHOT_BYTES, served.body());
+}
+
+TEST_F(JsonApiCameraTokenTest, ATokenTellsNothingOfThePassword)
+{
+    WsTestSession first;
+    WsTestSession second;
+    const std::string a = askToken(first);
+    const std::string raw = first.lastMessage();
+    const std::string b = askToken(first);
+    const std::string c = askToken(second);
+
+    ASSERT_EQ(64u, a.size());
+    EXPECT_NE(a, b) << "two tokens of one session are the same";
+    EXPECT_NE(a, c) << "two sessions of one password got the same token";
+    EXPECT_NE(b, c);
+
+    for (const std::string &needle: { std::string(apiPassword()), std::string(apiUser()) })
+        EXPECT_EQ(std::string::npos, raw.find(needle)) << raw;
+}
+
+TEST_F(JsonApiCameraTokenTest, OnlyAnIssuedTokenIsAccepted)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession ws;
+    const std::string token = askToken(ws);
+    ASSERT_EQ(64u, token.size());
+
+    std::string upper = token;
+    for (char &ch: upper)
+        ch = static_cast<char>(toupper(static_cast<unsigned char>(ch)));
+    std::string flipped = token;
+    flipped[63] = flipped[63] == '0' ? '1' : '0';
+
+    const std::vector<std::string> forged = {
+        std::string(),
+        std::string(64, '0'),
+        token.substr(0, 63),
+        token + "0",
+        upper == token ? std::string(64, 'f') : upper,
+        flipped,
+        std::string(apiPassword()),
+    };
+
+    for (const std::string &candidate: forged)
+    {
+        HttpTestRequest req;
+        req.send(tokenPicture(candidate));
+        expectRefused(req, "token '" + candidate + "'");
+    }
+
+    EXPECT_EQ(0, camera->downloadCount);
+}
+
+TEST_F(JsonApiCameraTokenTest, TheOldFormIsStillServed)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession ws;
+    ASSERT_FALSE(askToken(ws).empty());
+
+    HttpTestRequest body;
+    body.send(pictureRequest(CAMERA_ID));
+    EXPECT_EQ("HTTP/1.0 200 OK", body.statusLine());
+    EXPECT_EQ(SNAPSHOT_BYTES, body.body());
+
+    //The URL of the mobile app and the installer
+    Params url;
+    url.Add("cn_user", apiUser());
+    url.Add("cn_pass", apiPassword());
+    url.Add("action", "camera");
+    url.Add("type", "get_picture");
+    url.Add("id", CAMERA_ID);
+
+    HttpTestRequest get;
+    get.send(std::string(), url);
+    EXPECT_EQ("HTTP/1.0 200 OK", get.statusLine());
+    EXPECT_EQ("no-store", get.header("Cache-Control"));
+    EXPECT_EQ(SNAPSHOT_BYTES, get.body());
+
+    EXPECT_EQ(2, camera->downloadCount);
+}
+
+TEST_F(JsonApiCameraTokenTest, NoCredentialsNoPicture)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+
+    Params url;
+    url.Add("cn_user", apiUser());
+    url.Add("cn_pass", "");
+    url.Add("action", "camera");
+    url.Add("type", "get_picture");
+    url.Add("id", CAMERA_ID);
+
+    HttpTestRequest emptyPass;
+    emptyPass.send(std::string(), url);
+    expectRefused(emptyPass, "empty cn_pass");
+
+    //An empty token is a token, not a fall back on the password
+    LoginThrottle::clear();
+    Json request = pictureRequest(CAMERA_ID);
+    request["camera_token"] = "";
+    HttpTestRequest emptyToken;
+    emptyToken.send(request);
+    expectRefused(emptyToken, "empty camera_token");
+
+    EXPECT_EQ(0, camera->downloadCount);
+}
+
+TEST_F(JsonApiCameraTokenTest, ATokenEndsWithItsSession)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession other;
+    const std::string kept = askToken(other);
+    std::string token;
+    {
+        WsTestSession ws;
+        token = askToken(ws);
+        ASSERT_FALSE(token.empty());
+        EXPECT_EQ(2u, CameraTokens::count());
+    }
+    EXPECT_EQ(1u, CameraTokens::count());
+
+    HttpTestRequest refused;
+    refused.send(tokenPicture(token));
+    expectRefused(refused, "token of a closed session");
+    EXPECT_EQ(0, camera->downloadCount);
+
+    HttpTestRequest served;
+    served.send(tokenPicture(kept));
+    EXPECT_EQ(SNAPSHOT_BYTES, served.body());
+}
+
+TEST_F(JsonApiCameraTokenTest, ChangingThePasswordRevokesEveryToken)
+{
+    FakeSnapshotCamera *camera = addCamera(SNAPSHOT_BYTES);
+    WsTestSession viewer;
+    const std::string token = askToken(viewer);
+    ASSERT_FALSE(token.empty());
+
+    WsTestSession admin;
+    admin.send(Json{ { "msg", "settings" }, { "msg_id", "1" }, { "data", { { "action", "change_cred" }, { "old_user", apiUser() }, { "old_pw", apiPassword() }, { "new_user", "ct_newuser" }, { "new_pw", "ct_newpass" } } } });
+    ASSERT_EQ("true", str(admin.lastData(), "success"));
+    EXPECT_EQ(0u, CameraTokens::count());
+
+    HttpTestRequest req;
+    req.send(tokenPicture(token));
+    expectRefused(req, "token issued before change_cred");
+    EXPECT_EQ(0, camera->downloadCount);
+}
+
+TEST_F(JsonApiCameraTokenTest, NoTokenWithoutALogin)
+{
+    WsTestSession ws(false);
+    ws.send(Json{ { "msg", "camera_token" }, { "msg_id", "1" } });
+
+    EXPECT_EQ(0u, ws.count()) << ws.lastMessage();
+    EXPECT_EQ(0u, CameraTokens::count());
+}
+
+TEST_F(JsonApiCameraTokenTest, NoTokenForAServiceScopedSession)
+{
+    WsTestSession ws(true, true);
+    ws.send(Json{ { "msg", "camera_token" }, { "msg_id", "1" } });
+
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(Json({ { "error", "scope denied" } }), ws.lastData().dump());
+    EXPECT_EQ(0u, CameraTokens::count());
+}
+
+TEST_F(JsonApiCameraTokenTest, AFifthTokenOfASessionRetiresTheOldest)
+{
+    WsTestSession ws;
+    std::vector<std::string> tokens;
+    for (size_t i = 0; i <= CameraTokens::MaxPerOwner; i++)
+        tokens.push_back(askToken(ws));
+
+    EXPECT_EQ(CameraTokens::MaxPerOwner, CameraTokens::count());
+
+    const double now = Utils::getMainLoopTime();
+    EXPECT_FALSE(CameraTokens::accept(tokens.front(), now));
+    for (size_t i = 1; i < tokens.size(); i++)
+        EXPECT_TRUE(CameraTokens::accept(tokens[i], now)) << i;
+}
+
+TEST_F(JsonApiCameraTokenTest, AFullTableGivesNoToken)
+{
+    const double now = Utils::getMainLoopTime();
+    std::vector<char> owners(CameraTokens::MaxTokens);
+    for (char &owner: owners)
+        ASSERT_FALSE(CameraTokens::issue(&owner, now).empty());
+
+    WsTestSession ws;
+    ws.send(Json{ { "msg", "camera_token" }, { "msg_id", "1" } });
+
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(Json({ { "error", "camera token unavailable" } }), ws.lastData().dump());
+    EXPECT_EQ(CameraTokens::MaxTokens, CameraTokens::count());
 }

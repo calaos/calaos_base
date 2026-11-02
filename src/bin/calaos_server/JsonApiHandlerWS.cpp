@@ -21,6 +21,7 @@
 #include "JsonApiHandlerWS.h"
 #include "AdminConfig.h"
 #include "AdminEvents.h"
+#include "CameraTokens.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "PollListenner.h"
@@ -129,6 +130,7 @@ JsonApiHandlerWS::~JsonApiHandlerWS()
 {
     evcon.disconnect();
     adminEvcon.disconnect();
+    CameraTokens::revoke(this);
 }
 
 string JsonApiHandlerWS::clientIp() const
@@ -388,14 +390,31 @@ void JsonApiHandlerWS::processApi(const string &data, const Params &paramsGET)
             processAdminMessage(jsonDataDoc, jsonRoot["msg_id"]);
         else if (jsonRoot["msg"] == "settings")
             processSettings(jsonData, jsonRoot["msg_id"]);
+        else if (jsonRoot["msg"] == "camera_token")
+            processCameraToken(jsonRoot["msg_id"]);
 
-//        else if (jsonParam["action"] == "get_cover")
-//            processGetCover();
-//        else if (jsonParam["action"] == "get_camera_pic")
-//            processGetCameraPic();
-//        else if (jsonParam["action"] == "config")
-//            processConfig(jroot);
+        //        else if (jsonParam["action"] == "get_cover")
+        //            processGetCover();
+        //        else if (jsonParam["action"] == "get_camera_pic")
+        //            processGetCameraPic();
+        //        else if (jsonParam["action"] == "config")
+        //            processConfig(jroot);
     }
+}
+
+void JsonApiHandlerWS::processCameraToken(const string &client_id)
+{
+    const string token = CameraTokens::issue(this, Utils::getMainLoopTime());
+    if (token.empty())
+    {
+        sendJson("camera_token", Json{ { "error", "camera token unavailable" } }, client_id);
+        return;
+    }
+
+    sendJson("camera_token",
+             Json{ { "token", token },
+                   { "expires_in", Utils::to_string(static_cast<int>(CameraTokens::Lifetime)) } },
+             client_id);
 }
 
 void JsonApiHandlerWS::processGetHome(const Params &jsonReq, const string &client_id)

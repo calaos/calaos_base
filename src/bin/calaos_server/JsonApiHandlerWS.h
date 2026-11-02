@@ -96,6 +96,7 @@ private:
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
     void processSettings(const Params &jsonReq, const string &client_id = string());
+    void processCameraToken(const string &client_id);
 
     //E4.1s: ONE document. The json_t* twin that carried the dispatch is gone
     //with the request parse it came from.
