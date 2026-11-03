@@ -251,6 +251,50 @@ existent tous les deux, sinon repli sur les anciens `calaos_user` /
 La comparaison passe par un SHA-256 + `CRYPTO_memcmp` à temps constant
 (`secureCompare()`, [JsonApi.cpp:111-122](../src/bin/calaos_server/JsonApi.cpp)).
 
+### HTTP — jeton de capture (`camera_token`)
+Une balise `<img>` ne peut porter que des paramètres GET : sans jeton, le mot de
+passe finit dans l'URL de chaque instantané. Une session WebSocket authentifiée
+demande donc un jeton de capture, et l'URL porte ce jeton à la place de
+`cn_user` / `cn_pass` :
+```json
+{"msg": "camera_token", "msg_id": "7"}
+```
+Réponse `{"msg":"camera_token","msg_id":"7","data":{"token":"<64 hex>","expires_in":"120"}}`,
+puis `GET /api?action=camera&type=get_picture&id=<id>&camera_token=<jeton>`
+(ou `camera_token` à la racine d'un corps JSON).
+
+- **Portée** : `camera` / `get_picture` seulement. Toute autre action, tout autre
+  `type` (`get_video` compris) : HTTP 400 et fermeture, comme un login refusé.
+- **Exclusif** : une requête qui porte `camera_token`, même vide, ne passe que
+  par lui. Des `cn_user` / `cn_pass` valides à côté n'ouvrent rien de plus.
+- **Durée** : 120 s, réutilisable pendant ce temps (rafraîchissement d'une vue).
+  Le client en redemande un avant l'expiration.
+- **Révocation** : à la fermeture de la session qui l'a obtenu, et, sur un
+  `change_cred` réussi, pour les jetons de la session qui l'a fait et des sessions
+  qu'il ferme : ces jetons sont refusés dès le changement. La session de service et
+  les écrans RemoteUI, qui restent ouverts (voir
+  [`settings`](#settings--clé-action-ws-uniquement-1)), ne peuvent pas obtenir de
+  jeton caméra (`scope denied`, liste blanche RemoteUI) : il n'y a rien à révoquer. Des identifiants changés
+  hors du serveur (outil `calaos_config`) laissent vivre les jetons au plus 120 s.
+- **Secret** : 32 octets tirés par `RAND_bytes`, rendus en 64 caractères
+  hexadécimaux minuscules, sans lien avec le mot de passe. Le serveur ne garde
+  que leur SHA-256. Au plus 4 jetons par session (le cinquième retire le plus
+  ancien) et 1024 en tout ; table pleine : `{"error":"camera token unavailable"}`.
+- **Hors du limiteur** : un jeton refusé ne compte pas comme un échec de login,
+  et un bloqué par `LoginThrottle` garde ses jetons ; 256 bits ne se devinent pas.
+- **Session de service** : `camera_token` répond `scope denied`, le sidecar MCP
+  n'a jamais eu accès aux caméras.
+
+L'ancienne forme, `cn_user` / `cn_pass` en paramètres GET, reste acceptée pour
+les clients existants (mobile, installer). Dans les deux formes, la requête
+n'entre pas dans le journal : `Utils::requestTargetForLog()` publie le chemin,
+le nombre et la taille des paramètres et une empreinte salée par processus,
+jamais leurs valeurs ([HttpClient.cpp:349](../src/bin/calaos_server/HttpClient.cpp)).
+La réponse porte `Cache-Control: no-store` : l'URL d'un instantané peut rester la
+même d'une image à l'autre pendant la vie du jeton, et aucun cache ne doit garder
+une image de la maison. Le client ajoute quand même un paramètre qui change à
+chaque image.
+
 ### Limitation de débit (les deux transports)
 `LoginThrottle` indexe les échecs par IP avec un délai exponentiel : 1 s au
 premier échec, doublé à chaque suivant, plafonné à 60 s ; une entrée est oubliée
@@ -306,6 +350,44 @@ Réponse `{"msg":"login","msg_id":"1","data":{"success":"true"}}`. La session
 reste authentifiée pour toute la durée de la connexion ; en cas d'échec la
 réponse porte `"success":"false"` et la connexion est fermée.
 
+### WebSocket — `get_server_info` (version et capacités)
+
+Aucun message existant (`login`, `get_home`…) ne porte la version : ce message est
+nouveau. Il exige une session authentifiée (`login` ou `login_service`) ; avant,
+il est ignoré sans réponse comme tout message protégé, la version n'est pas
+révélée à un inconnu. Il n'est pas dans la liste refusée en session service.
+
+```json
+{"msg": "get_server_info", "msg_id": "3"}
+```
+
+Réponse :
+
+```json
+{"msg":"get_server_info","msg_id":"3","data":{"version":"<version du build>","protocol":"1",
+ "capabilities":["camera_token","admin_relay","admin_events","console","camera_width",
+ "change_cred_closes_sessions"]}}
+```
+
+`version` est la version de `calaos_server` (`PACKAGE_VERSION`), `protocol` un
+entier en chaîne (incrémenté seulement pour une rupture du protocole),
+`capabilities` un tableau de chaînes stables, déclaré à un seul endroit
+(`src/bin/calaos_server/ServerInfo.h`).
+
+| Capacité | Sens |
+|---|---|
+| `camera_token` | message `camera_token` et paramètre `camera_token` sur `camera`/`get_picture` |
+| `admin_relay` | messages `admin_unlock`, `admin_set`, `admin` |
+| `admin_events` | événements `admin_event` |
+| `console` | WebSocket `/api/console` |
+| `camera_width` | paramètre optionnel `width` sur `camera`/`get_picture` |
+| `change_cred_closes_sessions` | un `change_cred` réussi ferme les autres sessions `/api` ouvertes par `login`, toutes les consoles et tous les flux `get_video` en cours ([détail](#settings--clé-action-ws-uniquement-1)) ; sans elle, un client ne doit pas compter sur cette coupure |
+
+**Règle pour les clients** : une capacité absente de la liste, ou un serveur qui ne
+répond pas à `get_server_info` (un ancien serveur ignore ce message, sans erreur),
+est un ancien serveur : le client se replie sur l'ancien comportement (par exemple
+`cn_user`/`cn_pass` pour la caméra) après un délai d'attente.
+
 ### WebSocket — `login_service` (session restreinte, sidecar MCP)
 Le sidecar `calaos_mcp` ne se connecte pas en admin : il utilise un compte de
 service à portée restreinte (`serviceScope`). Voir
@@ -316,13 +398,13 @@ service à portée restreinte (`serviceScope`). Voir
 Le token est comparé à l'option `mcp_service_token` de `local_config.xml`
 (`McpServerManager::getServiceToken()`). Un token non configuré n'accorde jamais
 l'accès ([JsonApiHandlerWS.cpp:530-566](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-En session `serviceScope`, **14** messages sont refusés : `set_param`, `del_param`,
+En session `serviceScope`, **15** messages sont refusés : `set_param`, `del_param`,
 `audio_db`, `set_timerange`, `autoscenario`, `eventlog`, `register_push`,
-`settings`, `config`, les trois messages admin `admin_unlock`, `admin_set`, `admin`,
+`settings`, `config`, `camera_token`, les trois messages admin `admin_unlock`, `admin_set`, `admin`,
 `console`, le message d'ouverture de [`/api/console`](#console-web-apiconsole), et l'action
 HTTP `config_backup` (`JsonApi::serviceScopeDeniedCommands()`, voir [Portée MCP](#portée-mcp)).
 
-⭐ **La portée est une propriété de la session, pas du transport.** Les quatorze sont
+⭐ **La portée est une propriété de la session, pas du transport.** Les quinze sont
 refusées quel que soit le transport par lequel la session a été ouverte, et la
 charge utile du refus est **la même** des deux côtés — seule l'enveloppe change :
 `{"msg":"<msg>","msg_id":"<le vôtre>","data":{"error":"scope denied"}}` en
@@ -341,7 +423,7 @@ session de service ensuite.
 Dérivée intégralement des deux tables de dispatch
 ([JsonApiHandlerHttp.cpp:140-215](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)
 et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-**24 commandes en HTTP, 20 en WebSocket, 27 au total ; 17 sont communes.**
+**24 commandes en HTTP, 21 en WebSocket, 28 au total ; 17 sont communes.**
 
 | Commande | HTTP (`action`) | WS (`msg`) | Notes |
 |---|:---:|:---:|---|
@@ -372,6 +454,8 @@ et [JsonApiHandlerWS.cpp:116-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 | `login` | ❌ | ✅ | |
 | `login_service` | ❌ | ✅ | |
 | `settings` | ❌ | ✅ | |
+| `camera_token` | ❌ | ✅ | jeton de capture pour `camera` / `get_picture` ; `scope denied` en session service |
+| `get_server_info` | ❌ | ✅ | version, protocole et capacités du serveur ; session authentifiée requise ([détail](#websocket--get_server_info-version-et-capacités)) |
 
 Les messages `admin_unlock`, `admin_set` et `admin` ne sont pas comptés ici : voir
 [Administration](#administration-admin_unlock-admin_set-admin).
@@ -383,6 +467,7 @@ valide**, sinon HTTP 400 + fermeture
 ([JsonApiHandlerHttp.cpp:189-214](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
 Message WS inconnu (session authentifiée) → **aucune réponse**, il n'y a pas de
 branche `else` ([JsonApiHandlerWS.cpp:156-229](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+Exception : une `action` inconnue de `settings` répond `{"error":"unknown settings action"}`.
 
 ⚠️ **« Paramètres dérivés refusés » a une contrepartie, et elle n'est pas une
 faille : `config` / `put` reste ouvert sous la MÊME authentification.** Le refus
@@ -723,6 +808,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `system_reboot` | | `POST system/reboot` | oui | `null` |
 | `system_restart` | | `POST system/restart` (relance le kiosque `calaos-home`) | oui | `null` |
 | `system_info` | | `GET system/info` | oui | `{hostname, uptime, cpu_usage, mem_usage}` |
+| `admin_logout` | | `POST admin/logout` | oui | `{"ended": <bool>}` : termine la session portée par le message et aucune autre ; `false` si elle n'était plus vivante ; sans session, `bad_session` sans appel au démon |
 | `mcp_regenerate` | | aucun : traité dans calaos_server | oui | `{}` |
 | `approver_list` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[<Approver>]` : `{id, device_name, token_id, created_at}` plus `platform`, `registered_at`, `last_seen`, `secure` (phase 3), jamais de jeton |
 | `approver_candidates` | | `GET admin/approvers`, puis `push_tokens` de calaos_server | oui | `[{token_id, device_name, platform, registered_at, last_seen, approver, secure}]`, jamais de jeton |
@@ -1143,6 +1229,7 @@ Le serveur l'annonce une fois :
 | le navigateur ferme en `1000` ou `1001` | (réponse à sa fermeture) | le même code |
 | le navigateur ferme avec un autre code, ou sa connexion tombe | | `1001` |
 | calaos_server ferme le WebSocket lui-même (trois pongs manqués, message de plus de 4 Mio, trame invalide, message vide) | son code (`1000`, `1009`, `1002`…) | `1000` pour `1000`, `1001` sinon, aussitôt |
+| un `change_cred` réussi sur `/api` (voir [`settings`](#settings--clé-action-ws-uniquement-1)) | `1001`, `credentials_changed` | `1001` |
 | un message du navigateur dépasse 64 Kio | `1009`, `message too big` | `1000` |
 
 Raison de fermeture relayée depuis le daemon : un jeton exact de cette liste, jamais son
@@ -1672,7 +1759,7 @@ champs), état (`AdminState`), présence et format de la session, appel du daemo
 
 `admin_unlock`, `admin_set`, `admin` et `console` rejoignent la liste des messages refusés en
 session service (13 au lieu de 9). En phase 3, l'action HTTP `config_backup` s'y ajoute
-(`not_allowed`, 14 commandes) ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
+(`not_allowed`, 14 commandes), puis le message WebSocket `camera_token` (`scope denied`, 15) ; tout `admin {action}` de phase 3 hérite du refus de `admin`. Le refus a la forme d'erreur admin avec `not_allowed` et
 `"msg": "scope denied"`. Sur [`/api/console`](#console-web-apiconsole), un message d'ouverture
 qui s'authentifie avec le jeton de service (`token`, celui de `login_service`) ouvre une session
 de service et reçoit donc ce refus, sans appel au daemon.
@@ -2140,15 +2227,20 @@ est corrompu.
 | `get_picture` | un JPEG (`Content-Type: image/jpeg`) ; `camfail.jpg` si la caméra ne répond pas ; argument optionnel `width` |
 | `get_video` | flux MJPEG relayé, ou flux construit image par image si la caméra n'a pas d'URL vidéo |
 
-`id` inconnu → `{"error":"unkown camera id"}`. `type` inconnu → **rien**, pas de
-branche `else` ([JsonApiHandlerHttp.cpp:903-1029](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+`id` inconnu → `{"error":"unkown camera id"}` (testé avant le `type`, donc aussi pour un
+`type` inconnu). `type` inconnu ou absent, avec un `id` de caméra valide →
+`{"error":"unknown camera type"}` : la réponse libère la connexion, qui sinon resterait
+comptée contre la limite par IP. Avec un jeton de capture, un `type` autre que `get_picture`
+est refusé plus tôt (HTTP 400 et fermeture, voir [Portée](#http--jeton-de-capture-camera_token)).
 
 #### `get_picture` et `width`
 
 `width` est une largeur en pixels, de 1 à 10000, sur le même modèle que `get_camera_pic`.
 Absent ou vide, rien ne change : la frame de la caméra, telle quelle. Toute autre valeur donne
 `{"error":"invalid width parameter"}`, avant tout téléchargement. L'authentification de
-`get_picture` est celle de la requête, `width` ou pas.
+`get_picture` est celle de la requête, `width` ou pas : `cn_user` / `cn_pass`, ou un
+[jeton de capture](#http--jeton-de-capture-camera_token). La réponse, frame ou `camfail.jpg`,
+porte `Cache-Control: no-store`.
 
 La réponse reste un JPEG brut. Le ratio est conservé, et une image n'est **jamais agrandie** :
 une `width` plus grande que la frame renvoie la frame d'origine. La frame d'origine part aussi
@@ -2191,10 +2283,51 @@ marque du repli dans la réponse : il reçoit simplement une image plus lourde.
 |---|---|---|
 | `change_cred` | `old_user`, `old_pw`, `new_user`, `new_pw` | `{"action":"change_cred","success":"true"\|"false"}` |
 
-En cas de succès, la session est **déconnectée** (`loggedin = false`) : il faut
-se relogguer avec les nouveaux identifiants
-([JsonApiHandlerWS.cpp:516-528](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
-Toute autre valeur d'`action` → aucune réponse.
+En cas de succès, la session qui a fait le changement est **déconnectée**
+(`loggedin = false`) : il faut se relogguer avec les nouveaux identifiants
+([JsonApiHandlerWS.cpp:770-783](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+Sa connexion reste ouverte ; ses jetons de capture caméra sont révoqués.
+
+Sont fermées, parce qu'elles reposent sur les anciens `cn_user`/`cn_pass` :
+
+- les **autres** sessions `/api` connectées par `login` : `loggedin = false` d'abord
+  (elles ne répondent plus à rien), puis fermeture de la connexion (code 1000, raison
+  `credentials changed`) ; leurs jetons de capture caméra sont révoqués ;
+- toutes les [consoles web](#console-web-apiconsole) authentifiées, celle du navigateur
+  qui a fait le changement comprise : une console n'a pas d'état déconnecté, ni de lien
+  avec une session `/api`. Ouverte, elle reçoit `1001`, raison `credentials_changed`
+  (la socket du daemon reçoit `1001`) ; entre son message d'ouverture et `ready`, elle
+  reçoit le refus `login_failed` puis `1008` ;
+- tous les flux HTTP [`camera` / `get_video`](#camera--clé-type-http-uniquement-2) en
+  cours : ils n'ont été authentifiés qu'une fois, à leur requête, et n'ont pas de fin
+  propre. Le relais MJPEG est arrêté, la boucle image par image ne se ré-arme plus, et
+  la connexion se ferme sans réponse ni trame de fin. Un jeton caméra n'ouvre pas de
+  `get_video` : il n'y a pas de flux ouvert par jeton à couper.
+
+Restent ouvertes :
+
+- les sessions `/api` pas encore connectées et les consoles qui attendent leur message
+  d'ouverture : elles ne détiennent rien, et les anciens identifiants y sont refusés ;
+- la session de service (sidecar MCP, `login_service`, jeton de service de
+  `local_config`) et les écrans RemoteUI (HMAC à la montée) : leur authentification ne
+  dépend pas de `cn_pass`. Ils ne peuvent pas obtenir de jeton caméra (`scope denied`,
+  liste blanche RemoteUI) : aucun jeton ne leur survit.
+
+**Risque accepté : `mcp_service_token` n'est pas renouvelé par `change_cred`.** Ce jeton
+(`local_config.xml`) ne dépend pas de `cn_pass` : un `change_cred` ne le change pas, et la
+session de service qui l'a présenté reste valide, comme les écrans RemoteUI. Décision de
+Raoul du 2026-11-02.
+
+Conséquences : ce jeton se lit par `config` `get` et par `config_backup`, et l'accès
+service reste ouvert après un `change_cred`. Remède manuel : vider ou changer l'option
+`mcp_service_token`, puis redémarrer calaos_server.
+
+Un `change_cred` refusé (`success:"false"`) ne touche aucune session, console ni flux.
+Les autres requêtes HTTP n'ont pas de session : chacune porte ses identifiants (ou son
+jeton caméra), refusés dès le changement (la session de service et les écrans RemoteUI
+n'en obtiennent pas) ; une requête déjà acceptée, comme un
+`get_picture` qui attend sa capture, reçoit encore sa réponse unique.
+Toute autre valeur d'`action` → `{"error":"unknown settings action"}` dans `data`.
 
 ---
 

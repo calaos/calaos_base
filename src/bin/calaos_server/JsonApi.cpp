@@ -25,6 +25,7 @@
 #include "AutoScenario.h"
 #include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
+#include "CameraTokens.h"
 #include "HistLogger.h"
 #include "Device.h"
 
@@ -619,11 +620,13 @@ const vector<string> &JsonApi::serviceScopeDeniedCommands()
      * that a websocket route added later is born refused (put replaces the
      * configuration files). The admin messages, and console (the open message
      * of /api/console), are refused with the admin error shape (adminError(),
-     * not_allowed), and so is the HTTP config_backup.
+     * not_allowed), and so is the HTTP config_backup. camera_token only reads,
+     * but it would hand the service a camera access it has never had.
      */
     static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
                                            "eventlog", "register_push", "settings", "config",
-                                           "admin_unlock", "admin_set", "admin", "console", "config_backup" };
+                                           "admin_unlock", "admin_set", "admin", "console", "config_backup",
+                                           "camera_token" };
 
     return denied;
 }

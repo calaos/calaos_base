@@ -79,6 +79,9 @@ calaos_server_SOURCES = \
         Calaos.h                                        \
         CalaosConfig.cpp                                \
         CalaosConfig.h                                  \
+        CameraTokens.cpp                                \
+        CameraTokens.h                                  \
+        ServerInfo.h                                    \
         ConsoleTunnel.cpp                               \
         ConsoleTunnel.h                                 \
         AdminConfig.cpp                                 \

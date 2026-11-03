@@ -27,9 +27,30 @@ jobs:
   build-and-test:
     name: Build & test
     runs-on: ubuntu-latest
-    container: debian:12
+    container:
+      image: debian:12
+      # The cleanup step below runs inside the container, where an action such as
+      # jlumbroso/free-disk-space would only see the container's filesystem. Bind
+      # mounting the large preinstalled toolchains lets it empty them on the host.
+      volumes:
+        - /usr/local/lib/android:/usr/local/lib/android
+        - /usr/share/dotnet:/usr/share/dotnet
+        - /opt/ghc:/opt/ghc
+        - /usr/local/.ghcup:/usr/local/.ghcup
+        - /usr/share/swift:/usr/share/swift
 
     steps:
+      # The ~250 test programs of make check overflow the runner disk at link
+      # time ("No space left on device"). None of these toolchains is used here.
+      - name: Free host disk space
+        run: |
+          df -h /
+          for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                   /usr/local/.ghcup /usr/share/swift; do
+            find "$d" -mindepth 1 -delete 2>/dev/null || true
+          done
+          df -h /
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -101,6 +122,7 @@ jobs:
           # serial make check below then only runs the suite. Not "all check"
           # in one call: -j runs both recursions at once and they race on src/.
           make -j"$(nproc)" check TESTS=
+          df -h /
 
       # Before make check, so the counters are the build's alone.
       - name: ccache statistics
@@ -224,7 +246,17 @@ jobs:
   coverage:
     name: Diff coverage
     runs-on: ubuntu-latest
-    container: debian:12
+    container:
+      image: debian:12
+      # The cleanup step below runs inside the container, where an action such as
+      # jlumbroso/free-disk-space would only see the container's filesystem. Bind
+      # mounting the large preinstalled toolchains lets it empty them on the host.
+      volumes:
+        - /usr/local/lib/android:/usr/local/lib/android
+        - /usr/share/dotnet:/usr/share/dotnet
+        - /opt/ghc:/opt/ghc
+        - /usr/local/.ghcup:/usr/local/.ghcup
+        - /usr/share/swift:/usr/share/swift
     # Blocking on pull requests only, through the "Diff coverage gate" step.
     # Skipped on push, where there is no diff to judge and the 40 min run only
     # delayed the result; schedule and workflow_dispatch still give a report,
@@ -233,6 +265,17 @@ jobs:
     continue-on-error: ${{ github.event_name != 'pull_request' }}
 
     steps:
+      # The ~250 test programs of make check overflow the runner disk at link
+      # time ("No space left on device"). None of these toolchains is used here.
+      - name: Free host disk space
+        run: |
+          df -h /
+          for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                   /usr/local/.ghcup /usr/share/swift; do
+            find "$d" -mindepth 1 -delete 2>/dev/null || true
+          done
+          df -h /
+
       # git before checkout, for the same reason as in format-check: without it
       # the action downloads a tarball and the gate has no history to diff.
       - name: Install git
@@ -276,6 +319,7 @@ jobs:
           # Test binaries are built here, before the counters are zeroed, so
           # the coverage data still comes from the make check step only.
           make -j"$(nproc)" check TESTS=
+          df -h /
           gcc -shared -fPIC -O1 -o "$PWD/gcov-exit-shim.so" scripts/gcov-exit-shim.c -ldl
 
       - name: Capture baseline (zero) counters

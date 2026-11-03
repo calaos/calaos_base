@@ -112,6 +112,8 @@ public:
         authenticated_remote_ui = ui;
         setAuthenticated(true);
     }
+
+    bool authenticated() const { return isAuthenticated(); }
 };
 
 } //namespace
@@ -283,6 +285,22 @@ protected:
     std::unique_ptr<PanelHandler> handler;
     std::vector<std::string> sent;
 };
+
+TEST_F(RemoteUIDeviceTest, ACredentialChangeLeavesThePanelConnected)
+{
+    WsTestSession changer;
+    std::vector<int> closes;
+    handler->closeConnection.connect([&closes](int code, const std::string &)
+                                     {
+        closes.push_back(code);
+    });
+
+    changer.send(Json{ { "msg", "settings" }, { "msg_id", "cc" }, { "data", { { "action", "change_cred" }, { "old_user", apiUser() }, { "old_pw", apiPassword() }, { "new_user", "ruidev_newuser" }, { "new_pw", "ruidev_newpass" } } } });
+    ASSERT_EQ("true", changer.lastData().value("success", ""));
+
+    EXPECT_TRUE(closes.empty());
+    EXPECT_TRUE(handler->authenticated());
+}
 
 TEST_F(RemoteUIDeviceTest, ReferencedIosExpandADeviceToItsOwnedAndLinkedIos)
 {

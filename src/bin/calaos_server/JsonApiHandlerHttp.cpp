@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "JsonApiHandlerHttp.h"
 #include "AdminConfig.h"
+#include "CameraTokens.h"
 #include "JsonField.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
@@ -40,9 +41,17 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdlib>
+#include <set>
 
 namespace
 {
+
+//Handlers that stream get_video: the only HTTP answer with no end of its own
+std::set<JsonApiHandlerHttp *> &liveVideoStreams()
+{
+    static std::set<JsonApiHandlerHttp *> streams;
+    return streams;
+}
 
 //io_format the client declares in the put request: an integer or a decimal
 //string, wholly numeric. Absent, unusable or out of any plausible range means
@@ -232,8 +241,24 @@ JsonApiHandlerHttp::~JsonApiHandlerHttp()
     if (exe_thumb_running && exe_thumb && exe_thumb->pid() > 0)
         exe_thumb->kill(SIGTERM);
 
+    liveVideoStreams().erase(this);
     releaseCameraDl();
     FileUtils::unlink(tempfname);
+}
+
+void JsonApiHandlerHttp::endHouseholdStreams()
+{
+    //Emptied first: closing one connection destroys only its own handler, whose
+    //destructor then erases from an already empty set.
+    const std::set<JsonApiHandlerHttp *> snapshot = std::move(liveVideoStreams());
+    liveVideoStreams().clear();
+    for (JsonApiHandlerHttp *h: snapshot)
+    {
+        h->releaseCameraDl();
+        //Expires the token the snapshot loop re-arms with, and every callback in flight
+        h->handlerAlive = std::make_shared<bool>(true);
+        h->closeConnection.emit(0, string());
+    }
 }
 
 string JsonApiHandlerHttp::clientIp() const
@@ -335,6 +360,28 @@ void JsonApiHandlerHttp::processApi(const string &data, const Params &paramsGET)
 
     const string ip = clientIp();
     const double now = Utils::getMainLoopTime();
+
+    /* A camera token replaces the credentials, never adds to them: whatever
+     * else the request carries, it opens a snapshot or nothing. Out of the
+     * login throttle, which guards the password; 256 random bits need no
+     * guard, and a refusal there would lock out a client renewing its token.
+     */
+    if (jsonParam.Exists("camera_token"))
+    {
+        if (jsonParam["action"] != "camera" || jsonParam["type"] != "get_picture" ||
+            !CameraTokens::accept(jsonParam["camera_token"], now))
+        {
+            cDebugDom("network") << "Camera token refused";
+
+            sendLoginFailed();
+
+            return;
+        }
+
+        processCamera();
+
+        return;
+    }
 
     if (LoginThrottle::isBlocked(ip, now))
     {
@@ -1403,11 +1450,14 @@ void JsonApiHandlerHttp::processCamera()
             if (alive.expired())
                 return;
 
+            //no-store: the URL of a polled snapshot may not change between two
+            //frames, and no cache may keep a picture of the house
             if (downloadedData.empty())
             {
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
+                headers.Add("Cache-Control", "no-store");
                 string res = httpClient->buildHttpResponseFromFile(HTTP_200, headers,
                                                                    Prefix::Instance().dataDirectoryGet() + "/camfail.jpg");
                 sendData.emit(res);
@@ -1417,6 +1467,7 @@ void JsonApiHandlerHttp::processCamera()
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "image/jpeg");
+                headers.Add("Cache-Control", "no-store");
                 string res = httpClient->buildHttpResponse(HTTP_200, headers, downloadedData);
                 sendData.emit(res);
             }
@@ -1429,6 +1480,9 @@ void JsonApiHandlerHttp::processCamera()
     }
     else if (jsonParam["type"] == "get_video")
     {
+        //Authenticated once, by cn_user/cn_pass: change_cred has to end it
+        liveVideoStreams().insert(this);
+
         if (camera->getVideoUrl().empty())
         {
             //Empty mjpeg url, build the stream with single pictures

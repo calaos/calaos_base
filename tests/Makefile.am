@@ -185,6 +185,7 @@ CALAOS_SERVER_BUILDDIR = $(top_builddir)/src/bin/calaos_server
 CORE_SERVER_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/Calaos.$(OBJEXT)                     \
                   $(CALAOS_SERVER_BUILDDIR)/CalaosConfig.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/CameraTokens.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/DataLogger.$(OBJEXT)                 \
                   $(CALAOS_SERVER_BUILDDIR)/EventManager.$(OBJEXT)               \
                   $(CALAOS_SERVER_BUILDDIR)/HistLogger.$(OBJEXT)                 \

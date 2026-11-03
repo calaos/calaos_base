@@ -924,6 +924,13 @@ private:
 
         const auto sessionIt = req.headers.find("x-calaos-admin-session");
         const bool hasSession = sessionIt != req.headers.end();
+        if (req.method == "POST" && req.path == "/api/v2/admin/logout")
+        {
+            //Like the daemon: a session that is not live is not an error. The relay never
+            //calls without the header, so its absence is not modelled.
+            res.body = ok({ { "ended", hasSession && sessionIt->second == Session } });
+            return res;
+        }
         if (hasSession && sessionIt->second != Session)
         {
             res.status = 401;

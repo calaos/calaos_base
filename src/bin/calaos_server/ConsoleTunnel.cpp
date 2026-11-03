@@ -29,6 +29,7 @@
 #include "libuvw.h"
 
 #include <cmath>
+#include <set>
 #include <sstream>
 
 ConsoleTunnel::Timings ConsoleTunnel::timings;
@@ -74,6 +75,12 @@ string relayedReason(const string &reason)
 
 const char *const OpenExpected = "The first message must be the open message";
 
+std::set<ConsoleTunnel *> &liveTunnels()
+{
+    static std::set<ConsoleTunnel *> tunnels;
+    return tunnels;
+}
+
 } //namespace
 
 ConsoleTunnel::ConsoleTunnel(HttpClient *owner, const std::shared_ptr<uvw::TcpHandle> &clientHandle):
@@ -81,6 +88,7 @@ ConsoleTunnel::ConsoleTunnel(HttpClient *owner, const std::shared_ptr<uvw::TcpHa
     client(clientHandle),
     frame(new WebSocketFrame())
 {
+    liveTunnels().insert(this);
     arm(timings.open, "invalid_request");
 
     //The handle outlives this object: the callback checks the token first
@@ -96,11 +104,28 @@ ConsoleTunnel::ConsoleTunnel(HttpClient *owner, const std::shared_ptr<uvw::TcpHa
 
 ConsoleTunnel::~ConsoleTunnel()
 {
+    liveTunnels().erase(this);
     //Closing the socket can publish an error at once: nothing may reach the
     //WebSocket, which is already destroyed
     state = State::Closed;
     delete timer;
     closeDaemon(WebSocketFrame::CloseCodeGoingAway);
+}
+
+void ConsoleTunnel::endHouseholdConsoles()
+{
+    const std::set<ConsoleTunnel *> snapshot = liveTunnels();
+    for (ConsoleTunnel *t: snapshot)
+    {
+        if (!liveTunnels().count(t) || t->state == State::WaitOpen || t->state == State::Closed)
+            continue;
+
+        //Before ready the browser gets the refusal that sends it back to the household login
+        if (t->state == State::Open)
+            t->finish(WebSocketFrame::CloseCodeGoingAway, "credentials_changed", WebSocketFrame::CloseCodeGoingAway);
+        else
+            t->refuse(adminError("login_failed", string()));
+    }
 }
 
 bool ConsoleTunnel::offersProtocol(const string &header)

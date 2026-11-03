@@ -54,6 +54,7 @@
 #include "JsonApi.h"
 #include "JsonApiHandlerHttp.h"
 #include "McpServerManager.h"
+#include "ServerInfo.h"
 #include "json.hpp"
 
 #include "libuvw.h"
@@ -85,12 +86,13 @@ const char *const kAdminUser = "t360-admin";
 const char *const kAdminPass = "t360-admin-password";
 const char *const kServiceToken = "t360-service-token";
 
-//The fourteen, spelled out here and compared with the shipped rule. Two lists
+//The fifteen, spelled out here and compared with the shipped rule. Two lists
 //that must agree: the production one drives the loops, this one proves the
 //production one still says what the decision said.
 const char *const kExpectedDenied[] = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
                                         "eventlog", "register_push", "settings", "config",
-                                        "admin_unlock", "admin_set", "admin", "console", "config_backup" };
+                                        "admin_unlock", "admin_set", "admin", "console", "config_backup",
+                                        "camera_token" };
 const size_t kDeniedCount = sizeof(kExpectedDenied) / sizeof(kExpectedDenied[0]);
 
 //The contrast. Without it, moving a command out of the guarded set would leave
@@ -537,7 +539,7 @@ TEST_F(JsonApiServiceScopeTest, TheRuleHoldsExactlyTheNamedCommands)
     const vector<string> &denied = JsonApi::serviceScopeDeniedCommands();
 
     ASSERT_EQ(kDeniedCount, denied.size())
-        << "the guarded set is not the fourteen commands any more, and every loop "
+        << "the guarded set is not the fifteen commands any more, and every loop "
            "of this file walks it";
 
     for (const char *name: kExpectedDenied)
@@ -626,6 +628,76 @@ TEST_F(JsonApiServiceScopeTest, TheReadCommandsAreNotRefusedOnTheSameRealSession
         EXPECT_NE("scope denied", str(data, "error"))
                 << command << " is refused although it is not in the guarded set";
     }
+}
+
+/*******************************************************************************
+ * get_server_info: version and capabilities, behind the login
+ ******************************************************************************/
+
+TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToALoggedInClient)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.open());
+
+    const Json login = parse(ws.ask(Json{
+        { "msg", "login" }, { "msg_id", "l" }, { "data", { { "cn_user", kAdminUser }, { "cn_pass", kAdminPass } } } }));
+    ASSERT_EQ("true", str(login["data"], "success"));
+
+    const std::string answer = ws.ask(Json{
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } });
+    ASSERT_FALSE(answer.empty()) << "get_server_info answered nothing";
+
+    const Json env = parse(answer);
+    EXPECT_EQ("get_server_info", str(env, "msg"));
+    EXPECT_EQ("si", str(env, "msg_id"));
+
+    const Json data = env.value("data", Json::object());
+    EXPECT_EQ(PACKAGE_VERSION, str(data, "version"));
+    EXPECT_EQ("1", str(data, "protocol"));
+
+    ASSERT_TRUE(data["capabilities"].is_array()) << answer;
+    std::vector<std::string> caps;
+    for (const Json &c: data["capabilities"])
+        caps.push_back(c.get<std::string>());
+    //Literal on purpose: these names are a stable contract, and comparing to
+    //ServerInfo::capabilities() would stay green when one is dropped or renamed.
+    const std::vector<std::string> expected = {
+        "camera_token", "admin_relay", "admin_events", "console", "camera_width",
+        "change_cred_closes_sessions"
+    };
+    EXPECT_EQ(expected, caps);
+}
+
+TEST_F(JsonApiServiceScopeTest, ServerInfoIsAnsweredToAServiceScopedSession)
+{
+    WsClient ws;
+    ASSERT_TRUE(loginService(ws))
+        << "no service scoped session was opened, so this case measures nothing";
+
+    const Json env = parse(ws.ask(Json{
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } }));
+    ASSERT_TRUE(env.is_object());
+    EXPECT_EQ("get_server_info", str(env, "msg"));
+    EXPECT_EQ(PACKAGE_VERSION, str(env.value("data", Json::object()), "version"));
+}
+
+TEST_F(JsonApiServiceScopeTest, ServerInfoIsNotAnsweredBeforeTheLogin)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.open());
+
+    const std::string answer = ws.ask(Json{
+        { "msg", "get_server_info" }, { "msg_id", "si" }, { "data", Json::object() } });
+    EXPECT_TRUE(answer.empty()) << "version leaked to an unauthenticated client: " << answer;
+
+    //A dead socket would also give an empty answer: the next frame must be the
+    //login reply, not a queued get_server_info.
+    const Json login = parse(ws.ask(Json{
+        { "msg", "login" }, { "msg_id", "l" }, { "data", { { "cn_user", kAdminUser }, { "cn_pass", kAdminPass } } } }));
+    ASSERT_TRUE(login.is_object()) << "the socket did not survive the early question";
+    EXPECT_EQ("login", str(login, "msg"));
+    EXPECT_EQ("l", str(login, "msg_id"));
+    EXPECT_EQ("true", str(login["data"], "success"));
 }
 
 /*******************************************************************************

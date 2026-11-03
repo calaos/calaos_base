@@ -54,6 +54,10 @@ protected:
     //Whether a logged-in client receives admin_event; never a service session
     virtual bool forwardsAdminEvents() const { return !serviceScope; }
 
+    //Whether this session's authentication does not rest on cn_user/cn_pass,
+    //so a change_cred leaves it open: the service token, and for RemoteUI the HMAC.
+    virtual bool survivesCredentialChange() const { return serviceScope; }
+
     //Names this client in the warning for a write to a protected output.
     virtual const char *setStateSource() const { return "set_state over WebSocket"; }
 
@@ -95,7 +99,11 @@ private:
     void processSetTimerange(const Json &jdata, const string &client_id = string());
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
+    //Drops the authentication of every other live session, of every
+    //authenticated console and of every get_video stream, and closes them
+    void endOtherSessions();
     void processSettings(const Params &jsonReq, const string &client_id = string());
+    void processCameraToken(const string &client_id);
 
     //E4.1s: ONE document. The json_t* twin that carried the dispatch is gone
     //with the request parse it came from.

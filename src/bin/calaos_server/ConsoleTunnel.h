@@ -74,6 +74,10 @@ public:
     //not one of its ids or dir is empty
     static string expectedSocket(const string &dir, const string &consoleId);
 
+    //After change_cred: every console opened with the old household
+    //credentials closes, consoles not yet authenticated are left alone
+    static void endHouseholdConsoles();
+
     void clientText(const string &data);
     void clientBinary(const string &data);
     //A close frame from the browser, which the WebSocket answers itself
