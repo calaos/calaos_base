@@ -21,6 +21,7 @@
 #include "ListeRoom.h"
 #include "AutoScenario.h"
 #include "CalaosConfig.h"
+#include <algorithm>
 
 using namespace Calaos;
 
@@ -287,4 +288,15 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
                            { "room_type", room->get_type() } });
 
     return io;
+}
+
+std::vector<Room *> ListeRoom::getRoomsByHits() const
+{
+    std::vector<Room *> sorted = rooms;
+    std::stable_sort(sorted.begin(), sorted.end(), [](Room *a, Room *b)
+    {
+        return a->get_hits() > b->get_hits();
+    });
+
+    return sorted;
 }

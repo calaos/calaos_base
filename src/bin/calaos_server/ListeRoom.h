@@ -80,6 +80,10 @@ public:
 
     Room *getRoomByIO(IOBase *o);
 
+    //Display order for clients: hits descending, io.xml order on ties.
+    //The stored order is left alone, it is the one written back to io.xml.
+    std::vector<Room *> getRoomsByHits() const;
+
     bool deleteIO(IOBase *io, bool modify = false);
 
     IOBase* createIO(Params param, Room *room);

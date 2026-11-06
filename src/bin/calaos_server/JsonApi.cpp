@@ -103,9 +103,8 @@ json_t *JsonApi::buildJsonHome()
 {
     json_t *jdata = json_array();
 
-    for (int iroom = 0;iroom < ListeRoom::Instance().size();iroom++)
+    for (Room *room: ListeRoom::Instance().getRoomsByHits())
     {
-        Room *room = ListeRoom::Instance().get_room(iroom);
         json_t *jroom = json_object();
 
         json_t *jitems = buildJsonRoomIO(room);
