@@ -184,3 +184,28 @@ TEST_F(ListeRoomRobustnessTest, RejectedDuplicateLeavesTheEventLoop)
     EXPECT_EQ(ListeRule::Instance().eventCount(), before);
     ListeRule::Instance().RunEventLoop();
 }
+
+/******************************************************************************
+ * Room display order (get_home)
+ ******************************************************************************/
+
+TEST_F(ListeRoomRobustnessTest, RoomsByHitsAreDescendingAndKeepFileOrderOnTies)
+{
+    loadConfig(ioXmlDocument(roomXml("Cave", "misc", "", 1) +
+                             roomXml("Salon", "lounge", "", 30) +
+                             roomXml("Bureau", "office", "", 5) +
+                             roomXml("Garage", "garage", "", 5)),
+               rulesXmlDocument(""));
+
+    std::vector<std::string> names;
+    for (Room *r: ListeRoom::Instance().getRoomsByHits())
+        names.push_back(r->get_name());
+
+    EXPECT_EQ(names, (std::vector<std::string>{ "Salon", "Bureau", "Garage", "Cave" }));
+
+    //The stored order is the io.xml order, and must stay so: it is the one
+    //SaveConfigIO() writes back.
+    ASSERT_EQ(ListeRoom::Instance().size(), 4);
+    EXPECT_EQ(ListeRoom::Instance().get_room(0)->get_name(), "Cave");
+    EXPECT_EQ(ListeRoom::Instance().get_room(1)->get_name(), "Salon");
+}

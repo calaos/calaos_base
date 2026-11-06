@@ -27,6 +27,7 @@
 #include "FileUtils.h"
 #include "libuvw.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -840,4 +841,21 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
     }
 
     return nullptr;
+}
+
+static bool moreHits(Room *a, Room *b)
+{
+    return a->get_hits() > b->get_hits();
+}
+
+std::vector<Room *> ListeRoom::getRoomsByHits() const
+{
+    std::vector<Room *> sorted;
+    sorted.reserve(rooms.size());
+    for (const auto &r: rooms)
+        sorted.push_back(r.get());
+
+    std::stable_sort(sorted.begin(), sorted.end(), moreHits);
+
+    return sorted;
 }

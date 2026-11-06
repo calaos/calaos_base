@@ -246,6 +246,10 @@ public:
 
     Room *getRoomByIO(IOBase *o);
 
+    //Display order for clients: hits descending, io.xml order on ties.
+    //The stored order is left alone, it is the one written back to io.xml.
+    std::vector<Room *> getRoomsByHits() const;
+
     /* detachIOFromRules() + delete_io(io): the full "the user deleted this
        IO" path used by the JSON API. The IO is destroyed, and so are the
        owned IOs of a device, detached from the rules the same way.
