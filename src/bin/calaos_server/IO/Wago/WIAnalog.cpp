@@ -45,17 +45,17 @@ WIAnalog::WIAnalog(Params &p):
     ioDoc->paramAddInt("var", _("PLC address of the input sensor"), 0, 65535, true);
 
     host = get_param("host");
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     WagoMap::Instance(host, port);
 
     Utils::from_string(get_param("var"), address);
 
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        readValue();
-    });
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WIAnalog::readValue));
 
     Calaos::StartReadRules::Instance().addIO();
 
@@ -66,7 +66,7 @@ WIAnalog::~WIAnalog()
 {
 }
 
-void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WIAnalog::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
     if (!status)
     {
@@ -84,12 +84,16 @@ void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
 
     if (!values.empty())
     {
-        val = values[0];
+        //Compared once converted: the raw register never equals a converted
+        //value, and each answer would signal the rules again.
+        val = AnalogIO::convertValue(get_params(), values[0]);
+        //An unchanged value is not signalled, but the sensor is alive.
+        markReading();
     }
 
     if (val != value)
     {
-        value = AnalogIO::convertValue(get_params(), val);
+        value = val;
         emitChange();
     }
 
@@ -103,10 +107,14 @@ void WIAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
 void WIAnalog::readValue()
 {
     host = get_param("host");
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     Utils::from_string(get_param("var"), address);
 
-    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
+    WagoMap::Instance(host, port).read_words(WagoTypes::Address((UWord)address), WagoTypes::Count(1),
+                                              sigc::mem_fun(*this, &WIAnalog::WagoReadCallback));
 }

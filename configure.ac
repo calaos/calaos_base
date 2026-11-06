@@ -20,7 +20,6 @@ AM_GNU_GETTEXT_VERSION([0.19])
 
 m4_ifdef([AM_GNU_GETTEXT], [
 AM_GNU_GETTEXT([external])
-po_makefile_in=po/Makefile.in
 have_po="yes"
 ],[
 have_po="no"
@@ -42,14 +41,14 @@ AC_CANONICAL_HOST
 AC_PROG_CXX
 AC_PROG_CC
 AM_PROG_CC_C_O
-AX_CXX_COMPILE_STDCXX_14([noext],[mandatory])
+AX_CXX_COMPILE_STDCXX_20([noext],[mandatory])
 
 # pkg-config
 PKG_PROG_PKG_CONFIG
 
 ### Checks for libraries
 
-requirements_calaos_common="libuv >= 1.19.0 sigc++-2.0 >= 2.4.1 jansson >= 2.5 libcurl >= 7.20.0 luajit sqlite3 openssl >= 1.1.0"
+requirements_calaos_common="libuv >= 1.19.0 sigc++-2.0 >= 2.4.1 libcurl >= 7.20.0 luajit sqlite3 openssl >= 1.1.0"
 PKG_CHECK_MODULES([CALAOS_COMMON], [${requirements_calaos_common}])
 AC_SUBST([requirements_calaos_common])
 
@@ -74,6 +73,42 @@ esac
 AC_SUBST([lt_enable_auto_import])
 
 EFL_CHECK_COMPILER_FLAGS([CALAOS_COMMON], [-Wall -Wextra -Wno-unused-parameter -Wshadow -Wpointer-arith -Wno-missing-field-initializers -fvisibility=hidden -fdata-sections -ffunction-sections])
+
+### pugixml (E4.4): XML DOM with native XPath 1.0. It replaced the vendored
+#TinyXML 2.5.3 + TinyXPath, removed from the tree in E4.4e.
+#The distro package is the default path (debian: libpugixml-dev, arch: pugixml,
+#both ship pugixml.pc with XPath enabled). When it is missing, the vendored copy
+#in src/lib/pugixml is compiled into libcalaos_common instead, so the build never
+#depends on the host having the package installed.
+#This block sits after EFL_CHECK_COMPILER_FLAGS on purpose: the vendored branch
+#puts a literal $(top_srcdir) into CALAOS_COMMON_CFLAGS, and that must not reach
+#a macro which feeds those flags back to the compiler from the shell.
+have_pugixml_system="no"
+PKG_CHECK_MODULES([PUGIXML], [pugixml >= 1.10],
+                  [have_pugixml_system="yes"],
+                  [have_pugixml_system="no"])
+if test "x${have_pugixml_system}" = "xyes"
+then
+    requirements_calaos_common="${requirements_calaos_common} pugixml >= 1.10"
+    requirements_calaos_server="${requirements_calaos_server} pugixml >= 1.10"
+    PUGIXML_INFO="system $(${PKG_CONFIG} --modversion pugixml) (pkg-config)"
+else
+    #Single quotes: $(top_srcdir) must survive configure and be expanded by make.
+    PUGIXML_CFLAGS='-I$(top_srcdir)/src/lib/pugixml'
+    PUGIXML_LIBS=""
+    PUGIXML_INFO="vendored src/lib/pugixml (install libpugixml-dev to use the system one)"
+fi
+AM_CONDITIONAL([HAVE_PUGIXML_SYSTEM], [test "x${have_pugixml_system}" = "xyes"])
+AC_SUBST([PUGIXML_CFLAGS])
+AC_SUBST([PUGIXML_LIBS])
+
+#Same requirement sets as the other common libs: every consumer of
+#@CALAOS_COMMON_*@ / @CALAOS_SERVER_*@ (libcalaos_common, calaos_server, tests)
+#gets pugixml for free.
+CALAOS_COMMON_CFLAGS="${CALAOS_COMMON_CFLAGS} ${PUGIXML_CFLAGS}"
+CALAOS_COMMON_LIBS="${CALAOS_COMMON_LIBS} ${PUGIXML_LIBS}"
+CALAOS_SERVER_CFLAGS="${CALAOS_SERVER_CFLAGS} ${PUGIXML_CFLAGS}"
+CALAOS_SERVER_LIBS="${CALAOS_SERVER_LIBS} ${PUGIXML_LIBS}"
 
 ### Checks for header files
 AC_HEADER_ASSERT
@@ -105,14 +140,6 @@ then
      AC_DEFINE([HAVE_LIBKNX], [1], [libknx])
 fi
 
-AC_CHECK_PROG(HAVE_CURLBIN, [curl], ["yes"])
-if test "x${HAVE_CURLBIN}" == "xyes"
-then
-    CURLBIN_INFO="yes"
-else
-    CURLBIN_INFO="No, install curl binary before running calaos_server"
-fi
-
 AC_CHECK_PROG(HAVE_CONVERT, [convert], ["yes"])
 if test "x${HAVE_CONVERT}" == "xyes"
 then
@@ -120,6 +147,17 @@ then
 else
     CONVERT_INFO="No, install imagemagick convert tool"
 fi
+
+# Without it, get_picture?width= answers the full resolution frame (docs/08)
+have_libjpeg="no"
+JPEG_LIBS=""
+AC_CHECK_HEADERS([jpeglib.h],
+                 [AC_CHECK_LIB([jpeg], [jpeg_mem_src], [have_libjpeg="yes"; JPEG_LIBS="-ljpeg"])])
+if test "x${have_libjpeg}" == "xyes"
+then
+    AC_DEFINE([HAVE_LIBJPEG], [1], [libjpeg, for camera thumbnails])
+fi
+AC_SUBST([JPEG_LIBS])
 
 have_mosquitto="no"
 AC_CHECK_HEADERS([mosquitto.h], [have_mosquitto="yes"])
@@ -143,16 +181,6 @@ then
      GTEST_INFO="make check"
 else
      GTEST_INFO="install gtest to run this test"
-fi
-
-#check for autobahn test suite
-AC_CHECK_PROG(HAVE_AUTOBAHN, wstest, yes)
-AM_CONDITIONAL([HAVE_AUTOBAHN], [test "x${HAVE_AUTOBAHN}" = "xyes"])
-if test "x${HAVE_AUTOBAHN}" == "xyes"
-then
-     WS_INFO="make check"
-else
-     WS_INFO="install autobahn testsuite to run this test"
 fi
 
 # Check for Python and dependencies
@@ -196,16 +224,57 @@ AM_PATH_PYTHON([3], [
             AC_MSG_WARN([Python reolink_aio module not found. Install with: pip3 install reolink_aio])
         fi
 
-        # Check for MCP sidecar dependencies (mcp[cli], uvicorn, fastapi).
+        # Check for the MCP sidecar dependencies.
+        #
+        # T3.23: this used to be `import mcp, uvicorn, fastapi`, which only
+        # proved the distributions were installed. It happily said "yes" with
+        # mcp 2.0.0, where mcp.server.fastmcp no longer exists — so configure
+        # enabled a sidecar that could not import its own entry point. A
+        # configure that passes while the binary will not start is worse than
+        # no check at all: it reassures.
+        #
+        # What follows is the set of third-party symbols the sidecar reaches
+        # on its live import path, taken from
+        # src/bin/calaos_mcp/python/calaos_mcp/*.py. Keep it in sync with those
+        # sources; anything less is a guess.
+        #
+        # It does not stop at imports. server.py drives MCPServer through two
+        # calls that no import statement would reveal:
+        #   - streamable_http_app(transport_security=...)  (server.py:186)
+        #   - mcp.session_manager                          (server.py:193)
+        # Both moved in mcp 2 (from mcp.settings and the private
+        # _session_manager), so the probe replays that sequence rather than
+        # trusting the imports.
+        #
+        # pydantic is deliberately NOT probed: the only module importing it,
+        # models.py, is imported by nothing (dead code, see FINDINGS). It is
+        # still pinned in pyproject.toml as a transitive of mcp/fastapi, and a
+        # missing pydantic would fail the fastapi import above anyway.
         if test "x$with_mcp" != "xno"; then
-            AC_MSG_CHECKING([for Python mcp + uvicorn + fastapi modules])
-            if $PYTHON -c "import mcp, uvicorn, fastapi" 2>/dev/null; then
+            AC_MSG_CHECKING([for the Python API the calaos_mcp sidecar uses])
+            mcp_api_probe="from mcp.server.mcpserver import MCPServer; \
+from mcp.server.mcpserver.exceptions import ToolError; \
+from mcp.server.transport_security import TransportSecuritySettings; \
+from fastapi import FastAPI, Request, Response; \
+from fastapi.responses import JSONResponse; \
+from starlette.middleware.base import BaseHTTPMiddleware; \
+from starlette.routing import Route; \
+import uvicorn, websockets; \
+probe = MCPServer('configure-probe'); \
+assert probe.streamable_http_app(transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)).routes; \
+assert probe.session_manager is not None"
+            if $PYTHON -c "$mcp_api_probe" 2>/dev/null; then
                 have_python_mcp="yes"
                 AC_MSG_RESULT([yes])
                 AC_DEFINE([HAVE_PYTHON_MCP], [1], [Define if Python MCP sidecar deps are available])
             else
                 AC_MSG_RESULT([no])
-                AC_MSG_WARN([Python MCP deps not found. Install with: pip3 install "mcp[cli]" uvicorn fastapi])
+                AC_MSG_WARN([calaos_mcp sidecar dependencies missing or incompatible.])
+                AC_MSG_WARN([Failing import:])
+                $PYTHON -c "$mcp_api_probe" 2>&1 | sed 's/^/    /' >&2
+                AC_MSG_WARN([Install the pinned set declared in src/bin/calaos_mcp/pyproject.toml:])
+                AC_MSG_WARN([  scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml > req.txt])
+                AC_MSG_WARN([  pip3 install -r req.txt --break-system-packages])
             fi
         fi
     else
@@ -221,6 +290,66 @@ AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_REOLINK], [test "x$have_python_reolink" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_MCP], [test "x$have_python_mcp" = "xyes"])
 
+# F-PYTEST-1: report, at configure time, whether "make check" will be able to
+# MEASURE tests/python/ at all.
+#
+# Half of that directory (3 files of 6, 19 cases of 42) imports pytest at
+# module level; two of those three then reach for fastapi/httpx or colorama
+# through pytest.importorskip. Without those modules the suites cannot run --
+# and until now they did not run while "make check" printed "# FAIL: 0", which
+# is the worst of the three possible outcomes.
+#
+# The dependency is deliberately NOT made mandatory (it would break the build
+# of every developer who has no pytest, ourselves included; see
+# docs/refactoring/DECISIONS.md). What is mandatory is that nobody can read a
+# green build and not know: this line at configure time, and an automake SKIP
+# -- counted in the visible "# SKIP:" column -- at "make check" time.
+#
+# Same shape as GTEST_INFO above, on purpose.
+PYTEST_INFO="install pytest, fastapi, httpx and colorama to measure tests/python/ (make check will report SKIP)"
+if test "x$PYTHON" != "x:" && test "x$PYTHON" != "x"; then
+    AC_MSG_CHECKING([for the Python modules the tests/python/ suites need])
+    if $PYTHON -c "import pytest, fastapi, httpx, colorama" 2>/dev/null; then
+        PYTEST_INFO="make check"
+        AC_MSG_RESULT([yes])
+    else
+        AC_MSG_RESULT([no])
+    fi
+fi
+
+### AddressSanitizer (--enable-asan)
+#Off by default: a plain ./configure must produce byte-for-byte the same flags
+#as before this option existed, so nothing here runs unless it is asked for.
+#
+#This block sits deliberately at the very end, after every configure-time
+#compile/link probe (AC_CHECK_LIB, PKG_CHECK_MODULES, EFL_CHECK_COMPILER_FLAGS,
+#AX_CXX_COMPILE_STDCXX_20, ACX_PTHREAD...): appending -fsanitize=address to
+#CFLAGS/CXXFLAGS/LDFLAGS earlier would make each of those probes compile and
+#link against libasan, which can change their outcome (and would leak the
+#sanitizer into the pkg-config/compiler-flag detection results cached in
+#config.log). Only the flags handed to make need the sanitizer.
+have_asan="no"
+ASAN_HINT=""
+AC_ARG_ENABLE([asan],
+    AS_HELP_STRING([--enable-asan],
+                   [build with AddressSanitizer (-fsanitize=address), for debugging only @<:@default=no@:>@]),
+    [enable_asan=$enableval],
+    [enable_asan=no])
+
+if test "x${enable_asan}" = "xyes"
+then
+    have_asan="yes"
+    #-O1 + frame pointers: ASan needs readable stack traces, and -O0 makes the
+    #test suite crawl. -g is repeated here on purpose so the option works even
+    #if the caller overrode CFLAGS/CXXFLAGS without it.
+    ASAN_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g -O1"
+    CFLAGS="${CFLAGS} ${ASAN_FLAGS}"
+    CXXFLAGS="${CXXFLAGS} ${ASAN_FLAGS}"
+    LDFLAGS="${LDFLAGS} ${ASAN_FLAGS}"
+    ASAN_HINT="-- run the suite as: ASAN_OPTIONS=detect_leaks=0 make check"
+    AC_MSG_NOTICE([AddressSanitizer enabled: ${ASAN_FLAGS}])
+fi
+
 AC_CONFIG_FILES([
 Makefile
 tests/Makefile
@@ -234,11 +363,17 @@ src/bin/tools/Makefile
 data/Makefile
 data/debug/Makefile
 data/debug/dist/Makefile
-$po_makefile_in
 src/bin/calaos_server/Audio/calaos_roon
 src/bin/calaos_server/IO/Reolink/calaos_reolink
 src/bin/calaos_mcp/calaos_mcp
 ])
+
+# po/Makefile.in must be listed literally, not through a shell variable: config.status
+# stores the AC_CONFIG_FILES arguments as case patterns, and a "$var" pattern is empty
+# when config.status is re-invoked standalone -- which is exactly what automake's
+# "po/Makefile: ... POTFILES.in" rule does whenever POTFILES.in is edited. The gettext
+# condition below is an m4-time test, identical to the one guarding AM_GNU_GETTEXT above.
+m4_ifdef([AM_GNU_GETTEXT], [AC_CONFIG_FILES([po/Makefile.in])])
 
 AC_OUTPUT
 
@@ -272,14 +407,16 @@ echo "  LDFLAGS..............................: $LDFLAGS"
 echo
 echo "Test Suite:"
 echo "  gtest library........................: $GTEST_INFO"
-echo "  Autobahn Websocket test suite........: $WS_INFO"
+echo "  tests/python/ (pytest + sidecar deps): $PYTEST_INFO"
+echo "  AddressSanitizer (--enable-asan).....: $(colorOut $have_asan) $ASAN_HINT"
 echo
 echo "Installation...........................: make install (as root if needed, with 'su' or 'sudo')"
 echo "  prefix...............................: $prefix"
 echo
 echo "Dependencies:"
-echo "  UrlDownloader curl support...........: $(colorOut $CURLBIN_INFO)"
 echo "  UrlDownloader picture resizing.......: $(colorOut $CONVERT_INFO)"
+echo "  Camera thumbnails (libjpeg)..........: $(colorOut $have_libjpeg)"
+echo "  pugixml (XML + XPath 1.0)............: $PUGIXML_INFO"
 echo
 echo "Hardware support:"
 echo "  One Wire support.....................: $(colorOut $have_owcapi)"

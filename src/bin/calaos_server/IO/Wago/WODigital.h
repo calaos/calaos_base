@@ -27,18 +27,25 @@
 
 namespace Calaos {
 
-class WODigital : public OutputLight
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WODigital: public OutputLight, public sigc::trackable
 {
 private:
     int address;
+    int readBackAddress;
 
     std::string host;
     int port;
 
     bool start;
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-    void WagoWriteCallback(bool status, UWord address, bool value);
+    void readBack();
+    void WagoReadCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<bool> &values);
+    /* T3.46 - by value, see WOAnalog.h. ⚠️ Both parameters below are unused:
+     * permuting them is semantically a NO-OP, so no behavioural test could
+     * ever separate the two programs. Typing them closes a CONTRACT. */
+    void WagoWriteCallback(bool status, WagoTypes::Address address, WagoTypes::BitValue value);
 
 protected:
     bool set_value_real(bool val);

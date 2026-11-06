@@ -135,7 +135,7 @@ void AVRPioneer::processMessage(string msg)
             from_string(msg, volume_zone3);
             volume_zone3 = volume_zone3 * 100 / 81;
 
-            state_changed_2.emit("volume", Utils::to_string(volume_zone3));
+            state_changed_3.emit("volume", Utils::to_string(volume_zone3));
         }
     }
     else if (msg.substr(0, 2) == "FL")

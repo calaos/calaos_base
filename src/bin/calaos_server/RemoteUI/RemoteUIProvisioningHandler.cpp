@@ -203,8 +203,20 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
                       << remote_ui->get_param("id");
     }
 
-    // Save configuration
-    Config::Instance().SaveConfigIO();
+    //A panel handed credentials that the next restart forgets could never log
+    //in again. The secrets stay in memory: a retry gets the same ones.
+    const Config::SaveResult saved = Config::Instance().SaveConfigIO();
+    if (saved != Config::SaveResult::Written)
+    {
+        //A waiting panel asks again every 10 s: the freeze is no failure to log each time.
+        if (saved != Config::SaveResult::Frozen)
+        {
+            cErrorDom(TAG) << "RemoteUIProvisioningHandler: Provisioning of " << remote_ui->get_param("id")
+                           << " not written, no credentials sent";
+        }
+        sendErrorResponse("Internal server error - configuration not written", 500);
+        return;
+    }
 
     // Send provisioning response
     Json response = remote_ui->getProvisioningResponse();
@@ -215,7 +227,9 @@ void RemoteUIProvisioningHandler::handleProvisionRequest(const string &data)
 
 void RemoteUIProvisioningHandler::sendJsonResponse(const Json &response, int status_code)
 {
-    string response_str = response.dump();
+    //E4.1b: the provisioning answer reflects RemoteUI params read from
+    //io.xml, which pugixml hands over without validating UTF-8.
+    string response_str = response.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     string http_response = "HTTP/1.1 " + Utils::to_string(status_code) +
                           (status_code == 200 ? " OK" : " Error") + "\r\n" +

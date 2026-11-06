@@ -1,0 +1,23 @@
+{
+  "events": [
+    {
+      "data": {
+        "id": "e40_bool_out",
+        "state": "true"
+      },
+      "event_raw": "io_changed id:e40_bool_out state:true",
+      "type": "3",
+      "type_str": "io_changed"
+    },
+    {
+      "data": {
+        "id": "e40_string",
+        "param": "io_style"
+      },
+      "event_raw": "io_prop_deleted id:e40_string param:io_style",
+      "type": "4",
+      "type_str": "io_prop_deleted"
+    }
+  ],
+  "success": "true"
+}

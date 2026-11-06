@@ -187,10 +187,20 @@ void McpProxyHandler::sendError(std::shared_ptr<uvw::TcpHandle> client,
 }
 
 McpProxyHandler::McpProxyHandler(std::shared_ptr<uvw::TcpHandle> c,
-                                 const std::string &initialBytes)
+                                 const std::string &initialBytes,
+                                 const std::string &peerIp,
+                                 const std::string &credential)
     : client(std::move(c)),
-      pendingToSidecar(initialBytes)
+      filter(peerIp, credential)
 {
+    if (!filter.feed(initialBytes, pendingToSidecar))
+    {
+        cWarningDom("mcp") << "rejecting unframable /mcp request";
+        sendError(client, 400, "Malformed request\n");
+        teardown();
+        return;
+    }
+
     const std::string &path = McpServerManager::Instance().socketPath();
     if (path.empty())
     {
@@ -212,21 +222,27 @@ void McpProxyHandler::connectToSidecar(const std::string &path)
     auto loop = uvw::Loop::getDefault();
     sidecar = loop->resource<uvw::PipeHandle>();
 
-    sidecar->once<uvw::ConnectEvent>([this](const auto &, auto &)
+    std::weak_ptr<bool> alive = aliveToken;
+
+    sidecar->once<uvw::ConnectEvent>([this, alive](const auto &, auto &)
     {
+        if (alive.expired()) return;
         onSidecarConnected();
     });
-    sidecar->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
+    sidecar->on<uvw::DataEvent>([this, alive](uvw::DataEvent &ev, auto &)
     {
+        if (alive.expired()) return;
         writeToClient(std::string(ev.data.get(), ev.length));
     });
-    sidecar->once<uvw::EndEvent>([this](const auto &, auto &)
+    sidecar->once<uvw::EndEvent>([this, alive](const auto &, auto &)
     {
+        if (alive.expired()) return;
         cDebugDom("mcp") << "sidecar pipe EOF";
         teardown();
     });
-    sidecar->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
+    sidecar->once<uvw::ErrorEvent>([this, alive](const uvw::ErrorEvent &ev, auto &)
     {
+        if (alive.expired()) return;
         cWarningDom("mcp") << "sidecar pipe error: " << ev.what();
         if (!sidecarReady)
             sendError(client, 502, "MCP sidecar unavailable\n");
@@ -251,9 +267,19 @@ void McpProxyHandler::onSidecarConnected()
 void McpProxyHandler::onClientData(const std::string &data)
 {
     if (closed) return;
+
+    std::string filtered;
+    if (!filter.feed(data, filtered))
+    {
+        cWarningDom("mcp") << "tearing down /mcp tunnel: unframable request";
+        teardown();
+        return;
+    }
+    if (filtered.empty()) return;
+
     if (!sidecarReady)
     {
-        pendingToSidecar.append(data);
+        pendingToSidecar.append(filtered);
         // Tiny safety bound: refuse to buffer megabytes before the sidecar is
         // even up (would be a DoS vector if the sidecar is wedged).
         if (pendingToSidecar.size() > 1024 * 1024)
@@ -264,7 +290,7 @@ void McpProxyHandler::onClientData(const std::string &data)
         }
         return;
     }
-    writeToSidecar(data);
+    writeToSidecar(filtered);
 }
 
 void McpProxyHandler::onClientClose()

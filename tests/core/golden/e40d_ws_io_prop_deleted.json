@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data": {
+      "id": "e40_accented",
+      "param": "io_style"
+    },
+    "event_raw": "io_prop_deleted id:e40_accented param:io_style",
+    "type": "4",
+    "type_str": "io_prop_deleted"
+  },
+  "msg": "event"
+}

@@ -82,6 +82,41 @@ int mbus_cmd_addr_mdata(mbus_struct *mbus,
       mbus_ubyte slave_addr, mbus_ubyte funct_code,
       mbus_uword addr, mbus_ubyte *data,
       mbus_ubyte data_size, mbus_word data_count);
+int mbus_cmd_bytecount_ok(mbus_struct *mbus,
+      int byte_count, int expected);
+
+/*
+ * A byte count taken from a RESPONSE is a claim made by the peer, bounded by
+ * 255 and by nothing the caller allocated - and MODBUS/TCP is unauthenticated.
+ * Two facts are demanded, because neither implies the other: the count is the
+ * one the request implies (`expected` < 0 when the request states none), and
+ * it fits inside the body actually received (2040 coils legitimately need 255
+ * bytes, of which only 251 fit). A contradicting count is refused, not
+ * clamped: clamping would hand the caller bits that never arrived, and every
+ * caller here already treats -1 as "keep the previous value".
+ *
+ * Returns: 1 if the byte count may be trusted, 0 if it may not.
+ */
+int
+mbus_cmd_bytecount_ok
+(
+  mbus_struct *mbus, /* Pointer to MBUS structure, holding the response */
+  int byte_count,    /* Byte count announced by the response */
+  int expected       /* Byte count the request implies, or -1 if it states none */
+)
+{
+  /* Bytes of the response body not yet consumed: the length announced in the
+   * header, less the unit id, the function code and the byte count itself. */
+  int body_left = (int)MBUS_HDR(mbus->buf, MBUS_LENGTH_L) - 3;
+
+  if (byte_count <= 0)
+    return 0; /* not a count */
+  if (expected >= 0 && byte_count != expected)
+    return 0; /* not the count that was asked for */
+  if (byte_count > body_left)
+    return 0; /* not inside the frame that arrived */
+  return 1;
+}
 
 /*
  * Check MODBUS response for errors and exception
@@ -246,7 +281,7 @@ mbus_cmd_read_coil_status
   mbus_ubyte *coils_data /* Pointer to readed data buffer */
 )
 {
-  int rc;
+  int rc, expected;
   mbus_ubyte *bufptr = mbus->buf + MBUS_DATA, byte_count;
 
   MBUS_CHECK_ADDR(slave_addr, 1);
@@ -258,7 +293,11 @@ mbus_cmd_read_coil_status
 
   /* take bytecount */
   byte_count = MBUS_BYTE_RD(bufptr);
-  if (!byte_count)
+  /* One byte per eight coils asked for and nothing else: `coils_data` was
+   * sized on coils_num, never on this response. Above 255 the request has no
+   * representable answer at all. */
+  expected = ((int)coils_num + 7) / 8;
+  if (expected > 255 || !mbus_cmd_bytecount_ok(mbus, (int)byte_count, expected))
     return -1; /* invalid value of bytecount */
   /* copy received data */
   while (byte_count--)
@@ -283,8 +322,8 @@ mbus_cmd_read_holding_registers
   mbus_uword *data       /* Pointer to readed data buffer */
 )
 {
-  int rc;
-  mbus_ubyte *bufptr = mbus->buf + MBUS_DATA, data_count;
+  int rc, expected;
+  mbus_ubyte *bufptr = mbus->buf + MBUS_DATA, byte_count, data_count;
   mbus_uword word_buf;
 
   MBUS_CHECK_ADDR(slave_addr, 1);
@@ -294,10 +333,16 @@ mbus_cmd_read_holding_registers
                                 start_addr, points_num)) != 0)
     return rc;
 
-  /* take bytecount divided by 2 */
-  data_count = MBUS_BYTE_RD(bufptr) / 2;
-  if (!data_count)
+  /* take bytecount */
+  byte_count = MBUS_BYTE_RD(bufptr);
+  /* Two bytes per register asked for. The RAW count is what must be confronted
+   * with the request, not the halved one the copy loop uses: 7 / 2 == 3, so a
+   * check written on the halved value accepts an odd byte count no slave can
+   * produce and reads a byte that is not there. */
+  expected = (int)points_num * 2;
+  if (expected > 255 || !mbus_cmd_bytecount_ok(mbus, (int)byte_count, expected))
     return -1; /* invalid value of bytecount */
+  data_count = (mbus_ubyte)(byte_count / 2);
   /* copy received data */
   while (data_count--)
   {
@@ -519,9 +564,12 @@ mbus_cmd_report_slave_id
 
   /* take bytecount */
   byte_count = MBUS_BYTE_RD(bufptr);
-  *data_count = byte_count;
-  if (!byte_count)
+  /* No quantity in the request, so the frame that arrived is the only bound -
+   * hence `expected` = -1. That bounds the READ only; the size of `slave_data`
+   * stays a caller contract, written down in mbus.h. */
+  if (!mbus_cmd_bytecount_ok(mbus, (int)byte_count, -1))
     return -1; /* invalid value of bytecount */
+  *data_count = byte_count;
   /* copy received data */
   while (byte_count--)
     MBUS_BYTE_WR(slave_data, *bufptr++);

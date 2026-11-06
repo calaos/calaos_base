@@ -1,0 +1,136 @@
+cpp-tui — vendored copy
+=======================
+
+Origin      : https://github.com/jonoton/cpp-tui
+Branch      : main
+Commit      : 9543ee3c056583eea1fc44491c6c240f0df0b570
+Commit date : 2026-07-25
+Fetched on  : 2026-07-30
+License     : MIT (see LICENSE, kept verbatim from upstream)
+
+Files
+-----
+
+  cpptui.hpp   18124 lines, 571613 bytes, sha256
+               08b89081ad69751f9fe5c1174a245c631f8c99cddfeb2aff32e17f32324fa890
+               (as shipped here, i.e. upstream + the local patches below)
+
+               pristine upstream at the commit above is 18106 lines,
+               570572 bytes, sha256
+               9942394fd8b52f9948313c160a45c360d503c34e52df0626787e36da6927137e
+
+  LICENSE      1064 bytes, sha256
+               3625194269d1d6c074e61bdda346c44160bd1f02ad4133e7d5cc5cf6129827b4
+               unmodified verbatim copy of the upstream file
+
+Local patches
+-------------
+
+There are exactly **two** local modifications, kept in patches/ so they can be
+replayed, in numeric order, after every upstream update. LICENSE is unmodified.
+
+  patches/0001-allow-ctrl-c-interception-to-be-disabled.patch
+
+    What: adds App::set_intercept_ctrl_c(bool) / App::intercepts_ctrl_c() and
+    guards the "Mandatory Global Exit (Ctrl+C)" branch of App::run() with the
+    new flag. The flag defaults to true, so upstream behaviour is unchanged for
+    any code that does not call the setter.
+
+    Why: upstream App::run() catches Ctrl+C at the top of the dispatch loop and
+    quits unconditionally — before register_key callbacks, before the focused
+    widget, before the exit keys. Only a live text selection makes it fall
+    through (Ctrl+C then means Copy). calaos_config edits the Calaos
+    configuration and must ask "discard unsaved changes?" before quitting, so
+    it needs Ctrl+C to reach its own handler. With the flag cleared, Ctrl+C
+    continues down the normal dispatch path; Copy-on-selection is unaffected in
+    both modes.
+
+    Upstream status: proposed, not yet merged. patches/UPSTREAM.md holds the
+    ready-to-send issue/PR text. Drop the patch as soon as an equivalent knob
+    is released upstream.
+
+  patches/0002-copy-registered-key-before-invoking-callback.patch
+
+    What: in step "1.7 Registered Key Events" of App::run(), copies the
+    RegisteredKey out of key_events_ before calling it, and reads `consume`
+    from that copy instead of from the map node. Three added lines plus a
+    comment; dispatch order and consume semantics are unchanged.
+
+    Why: upstream calls the callback through the unordered_map iterator
+    (it->second.callback()) and then re-reads it->second.consume. A callback
+    that calls unregister_key() on its own key erases that node, so the
+    std::function is destroyed while its operator() is still on the stack and
+    the consume read afterwards touches freed memory; register_key() from a
+    callback is the same hazard via a rehash. Our own TUI hits it: the '?',
+    'i', 'v', 'q' and 's' callbacks of calaos_config go through openDialog()
+    -> updateShortcutState(), which unregisters those very letters. Both
+    faults are reproducible under -fsanitize=address against the pristine
+    header and silent with this patch.
+
+    Upstream status: proposed, not yet merged. patches/UPSTREAM.md holds the
+    ready-to-send issue text. Drop the patch as soon as the fix is released
+    upstream.
+
+Delete patches/UPSTREAM.md only once *both* patches are gone; until then, drop
+just the section of it that belongs to the patch that was accepted.
+
+The build uses the patched cpptui.hpp directly; there is no build-time patching
+step. Do not "fix" the header any further without adding a numbered patch here:
+an unrecorded local edit is silently lost at the next update.
+
+Updating
+--------
+
+Run from this directory. It re-fetches upstream and re-applies every local
+patch, in numeric order (0001 then 0002 — later patches are written against
+the tree as the earlier ones left it), and stops loudly at the first one that
+no longer applies — which means that patch must be rebased, or dropped because
+upstream fixed it. Never let the loop continue past a failure: a half-patched
+header compiles.
+
+    set -e
+    export LC_ALL=C   # so the patch glob sorts numerically
+    SHA=$(curl -s https://api.github.com/repos/jonoton/cpp-tui/commits/main \
+          | sed -n 's/.*"sha": "\([0-9a-f]\{40\}\)".*/\1/p' | head -1)
+    curl -fL -o cpptui.hpp https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/cpptui.hpp
+    curl -fL -o LICENSE    https://raw.githubusercontent.com/jonoton/cpp-tui/$SHA/LICENSE
+
+    # record the pristine sha256 before patching
+    sha256sum cpptui.hpp
+
+    for p in patches/[0-9]*.patch; do
+      echo "applying $p"
+      patch -p1 -d ../../.. --batch --forward --no-backup-if-mismatch < "$p" || {
+        echo "FAILED to apply $p — rebase it or drop it, do not skip it" >&2
+        exit 1
+      }
+    done
+
+    sha256sum cpptui.hpp   # patched value
+
+Then update the commit, date, sizes and both sha256 above, and re-check the
+"Local patches" section (a patch that upstream has merged must be deleted, not
+kept as a no-op).
+
+Usage notes
+-----------
+
+Header-only, no dependency, no object file: only an include path is needed
+(-I$(top_srcdir)/src/lib/cpptui, added to src/bin/tools/Makefile.am).
+
+cpptui.hpp must only be included from .cpp files of the TUI, never from a
+header exposed to the rest of the tree: it is 18k lines and it costs roughly
++10 s of compile time and +650 MB of compiler RSS per translation unit that
+includes it (measured with the project's own CXXFLAGS, gcc 12, aarch64).
+
+The header produces 30 warnings with the project's warning flags (29 -Wshadow,
+1 -Wunused-variable). Include it through a thin local wrapper that wraps the
+#include in `#pragma GCC diagnostic push / ignored "-Wshadow" / ignored
+"-Wunused-variable" / pop`, so the tree stays at zero warnings without
+weakening the flags for our own code.
+
+On Unix, the input parser remaps control characters 1..26 to `c + 96`, so
+Ctrl+C is delivered as `key == 'c'` with `ctrl == true`, not as `key == 3`.
+Code opting out of the Ctrl+C interception must therefore register
+`register_key('c', cb, /*ctrl=*/true)`; `register_key(3, ...)` never fires
+here, even though `Event::is_copy()` also accepts key 3.

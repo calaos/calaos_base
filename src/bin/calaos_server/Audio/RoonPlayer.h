@@ -24,6 +24,7 @@
 #include "AudioPlayer.h"
 #include "Timer.h"
 #include "ExternProc.h"
+#include "RoonArgs.h"
 #include <json.hpp>
 #include <optional>
 #include "Json_Addition.h"
@@ -143,18 +144,28 @@ public:
 
     ~RoonCtrl();
 
-    void subscribeZone(const string &zoneId, std::function<void(const RoonPlayerState &)> cb);
+    //A sigc::slot, not a std::function: it keeps the trackable link of a
+    //sigc::mem_fun, so a deleted RoonPlayer's slot is cut.
+    void subscribeZone(const string &zoneId, sigc::slot<void, const RoonPlayerState &> cb);
     void sendMessage(const string &msg);
+
+    //Where a zone state from the sidecar enters; public so a test can feed
+    //one without a running calaos_roon.
+    void processNewMessage(const string &msg);
 
 private:
     explicit RoonCtrl(const string &host, int port);
 
+    //T3.28: the single launch path. See RoonPlayer.cpp.
+    void launch();
+
     ExternProcServer *process;
     string exe;
+    //The --host/--port command line, built once in the constructor and reused
+    //by every relaunch.
+    vector<string> procArgs;
 
-    std::map<string, std::function<void(const RoonPlayerState &)>> subscribeCb;
-
-    void processNewMessage(const string &msg);
+    std::map<string, sigc::slot<void, const RoonPlayerState &>> subscribeCb;
 };
 
 class RoonPlayer: public AudioPlayer, public sigc::trackable
@@ -209,9 +220,37 @@ public:
         return p;
     }
 
+    /*
+     * T3.28: read-only view of what would be handed to RoonCtrl::Instance().
+     *
+     * These exist for tests/core/RoonArgs_test.cpp and say so: without them
+     * nothing can check that a RoonPlayer built from a real Params resolved
+     * its port - which is precisely the line T3.28 fixes - without also
+     * launching a sidecar to look at.
+     *
+     * ⛔ T3.28b - the reason written here used to be "RoonCtrl is a singleton
+     * that spawns a process in its constructor and is unreachable from make
+     * check (E4.1h)". FALSE: Instance() is public and static, and the spawn is
+     * an observation point, not a wall. tests/core/RoonSpawnViaPlayer_test.cpp
+     * builds a real RoonPlayer and watches the launch that follows. These
+     * accessors stay because reading a member back is a cheaper and sharper
+     * oracle than a subprocess, not because the subprocess is out of reach.
+     * See docs/refactoring/FINDINGS.md, F-LINK-1.
+     */
+    int portGet() const { return port; }
+    const std::string &hostGet() const { return host; }
+
 private:
     std::string zoneId, host, id;
-    int port;
+    /*
+     * ⚠️ THE IN-CLASS INITIALISER IS THE BELT, portFromParams() IS THE
+     * BRACES. Before T3.28 this was `int port;` with nothing in the
+     * constructor's initialiser list, and Utils::from_string("") answers true
+     * WITHOUT WRITING (the stream sentry fails before extraction) - so the
+     * port handed to the sidecar was whatever the stack held. Not 0.
+     * Indeterminate, and therefore not reproducible from one run to the next.
+     */
+    int port = RoonArgs::DefaultPort;
 
     RoonPlayerState playerState;
 

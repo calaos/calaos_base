@@ -22,16 +22,13 @@
 #define __MQTT_OUTPUT_ANALOG_H__
 
 #include "OutputAnalog.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttOutputAnalog : public OutputAnalog
+class MqttOutputAnalog : public MqttIOBase<OutputAnalog>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     void readValue();
     virtual void set_value_real(double val) override;

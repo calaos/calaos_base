@@ -21,6 +21,7 @@
 #include "IntValue.h"
 #include "CalaosConfig.h"
 #include "IOFactory.h"
+#include "AnalogBounds.h"
 
 using namespace Calaos;
 
@@ -44,6 +45,8 @@ Internal::Internal(Params &p):
 
         ioDoc->paramAdd("unit", _("Unit which will be displayed on the UI as a suffix."), IODoc::TYPE_STRING, false);
         ioDoc->paramAdd("step", _("Set a step for increment/decrement value. Default is 1.0"), IODoc::TYPE_FLOAT, false, "1");
+        AnalogBounds::boundsDoc(ioDoc);
+        AnalogBounds::dropLegacyBounds(this);
         ioDoc->conditionAdd("0", _("Event on a specific number value"));
         ioDoc->actionAdd("0", _("Set a specific number value"));
         ioDoc->actionAdd("inc", _("Increment value with configured step"));
@@ -74,6 +77,7 @@ Internal::Internal(Params &p):
 
     ioDoc->paramAdd("rw", _("Enable edit mode for this object. It allows user to modify the value on interfaces. Default to false"), IODoc::TYPE_BOOL, false, "false");
     ioDoc->paramAdd("save", _("Automatically save the value in cache. The value will be reloaded when restarting calaos is true. Default to false"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("value", _("Initial value, used when save is true and the cache holds no value yet."), IODoc::TYPE_STRING, false);
 
     ioDoc->conditionAdd("changed", _("Event on any change of value"));
 
@@ -89,6 +93,7 @@ Internal::Internal(Params &p):
 
 Internal::~Internal()
 {
+    DELETE_NULL(timer);
 }
 
 bool Internal::set_value(bool val)
@@ -118,6 +123,9 @@ bool Internal::set_value(bool val)
 bool Internal::set_value(double val)
 {
     if (!isEnabled()) return true;
+
+    if (get_type() == TINT)
+        val = AnalogBounds::clampToBounds(get_params(), val);
 
     cInfoDom("output") << get_param("id") << ": got action, " << val;
 
@@ -405,25 +413,26 @@ void Internal::LoadFromConfig()
         break;
     case TINT:
         from_string(saved_value, dvalue);
+        dvalue = AnalogBounds::clampToBounds(get_params(), dvalue);
         break;
     case TSTRING:
         svalue = saved_value;
         break;
     default: break;
     }
+    setValueKnown();
 }
 
-bool Internal::SaveToXml(TiXmlElement *node)
+bool Internal::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:internal");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child("calaos:internal");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
         if (key == "value" && get_param("save") != "true") continue;
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     return true;

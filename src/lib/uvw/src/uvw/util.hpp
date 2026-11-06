@@ -350,6 +350,7 @@ struct IpTraits<IPv4> {
     using NameFuncType = int(*)(const Type *, char *, std::size_t);
     static constexpr AddrFuncType addrFunc = &uv_ip4_addr;
     static constexpr NameFuncType nameFunc = &uv_ip4_name;
+    static constexpr int family = AF_INET;
     static constexpr auto sinPort(const Type *addr) { return addr->sin_port; }
 };
 
@@ -361,6 +362,7 @@ struct IpTraits<IPv6> {
     using NameFuncType = int(*)(const Type *, char *, std::size_t);
     static constexpr AddrFuncType addrFunc = &uv_ip6_addr;
     static constexpr NameFuncType nameFunc = &uv_ip6_name;
+    static constexpr int family = AF_INET6;
     static constexpr auto sinPort(const Type *addr) { return addr->sin6_port; }
 };
 
@@ -389,12 +391,42 @@ Addr address(F &&f, const H *handle) noexcept {
 
     int err = std::forward<F>(f)(handle, reinterpret_cast<sockaddr *>(&ssto), &len);
 
-    if(0 == err) {
+    //CALAOS PATCH, diverges from upstream. Without the family test the cast
+    //below reinterprets a sockaddr_in6 as a sockaddr_in, and uv_ip4_name()
+    //renders the first four bytes of sin6_flowinfo: every IPv6 peer comes back
+    //as the non-empty string "0.0.0.0", which no caller can tell from a real
+    //address. An empty Addr now means "not this family", so a caller that wants
+    //either must ask for both.
+    if(0 == err && ssto.ss_family == IpTraits<I>::family) {
         typename IpTraits<I>::Type *aptr = reinterpret_cast<typename IpTraits<I>::Type *>(&ssto);
         addr = address<I>(aptr);
     }
 
     return addr;
+}
+
+
+//CALAOS PATCH, diverges from upstream. The template parameter of recv() is a
+//guess about the sender; the kernel already said which family the datagram
+//came from. Casting on the guess does not fail loudly, it RENDERS: an IPv6
+//sender read as a sockaddr_in comes back as the plausible, non-empty
+//"0.0.0.0", which no caller can tell from a real address, and the port lands
+//right by an accident of layout, so the mistake looks like a working read.
+//When the guess was right this answers exactly what upstream answered.
+inline Addr sender(const sockaddr *addr) noexcept {
+    if(addr == nullptr) {
+        return Addr{};
+    }
+
+    if(addr->sa_family == IpTraits<IPv6>::family) {
+        return address<IPv6>(reinterpret_cast<const IpTraits<IPv6>::Type *>(addr));
+    }
+
+    if(addr->sa_family == IpTraits<IPv4>::family) {
+        return address<IPv4>(reinterpret_cast<const IpTraits<IPv4>::Type *>(addr));
+    }
+
+    return Addr{};
 }
 
 

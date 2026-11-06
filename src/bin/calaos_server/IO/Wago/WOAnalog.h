@@ -26,7 +26,9 @@
 namespace Calaos
 {
 
-class WOAnalog : public OutputAnalog
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WOAnalog: public OutputAnalog, public sigc::trackable
 {
 private:
     int address;
@@ -35,9 +37,14 @@ private:
     int port;
 
     virtual void set_value_real(double val);
+    void readBack();
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
-    void WagoWriteCallback(bool status, UWord address, UWord value);
+    void WagoReadCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<UWord> &values);
+    /* T3.46 - taken BY VALUE on purpose. A parameter declared as a
+     * non-const lvalue reference makes std::is_invocable_v answer false for
+     * the CORRECT order too, so the probes of tests/WagoWriteReply_test.cpp
+     * would pass for the wrong reason (T3.31, F-TYPE-5). */
+    void WagoWriteCallback(bool status, WagoTypes::Address address, WagoTypes::WordValue value);
 
 public:
     WOAnalog(Params &p);

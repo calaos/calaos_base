@@ -25,6 +25,8 @@
 #include "IOBase.h"
 #include "Timer.h"
 
+#include <memory>
+
 namespace Calaos
 {
 
@@ -41,6 +43,19 @@ protected:
     int impulse_time;
 
     std::string state_volet, cmd_state;
+
+    /* T3.34 lifetime tag for the impulse stop.
+     *
+     * Up()/Down() park the end-of-impulse Stop() on the event loop through
+     * Timer::singleShot(), bound with sigc::mem_fun(*this, ...). IOBase does
+     * not derive from sigc::trackable, so that binding holds a raw pointer
+     * that nothing disconnects, and the anonymous one-shot handle is not
+     * reachable from the destructor either: an IO deleted before the
+     * deadline (ListeRoom::deleteIO() from the JSON API, Room::RemoveIO(),
+     * ~Room() at teardown) used to be called back on freed memory.
+     * The callback only captures a weak_ptr to this tag, which dies with the
+     * IO. Same scheme as Timer/Idler's own aliveTag. */
+    std::shared_ptr<bool> impulseStopTag = std::make_shared<bool>(true);
 
     bool useExternalState = false; // If true, shutter state is managed by external source (eg MQTT status topic)
 

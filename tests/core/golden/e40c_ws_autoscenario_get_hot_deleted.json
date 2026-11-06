@@ -1,0 +1,56 @@
+{
+  "data": {
+    "broken": "true",
+    "category": "other",
+    "cycle": "false",
+    "disabled_missing_io": "true",
+    "enabled": "false",
+    "final_step": {
+      "actions": [
+        {
+          "io": "e40c_string",
+          "resolved": "true",
+          "value": "done"
+        }
+      ]
+    },
+    "id": "io_0",
+    "missing_ios": "e40c_target",
+    "name": "Soirée",
+    "room_name": "E4.0c room",
+    "room_type": "salon",
+    "schedule": "false",
+    "steps": [
+      {
+        "actions": [
+          {
+            "io": "e40c_bool",
+            "resolved": "true",
+            "value": "true"
+          }
+        ],
+        "pause": "1.5",
+        "step_id": "s0"
+      },
+      {
+        "actions": [
+          {
+            "io": "e40c_target",
+            "resolved": "false",
+            "value": "true"
+          },
+          {
+            "io": "e40c_int",
+            "resolved": "true",
+            "value": "42"
+          }
+        ],
+        "pause": "0",
+        "step_id": "s1"
+      }
+    ],
+    "visible": "false"
+  },
+  "msg": "autoscenario",
+  "msg_id": "e40c-hotdel"
+}

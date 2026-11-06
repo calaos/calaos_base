@@ -19,9 +19,45 @@ import sys
 
 import uvicorn
 
+from calaos_mcp import __version__
 from calaos_mcp.server import create_app
 
 LOG = logging.getLogger("calaos_mcp")
+
+USAGE = """usage: calaos_mcp [--help] [--version]
+
+Calaos MCP sidecar. Serves the Model Context Protocol over a Unix domain
+socket; calaos_server spawns it and proxies /mcp to it.
+
+Environment (set by McpServerManager; secrets are never passed this way):
+  CALAOS_MCP_SOCKET   path of the Unix socket to bind (required)
+  CALAOS_CONFIG_PATH  directory holding local_config.xml, where the bearer
+                      token and the rate-limit tunables are read from
+  CALAOS_API_URL      Calaos websocket API (default ws://127.0.0.1:5454/api)
+  CALAOS_LOG_LEVEL    1..5 (critical..debug) or a uvicorn level name
+"""
+
+
+def _handle_cli_flags(argv) -> None:
+    """Answer --help/--version and exit, before anything else runs.
+
+    Deliberately argument-free otherwise: every knob is an environment
+    variable, set by McpServerManager on the C++ side.
+
+    This exists as much as a smoke test as a courtesy. `calaos_mcp --help`
+    exercises the whole import chain — mcp.server.mcpserver, fastapi, starlette,
+    pydantic, uvicorn, websockets — with no socket, no config and no side
+    effect, so it is the one command that tells you whether the binary shipped
+    in an image can start at all. T3.23 exists because a published image failed
+    exactly there and nothing noticed.
+    """
+    for arg in argv:
+        if arg in ("-h", "--help"):
+            sys.stdout.write(USAGE)
+            sys.exit(0)
+        if arg in ("-V", "--version"):
+            sys.stdout.write("calaos_mcp %s\n" % __version__)
+            sys.exit(0)
 
 
 def _resolve_socket_path() -> str:
@@ -55,12 +91,17 @@ def _calaos_log_level() -> str:
     return raw.lower()
 
 
+# McpServerManager reads the severity from the first word of each line (the
+# server adds its own timestamp); keep the level name first.
+LOG_FORMAT = "%(levelname)s %(name)s: %(message)s"
+
+
 def _configure_logging() -> None:
     name = _calaos_log_level().upper()
     level = getattr(logging, name, logging.INFO)
     logging.basicConfig(
         level=level,
-        format="%(asctime)s [mcp] %(levelname)s %(name)s: %(message)s",
+        format=LOG_FORMAT,
     )
 
 
@@ -88,6 +129,7 @@ def _bind_socket(path: str) -> socket.socket:
 
 
 def main() -> None:
+    _handle_cli_flags(sys.argv[1:])
     _configure_logging()
     socket_path = _resolve_socket_path()
     sock = _bind_socket(socket_path)
@@ -99,6 +141,9 @@ def main() -> None:
         create_app(),
         fd=sock.fileno(),
         log_level=_calaos_log_level(),
+        # uvicorn's own config writes "INFO:     ..." to stderr, a second format
+        # the manager would have to parse; let it propagate to the root handler.
+        log_config=None,
         access_log=False,
     )
     server = uvicorn.Server(config)

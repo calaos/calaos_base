@@ -19,6 +19,7 @@
  **
  ******************************************************************************/
 #include "ConditionOutput.h"
+#include "ConditionStd.h"
 #include "ListeRoom.h"
 
 using namespace Calaos;
@@ -33,12 +34,40 @@ ConditionOutput::~ConditionOutput()
 {
 }
 
+void ConditionOutput::setOutput(IOBase *p)
+{
+    if (!p)
+    {
+        cErrorDom("rule.condition.output") << "setOutput(): clearing, null IO";
+        outputId.clear();
+        return;
+    }
+
+    outputId = p->get_param("id");
+}
+
+IOBase *ConditionOutput::getOutput()
+{
+    return ListeRoom::Instance().findIO(outputId);
+}
+
 bool ConditionOutput::Evaluate()
 {
     string sval, oper;
-    bool bval;
-    double dval;
+    bool bval = false;
+    double dval = 0.0;
     bool ret = false;
+
+    //E4.2c: single resolution point. Everything below dereferences `output`.
+    IOBase *output = ListeRoom::Instance().findIO(outputId);
+
+    if (!output)
+    {
+        cErrorDom("rule.condition.output")
+                << "Output '" << outputId << "' does not exist (any more): "
+                << "condition evaluates to false";
+        return false;
+    }
 
     bool ovar = false;
     bool changed = false;
@@ -47,7 +76,7 @@ bool ConditionOutput::Evaluate()
     case TBOOL:
         if (params_var != "")
         {
-            IOBase *out = ListeRoom::Instance().get_io(params_var);
+            IOBase *out = ListeRoom::Instance().findIO(params_var);
             if (out && out->get_type() == TBOOL)
             {
                 bval = out->get_value_bool();
@@ -83,7 +112,7 @@ bool ConditionOutput::Evaluate()
     case TINT:
         if (params_var != "")
         {
-            IOBase *out = ListeRoom::Instance().get_io(params_var);
+            IOBase *out = ListeRoom::Instance().findIO(params_var);
             if (out && out->get_type() == TINT)
             {
                 dval = out->get_value_double();
@@ -120,7 +149,7 @@ bool ConditionOutput::Evaluate()
     case TSTRING:
         if (params_var != "")
         {
-            IOBase *out = ListeRoom::Instance().get_io(params_var);
+            IOBase *out = ListeRoom::Instance().findIO(params_var);
             if (out && out->get_type() == TSTRING)
             {
                 sval = out->get_value_string();
@@ -156,109 +185,17 @@ bool ConditionOutput::Evaluate()
 
 bool ConditionOutput::eval(bool val1, std::string oper, bool val2)
 {
-    if (oper != "!=" && oper != "==")
-    {
-        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
-        return false;
-    }
-
-    if (oper == "==")
-    {
-        if (val1 == val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "!=")
-    {
-        if (val1 != val2)
-            return true;
-        else
-            return false;
-    }
-
-    return false;
+    return ConditionEval::evalOperator(val1, oper, val2, "rule.condition.output");
 }
 
 bool ConditionOutput::eval(double val1, std::string oper, double val2)
 {
-    if (oper == "==")
-    {
-        if (val1 == val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "!=")
-    {
-        if (val1 != val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "SUP")
-    {
-        if (val1 > val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "SUP=")
-    {
-        if (val1 >= val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "INF")
-    {
-        if (val1 < val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "INF=")
-    {
-        if (val1 <= val2)
-            return true;
-        else
-            return false;
-    }
-
-    return false;
+    return ConditionEval::evalOperator(val1, oper, val2);
 }
 
 bool ConditionOutput::eval(std::string val1, std::string oper, std::string val2)
 {
-    if (oper != "!=" && oper != "==")
-    {
-        cErrorDom("rule.condition.output") <<  "Invalid operator (" << oper << ")";
-        return false;
-    }
-
-    if (oper == "==")
-    {
-        if (val1 == val2)
-            return true;
-        else
-            return false;
-    }
-
-    if (oper == "!=")
-    {
-        if (val1 != val2)
-            return true;
-        else
-            return false;
-    }
-
-    return false;
+    return ConditionEval::evalOperator(val1, oper, val2, "rule.condition.output");
 }
 
 bool ConditionOutput::eval(IOBase *out, string oper, string val)
@@ -272,43 +209,87 @@ bool ConditionOutput::eval(IOBase *out, string oper, string val)
     return out->check_condition_value(val, oper == "==");
 }
 
-bool ConditionOutput::LoadFromXml(TiXmlElement *node)
+bool ConditionOutput::LoadFromXml(pugi::xml_node node)
 {
-    if (node->Attribute("trigger"))
+    if (node.attribute("trigger"))
     {
-        if (node->Attribute("trigger") == string("true"))
+        if (string(node.attribute("trigger").as_string()) == "true")
             trigger = true;
-        else if (node->Attribute("trigger") == string("false"))
+        else if (string(node.attribute("trigger").as_string()) == "false")
             trigger = false;
     }
 
     cDebugDom("rule.condition.output") << "trigger: " << (trigger?"true":"false");
 
-    node = node->FirstChildElement();
+    node = XmlUtils::firstChildElement(node);
 
-    for (; node; node = node->NextSiblingElement())
+    for (; node; node = XmlUtils::nextSiblingElement(node))
     {
-        if (node->ValueStr() == "calaos:output")
+        if (string(node.name()) == "calaos:output")
         {
             string id = "", oper = "", val = "", val_var = "";
 
-            if (node->Attribute("id")) id = node->Attribute("id");
-            if (node->Attribute("oper")) oper = node->Attribute("oper");
-            if (node->Attribute("val")) val = node->Attribute("val");
-            if (node->Attribute("val_var")) val_var = node->Attribute("val_var");
+            if (node.attribute("id")) id = node.attribute("id").as_string();
+            if (node.attribute("oper")) oper = node.attribute("oper").as_string();
+            if (node.attribute("val")) val = node.attribute("val").as_string();
+            if (node.attribute("val_var")) val_var = node.attribute("val_var").as_string();
 
-            IOBase *out = ListeRoom::Instance().get_io(id);
-            if (out)
+            if (id.empty())
             {
-                setOutput(out);
-                params = val;
-                ops = oper;
-                if (val_var != "")
-                    params_var = val_var;
+                //No id at all (absent attribute or id=""): a missing dependency
+                //like any other, recorded under Condition::MISSING_IO_EMPTY so
+                //the rule is disabled instead of being left with a reference
+                //that can never resolve. See ConditionStd::LoadFromXml().
+                cErrorDom("rule.condition.output")
+                        << "The output of this condition has no id: the reference "
+                        << "is unusable and the rule using this condition will be "
+                        << "disabled";
+                addMissingIo(id);
+                continue;
             }
+
+            IOBase *out = ListeRoom::Instance().findIO(id);
+            if (out)
+                setOutput(out);
             else
             {
-                return false;
+                //Load-time contract, E4.2e: the reference is kept as it stands
+                //(so the save cannot lose it) and recorded as missing, which
+                //disables the rule using this condition. See the long comment
+                //in ConditionStd::LoadFromXml().
+                cErrorDom("rule.condition.output")
+                        << "Output '" << id << "' does not exist: the reference is "
+                        << "kept as it is, and the rule using this condition will "
+                        << "be disabled";
+                addMissingIo(id);
+                setOutputId(id);
+            }
+
+            //Unconditional: the parameters belong to the reference, resolvable
+            //or not, and losing them would lose the user's condition.
+            params = val;
+            ops = oper;
+            if (val_var != "")
+                params_var = val_var;
+
+            //Evaluate() can only log this per event; say it once, at load.
+            //"changed" is true whatever the operator and the state.
+            const bool changedKw = val_var.empty() && url_decode2(val) == "changed";
+            if (out && !changedKw)
+            {
+                if (out->get_type() == TSTRING && !out->hasComparableState())
+                    cWarningDom("rule.condition.output")
+                        << "Output '" << id << "' has no comparable state: "
+                        << "this condition will never be true";
+                else if (out->get_type() == TSTRING && oper != "==" && oper != "!=")
+                    cWarningDom("rule.condition.output")
+                        << "Output '" << id << "' is a string: operator '" << oper
+                        << "' is not supported, this condition will never be true";
+                else if (out->get_type() != TBOOL && out->get_type() != TINT &&
+                         out->get_type() != TSTRING)
+                    cWarningDom("rule.condition.output")
+                        << "Output '" << id << "' has a type that output conditions "
+                        << "cannot evaluate, this condition will never be true";
             }
         }
     }
@@ -316,21 +297,20 @@ bool ConditionOutput::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool ConditionOutput::SaveToXml(TiXmlElement *node)
+bool ConditionOutput::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cond_node = new TiXmlElement("calaos:condition");
-    cond_node->SetAttribute("type", "output");
-    cond_node->SetAttribute("trigger", trigger?"true":"false");
-    node->LinkEndChild(cond_node);
+    pugi::xml_node cond_node = node.append_child("calaos:condition");
+    XmlUtils::setAttribute(cond_node, "type", "output");
+    XmlUtils::setAttribute(cond_node, "trigger", trigger?"true":"false");
 
-    TiXmlElement *cnode = new TiXmlElement("calaos:output");
-    cnode->SetAttribute("id", output->get_param("id"));
-    cnode->SetAttribute("oper", ops);
-    cnode->SetAttribute("val", params);
+    pugi::xml_node cnode = cond_node.append_child("calaos:output");
+    //The id IS the reference: saving resolves nothing, so a condition whose IO
+    //disappeared is written back unchanged instead of dereferencing it.
+    XmlUtils::setAttribute(cnode, "id", outputId);
+    XmlUtils::setAttribute(cnode, "oper", ops);
+    XmlUtils::setAttribute(cnode, "val", params);
     if (params_var != "")
-        cnode->SetAttribute("val_var", params_var);
-
-    cond_node->LinkEndChild(cnode);
+        XmlUtils::setAttribute(cnode, "val_var", params_var);
 
     return true;
 }

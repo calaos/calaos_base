@@ -1,0 +1,5 @@
+{
+  "hint": "Use token as Bearer in Authorization header. Append /mcp to your Calaos HTTPS base URL.",
+  "token": "e40e-bearer-token",
+  "url_path": "/mcp"
+}

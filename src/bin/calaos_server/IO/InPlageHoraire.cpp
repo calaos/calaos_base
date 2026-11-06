@@ -34,7 +34,11 @@ InPlageHoraire::InPlageHoraire(Params &p):
     // Define IO documentation
     ioDoc->friendlyNameSet("TimeRange");
     ioDoc->aliasAdd("InPlageHoraire");
-    ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months."));
+    ioDoc->descriptionSet(_("Represent a time range object. A time range is true if current time is in one of the included range, false otherwise. The time range also support weekdays and months. "
+                            "A range whose end is before its start wraps over midnight: it starts on the weekday it is attached to and ends the next morning. "
+                            "For example a range 23:00 -> 01:00 set on monday is true from monday 23:00 to tuesday 01:00, and never on monday between 00:00 and 01:00. "
+                            "Beware that bounds relative to sunrise/sunset move with the season: a range like sunset -> 23:00 is a normal range most of the year but starts to wrap over midnight when sunset gets later than 23:00. "
+                            "Such a range is reported in the log the first time it is evaluated as wrapping."));
     ioDoc->paramAdd("visible", _("A time range can't be visible. Always false."), IODoc::TYPE_BOOL, false, "false", true);
 
     ioDoc->conditionAdd("true", _("Event triggered when entering the range"));
@@ -65,49 +69,151 @@ void InPlageHoraire::clear()
     plg_sunday.clear();
 }
 
+static const char *weekdayName(int wday)
+{
+    switch (wday)
+    {
+    case TimeRange::MONDAY: return "monday";
+    case TimeRange::TUESDAY: return "tuesday";
+    case TimeRange::WEDNESDAY: return "wednesday";
+    case TimeRange::THURSDAY: return "thursday";
+    case TimeRange::FRIDAY: return "friday";
+    case TimeRange::SATURDAY: return "saturday";
+    case TimeRange::SUNDAY: return "sunday";
+    default: return "unknown day";
+    }
+}
+
+vector<TimeRange> *InPlageHoraire::getRangesForWeekday(int wday)
+{
+    switch (wday)
+    {
+    case TimeRange::MONDAY: return &plg_monday;
+    case TimeRange::TUESDAY: return &plg_tuesday;
+    case TimeRange::WEDNESDAY: return &plg_wednesday;
+    case TimeRange::THURSDAY: return &plg_thursday;
+    case TimeRange::FRIDAY: return &plg_friday;
+    case TimeRange::SATURDAY: return &plg_saturday;
+    case TimeRange::SUNDAY: return &plg_sunday;
+    default: return NULL;
+    }
+}
+
+struct tm InPlageHoraire::previousDay(const struct tm &day)
+{
+    struct tm prev = day;
+
+    prev.tm_mday--;
+    prev.tm_hour = 12; //noon, no DST transition ever lands there
+    prev.tm_min = 0;
+    prev.tm_sec = 0;
+    prev.tm_isdst = -1; //let mktime() find out the DST flag of that day
+
+    //mktime() normalizes the whole structure: month/year rollover, tm_wday...
+    if (mktime(&prev) == (time_t) -1)
+    {
+        cErrorDom("input") << "Failed to compute the day before "
+                           << day.tm_mday << "/" << day.tm_mon + 1 << "/" << day.tm_year + 1900;
+
+        prev = day;
+        prev.tm_wday = TimeRange::BADDAY; //no schedule is attached to it
+    }
+
+    return prev;
+}
+
+/* Is `cur` (a second of day of the *current* day) inside the ranges scheduled
+ * for the day described by `date`?
+ *
+ * A range whose end is before its start wraps over midnight: it is the natural
+ * way of writing an overnight period (23:00 -> 01:00). Such a range belongs to
+ * the day it is attached to and runs until the next morning: "monday
+ * 23:00 -> 01:00" means monday 23:00 up to tuesday 01:00, it does NOT also
+ * match monday between 00:00 and 01:00.
+ *
+ * That is why it is evaluated twice: once with previousDay == false, where it
+ * covers [start, end of day] of its own day, and once the next day with
+ * previousDay == true, where it covers [start of day, end].
+ */
+bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
+                                const struct tm &date, bool previousDay)
+{
+    if (!plage) return false;
+
+    bool val = false;
+
+    //no early exit: every range is evaluated, so that a wrapping one is
+    //reported in the log even when an earlier range already matched
+    for (uint i = 0;i < plage->size();i++)
+    {
+        TimeRange &h = (*plage)[i];
+
+        //a range with an unparsable bound is not evaluated at all, its bounds
+        //would silently fall back to 00:00:00
+        if (!h.isValid())
+            continue;
+
+        long start_time = h.getStartTimeSec(date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
+        long end_time = h.getEndTimeSec(date.tm_year + 1900, date.tm_mon + 1, date.tm_mday);
+
+        if (start_time <= end_time)
+        {
+            //a plain range lives entirely inside its own day
+            if (!previousDay && cur >= start_time && cur <= end_time)
+                val = true;
+        }
+        else
+        {
+            //name the schedule and the weekday the range is attached to, the
+            //bounds alone do not identify it
+            h.logWrapOnce(get_param("id") + " (" + weekdayName(date.tm_wday) + ")",
+                          start_time, end_time);
+
+            if (previousDay)
+            {
+                //tail of yesterday's overnight range, [00:00, end]
+                if (cur <= end_time)
+                    val = true;
+            }
+            else
+            {
+                //head of today's overnight range, [start, end of day]
+                if (cur >= start_time)
+                    val = true;
+            }
+        }
+    }
+
+    return val;
+}
+
 void InPlageHoraire::hasChanged()
 {
     if (!isEnabled()) return;
 
     bool val = false;
-    vector<TimeRange> *plage = NULL;
 
-    struct tm *ctime = NULL;
     tzset(); //Force reload of timezone data
     time_t t = time(NULL);
-    ctime = localtime(&t);
+    //copy, localtime() returns a pointer to a shared buffer
+    struct tm today = *localtime(&t);
 
-    switch (ctime->tm_wday)
+    //If the month is not set, the time_range is always false
+    if (months.test(today.tm_mon))
     {
-    case TimeRange::MONDAY: plage = &plg_monday; break;
-    case TimeRange::TUESDAY: plage = &plg_tuesday; break;
-    case TimeRange::WEDNESDAY: plage = &plg_wednesday; break;
-    case TimeRange::THURSDAY: plage = &plg_thursday; break;
-    case TimeRange::FRIDAY: plage = &plg_friday; break;
-    case TimeRange::SATURDAY: plage = &plg_saturday; break;
-    case TimeRange::SUNDAY: plage = &plg_sunday; break;
-    default: break;
-    }
+        long cur = today.tm_hour * 3600 +
+                   today.tm_min * 60 +
+                   today.tm_sec;
 
-    if (!plage)
-        return;
+        //ranges of today, plus the ranges of yesterday that run over midnight
+        struct tm yesterday = previousDay(today);
 
-    for (uint i = 0;i < plage->size();i++)
-    {
-        TimeRange &h = (*plage)[i];
+        //both are evaluated, no short circuit, so that a wrapping range of
+        //yesterday is reported even when today already matched
+        bool in_today = isInRanges(getRangesForWeekday(today.tm_wday), cur, today, false);
+        bool in_yesterday = isInRanges(getRangesForWeekday(yesterday.tm_wday), cur, yesterday, true);
 
-        long start_time = h.getStartTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
-        long end_time = h.getEndTimeSec(ctime->tm_year + 1900, ctime->tm_mon + 1, ctime->tm_mday);
-        long cur = ctime->tm_hour * 3600 +
-                   ctime->tm_min * 60 +
-                   ctime->tm_sec;
-
-        if (cur >= start_time && cur <= end_time)
-            val = true;
-
-        //If the month is not set, force the time_range to false
-        if (!months.test(ctime->tm_mon))
-            val = false;
+        val = in_today || in_yesterday;
     }
 
     if (val != value)
@@ -123,44 +229,51 @@ void InPlageHoraire::hasChanged()
     }
 }
 
-void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
+void InPlageHoraire::LoadRange(pugi::xml_node node, vector<TimeRange> &plage)
 {
-    TiXmlHandle docHandle(node);
-    TiXmlElement *cnode = docHandle.FirstChildElement().ToElement();
-    for(; cnode; cnode = cnode->NextSiblingElement())
+    //Element-only traversal on purpose: unlike every other loop of the port
+    //this one reads the attributes of EVERY child without checking its name,
+    //so a non-element child would be turned into an empty TimeRange.
+    pugi::xml_node cnode = XmlUtils::firstChildElement(node);
+    for(; cnode; cnode = XmlUtils::nextSiblingElement(cnode))
     {
         TimeRange h;
-        if (cnode->Attribute("start_type"))
+        if (cnode.attribute("start_type"))
         {
-            from_string(string(cnode->Attribute("start_type")), h.start_type);
+            from_string(string(cnode.attribute("start_type").as_string()), h.start_type);
             if (h.start_type < 0 || h.start_type > 3)
                 h.start_type = TimeRange::HTYPE_NORMAL;
         }
-        if (cnode->Attribute("start_offset"))
+        if (cnode.attribute("start_offset"))
         {
-            from_string(string(cnode->Attribute("start_offset")), h.start_offset);
+            //T3.25 (review): _or_keep. TimeRange::start_offset is 1 in-class and the
+            //clamp below only maps <0 to -1 and >0 to 1 - it cannot repair a 0. A
+            //blank start_offset attribute therefore ANNULLED the sunrise/sunset
+            //offset instead of keeping its documented sign.
+            from_string_or_keep(string(cnode.attribute("start_offset").as_string()), h.start_offset);
             if (h.start_offset < 0) h.start_offset = -1;
             if (h.start_offset > 0) h.start_offset = 1;
         }
-        if (cnode->Attribute("start_hour")) h.shour = cnode->Attribute("start_hour");
-        if (cnode->Attribute("start_min")) h.smin = cnode->Attribute("start_min");
-        if (cnode->Attribute("start_sec")) h.ssec = cnode->Attribute("start_sec");
+        if (cnode.attribute("start_hour")) h.shour = cnode.attribute("start_hour").as_string();
+        if (cnode.attribute("start_min")) h.smin = cnode.attribute("start_min").as_string();
+        if (cnode.attribute("start_sec")) h.ssec = cnode.attribute("start_sec").as_string();
 
-        if (cnode->Attribute("end_type"))
+        if (cnode.attribute("end_type"))
         {
-            from_string(string(cnode->Attribute("end_type")), h.end_type);
+            from_string(string(cnode.attribute("end_type").as_string()), h.end_type);
             if (h.end_type < 0 || h.end_type > 3)
                 h.end_type = TimeRange::HTYPE_NORMAL;
         }
-        if (cnode->Attribute("end_offset"))
+        if (cnode.attribute("end_offset"))
         {
-            from_string(string(cnode->Attribute("end_offset")), h.end_offset);
+            //T3.25 (review): _or_keep, same reason as start_offset above.
+            from_string_or_keep(string(cnode.attribute("end_offset").as_string()), h.end_offset);
             if (h.end_offset < 0) h.end_offset = -1;
             if (h.end_offset > 0) h.end_offset = 1;
         }
-        if (cnode->Attribute("end_hour")) h.ehour = cnode->Attribute("end_hour");
-        if (cnode->Attribute("end_min")) h.emin = cnode->Attribute("end_min");
-        if (cnode->Attribute("end_sec")) h.esec = cnode->Attribute("end_sec");
+        if (cnode.attribute("end_hour")) h.ehour = cnode.attribute("end_hour").as_string();
+        if (cnode.attribute("end_min")) h.emin = cnode.attribute("end_min").as_string();
+        if (cnode.attribute("end_sec")) h.esec = cnode.attribute("end_sec").as_string();
 
         stringstream sstart, sstop;
         if (h.start_type == TimeRange::HTYPE_NORMAL)
@@ -252,17 +365,16 @@ void InPlageHoraire::LoadRange(TiXmlElement *node, vector<TimeRange> &plage)
     }
 }
 
-bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
+bool InPlageHoraire::LoadFromXml(pugi::xml_node pnode)
 {
-    TiXmlHandle docHandle(pnode);
-    TiXmlElement *node = docHandle.FirstChildElement().ToElement();
+    pugi::xml_node node = XmlUtils::firstChildElement(pnode);
 
     cDebugDom("input") << "InPlageHoraire::LoadFromXml(): Loading plage content";
 
     //try to load months
-    if (pnode->Attribute("months"))
+    if (pnode.attribute("months"))
     {
-        string m = pnode->Attribute("months");
+        string m = pnode.attribute("months").as_string();
         //reverse to have a left to right months representation
         std::reverse(m.begin(), m.end());
 
@@ -280,47 +392,46 @@ bool InPlageHoraire::LoadFromXml(TiXmlElement *pnode)
         }
     }
 
-    for(; node; node = node->NextSiblingElement())
+    for(; node; node = XmlUtils::nextSiblingElement(node))
     {
-        if (node->ValueStr() == "calaos:lundi")
+        const string nodeName = node.name();
+        if (nodeName == "calaos:lundi")
             LoadRange(node, plg_monday);
-        else if (node->ValueStr() == "calaos:mardi")
+        else if (nodeName == "calaos:mardi")
             LoadRange(node, plg_tuesday);
-        else if (node->ValueStr() == "calaos:mercredi")
+        else if (nodeName == "calaos:mercredi")
             LoadRange(node, plg_wednesday);
-        else if (node->ValueStr() == "calaos:jeudi")
+        else if (nodeName == "calaos:jeudi")
             LoadRange(node, plg_thursday);
-        else if (node->ValueStr() == "calaos:vendredi")
+        else if (nodeName == "calaos:vendredi")
             LoadRange(node, plg_friday);
-        else if (node->ValueStr() == "calaos:samedi")
+        else if (nodeName == "calaos:samedi")
             LoadRange(node, plg_saturday);
-        else if (node->ValueStr() == "calaos:dimanche")
+        else if (nodeName == "calaos:dimanche")
             LoadRange(node, plg_sunday);
     }
 
     return true;
 }
 
-void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange> &plage)
+void InPlageHoraire::SaveRange(pugi::xml_node node, string day, vector<TimeRange> &plage)
 {
     if (plage.size() <= 0) return; //don't create node if empty
 
-    TiXmlElement *day_node = new TiXmlElement(string("calaos:") + day);
-    node->LinkEndChild(day_node);
+    pugi::xml_node day_node = node.append_child((string("calaos:") + day).c_str());
 
     for (uint i = 0;i < plage.size();i++)
     {
-        TiXmlElement *period_node = new TiXmlElement("calaos:plage");
-        day_node->LinkEndChild(period_node);
+        pugi::xml_node period_node = day_node.append_child("calaos:plage");
 
         TimeRange &h = plage[i];
 
-        period_node->SetAttribute("start_type", Utils::to_string(h.start_type));
+        XmlUtils::setAttribute(period_node, "start_type", Utils::to_string(h.start_type));
         if (h.start_type == TimeRange::HTYPE_NORMAL)
         {
-            period_node->SetAttribute("start_hour", h.shour);
-            period_node->SetAttribute("start_min", h.smin);
-            period_node->SetAttribute("start_sec", h.ssec);
+            XmlUtils::setAttribute(period_node, "start_hour", h.shour);
+            XmlUtils::setAttribute(period_node, "start_min", h.smin);
+            XmlUtils::setAttribute(period_node, "start_sec", h.ssec);
         }
         else if (h.start_type == TimeRange::HTYPE_SUNRISE ||
                  h.start_type == TimeRange::HTYPE_SUNSET ||
@@ -328,19 +439,19 @@ void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange>
         {
             if (h.shour != "0" || h.smin != "0" || h.ssec != "0")
             {
-                period_node->SetAttribute("start_hour", h.shour);
-                period_node->SetAttribute("start_min", h.smin);
-                period_node->SetAttribute("start_sec", h.ssec);
-                period_node->SetAttribute("start_offset", h.start_offset);
+                XmlUtils::setAttribute(period_node, "start_hour", h.shour);
+                XmlUtils::setAttribute(period_node, "start_min", h.smin);
+                XmlUtils::setAttribute(period_node, "start_sec", h.ssec);
+                XmlUtils::setAttribute(period_node, "start_offset", h.start_offset);
             }
         }
 
-        period_node->SetAttribute("end_type", Utils::to_string(h.end_type));
+        XmlUtils::setAttribute(period_node, "end_type", Utils::to_string(h.end_type));
         if (h.end_type == TimeRange::HTYPE_NORMAL)
         {
-            period_node->SetAttribute("end_hour", h.ehour);
-            period_node->SetAttribute("end_min", h.emin);
-            period_node->SetAttribute("end_sec", h.esec);
+            XmlUtils::setAttribute(period_node, "end_hour", h.ehour);
+            XmlUtils::setAttribute(period_node, "end_min", h.emin);
+            XmlUtils::setAttribute(period_node, "end_sec", h.esec);
         }
         else if (h.end_type == TimeRange::HTYPE_SUNRISE ||
                  h.end_type == TimeRange::HTYPE_SUNSET ||
@@ -348,25 +459,24 @@ void InPlageHoraire::SaveRange(TiXmlElement *node, string day, vector<TimeRange>
         {
             if (h.ehour != "0" || h.emin != "0" || h.esec != "0")
             {
-                period_node->SetAttribute("end_hour", h.ehour);
-                period_node->SetAttribute("end_min", h.emin);
-                period_node->SetAttribute("end_sec", h.esec);
-                period_node->SetAttribute("end_offset", h.end_offset);
+                XmlUtils::setAttribute(period_node, "end_hour", h.ehour);
+                XmlUtils::setAttribute(period_node, "end_min", h.emin);
+                XmlUtils::setAttribute(period_node, "end_sec", h.esec);
+                XmlUtils::setAttribute(period_node, "end_offset", h.end_offset);
             }
         }
     }
 }
 
-bool InPlageHoraire::SaveToXml(TiXmlElement *node)
+bool InPlageHoraire::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:input");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child("calaos:input");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, val;
         get_params().get_item(i, key, val);
-        cnode->SetAttribute(key, val);
+        XmlUtils::setAttribute(cnode, key, val);
     }
 
     //Save months
@@ -375,7 +485,10 @@ bool InPlageHoraire::SaveToXml(TiXmlElement *node)
     string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
 
-    cnode->SetAttribute("months", str);
+    //setAttribute(), not append: "months" is already in the parameter map
+    //(IOFactory::readParams() puts every attribute of the node there at load
+    //time), so appending would emit it twice.
+    XmlUtils::setAttribute(cnode, "months", str);
 
     SaveRange(cnode, "lundi", plg_monday);
     SaveRange(cnode, "mardi", plg_tuesday);

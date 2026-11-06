@@ -19,6 +19,9 @@
  **
  ******************************************************************************/
 
+#ifndef CALAOS_TIMERANGE_H
+#define CALAOS_TIMERANGE_H
+
 #include <Utils.h>
 
 using namespace Utils;
@@ -32,10 +35,23 @@ private:
     int sunset_hour_cache = 0, sunset_min_cache = 0;
     int dst_cache = false; //Daylight saving time
 
+    //true once an unparsable bound / a wrap over midnight has been reported,
+    //to keep the event loop from logging the same range every second
+    bool bad_bound_logged = false;
+    bool wrap_logged = false;
+
     long getTimezoneOffset();
     void computeSunSetRise(int year, int month, int day,
                            int &rise_hour, int &rise_min,
                            int &set_hour, int &set_min);
+
+    /* Convert a hour/min/sec triplet of strings into a number of seconds.
+     * Returns false (and leaves `sec` untouched) as soon as one of the three
+     * is empty or does not parse as an integer.
+     */
+    static bool parseHms(const string &h, const string &m, const string &s, long &sec);
+
+    void logBadBound(const string &which);
 
 public:
 
@@ -64,12 +80,34 @@ public:
     TimeRange(string proto);
     TimeRange(const Params &p);
 
+    /* Seconds of day of each bound.
+     * A bound whose hour/min/sec strings cannot be parsed (empty or not a
+     * number, e.g. a truncated proto command) is *not* undefined: it is
+     * reported once in the log and counted as 0. Use isValid() to tell such a
+     * range apart from a legitimate midnight bound.
+     */
     long getStartTimeSec(int year, int month, int day);
     long getEndTimeSec(int year, int month, int day);
 
     //compute value for today
     long getStartTimeSec();
     long getEndTimeSec();
+
+    /* False when one of the two bounds cannot be parsed. Such a range is
+     * meaningless and consumers are expected to ignore it entirely instead of
+     * evaluating bounds that fell back to 0.
+     */
+    bool isValid() const;
+
+    /* Report, once for the lifetime of this range, that it has been evaluated
+     * as wrapping over midnight (its end is before its start). A sun relative
+     * bound moves with the season, so the very same configuration can start to
+     * wrap at some times of the year: without this the behaviour change is
+     * invisible in the log. `owner` names the schedule the range belongs to: a
+     * pair of bounds alone does not tell which IO is wrapping on a box that
+     * has several of them.
+     */
+    void logWrapOnce(const string &owner, long start_sec, long end_sec);
 
     bool isSameStartEnd();
 
@@ -80,3 +118,5 @@ public:
     //flag to ease the loading in UI
     bitset<7> dayOfWeek;
 };
+
+#endif

@@ -33,7 +33,11 @@ private:
     string m_host;
     string m_api;
     string m_idHue;
-    Timer *m_timer;
+
+    //Polling timer. Its callback uses this object, so it is owned here and
+    //destroyed by ~HueOutputLightRGB(): a timer left running after the IO is
+    //deleted (config reload) would tick into freed memory.
+    Timer *m_timer = nullptr;
 
     ColorValue lastColor;
     bool lastState = false;

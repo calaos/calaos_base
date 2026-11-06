@@ -21,11 +21,13 @@
 #include "WebSocket.h"
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
-#include "SHA1.h"
+#include <openssl/evp.h>
 #include "hef_uri_syntax.h"
 #include "RemoteUIWebSocketHandler.h"
 #include "RemoteUI/AuthFailureReason.h"
+#include "ConsoleTunnel.h"
 #include "McpProxyHandler.h"
+#include "McpServerManager.h"
 #include "libuvw.h"
 #include "json.hpp"
 
@@ -33,7 +35,6 @@ using Json = nlohmann::json;
 
 using namespace Calaos;
 
-const uint64_t MAX_MESSAGE_SIZE_IN_BYTES = INT_MAX - 1;
 const uint64_t FRAME_SIZE_IN_BYTES = 512 * 512 * 2;
 
 WebSocket::WebSocket(const std::shared_ptr<uvw::TcpHandle> &client):
@@ -87,8 +88,7 @@ void WebSocket::ProcessData(string data)
                 if (processHeaders(buffered) == HTTP_PROCESS_HTTP && parse_done)
                 {
                     auto method = parser->method;
-                    llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-                    parser->data = this;
+                    reinitParser();
                     handleJsonRequest(method);
                 }
             }
@@ -102,8 +102,7 @@ void WebSocket::ProcessData(string data)
             if (hs == HTTP_PROCESS_HTTP && parse_done)
             {
                 auto method = parser->method;
-                llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-                parser->data = this;
+                reinitParser();
                 handleJsonRequest(method);
             }
             else if (hs == HTTP_PROCESS_WEBSOCKET)
@@ -118,7 +117,16 @@ void WebSocket::ProcessData(string data)
             cInfoDom("mcp") << "routing TCP connection to MCP sidecar";
             std::string buffered;
             buffered.swap(mcpSniffBuf);
-            mcpProxy = new McpProxyHandler(client_conn, buffered);
+
+            //From here the connection is a raw tunnel: the http request read
+            //timeout does not apply to it anymore, and neither does the http
+            //body limit (bytes never reach the http parser). The sidecar has
+            //its own pre-connection buffer bound in McpProxyHandler.
+            cancelReadTimeout();
+
+            mcpProxy = new McpProxyHandler(
+                client_conn, buffered, getClientIp(),
+                McpServerManager::Instance().proxyCredential());
             mcpState = McpRouteState::Proxied;
             return;
         }
@@ -154,8 +162,7 @@ void WebSocket::ProcessData(string data)
             auto method = parser->method;
 
             //init parser again
-            llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-            parser->data = this;
+            reinitParser();
 
             handleJsonRequest(method);
         }
@@ -169,6 +176,7 @@ void WebSocket::ProcessData(string data)
         else if (status == WSOpened ||
             status == WSClosing) //Waiting for the closing handshake
         processFrame(data);
+        break;
     }
     case HTTP_PROCESS_MOREDATA:
     case HTTP_PROCESS_DONE:
@@ -223,8 +231,9 @@ void WebSocket::processHandshake()
     currentFrame.clear();
 
     //Connect to the ErrorEvent and reset the state
-    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    client_conn->once<uvw::ErrorEvent>([this, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
     {
+        if (token.expired()) return;
         status = WSClosed;
     });
 
@@ -254,6 +263,7 @@ bool WebSocket::checkHandshakeRequest()
     hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
     if (req_url.getPath() != "/api" &&
         Utils::strStartsWith(req_url.getPath(), "/api/v3/") == false &&
+        req_url.getPath() != ConsoleTunnel::Path &&
         req_url.getPath() != "/echo")
     {
         cWarningDom("websocket") << "wrong path: " << req_url.getPath();
@@ -267,6 +277,8 @@ bool WebSocket::checkHandshakeRequest()
         proto_ver = API_WEBSOCKET;
     else if (req_url.getPath() == "/api/v3/remote_ui/ws")
         proto_ver = API_REMOTE_UI_WEBSOCKET;
+    else if (req_url.getPath() == ConsoleTunnel::Path)
+        proto_ver = API_CONSOLE_WEBSOCKET;
 
     if (!jsonApi && !echoMode)
     {
@@ -318,7 +330,9 @@ bool WebSocket::checkHandshakeRequest()
                 Params headers;
                 headers.Add("Connection", "close");
                 headers.Add("Content-Type", "application/json");
-                string json_body = error_response.dump();
+                //E4.1b: error body served to a client, same invariants as the
+                //API emitters.
+                string json_body = error_response.dump(-1, ' ', true, Json::error_handler_t::replace);
                 string res = buildHttpResponse(http_status_line, headers, json_body);
                 sendToClient(res);
 
@@ -327,20 +341,32 @@ bool WebSocket::checkHandshakeRequest()
                 return false;
             }
         }
+        else if (proto_ver == API_CONSOLE_WEBSOCKET)
+        {
+            //The open message carries every credential: haproxy and TLS only
+            if (!secureTransport())
+            {
+                cWarningDom("websocket") << "Console refused: not through haproxy over https";
+                sendForbidden();
+                handshakeErrorSent = true;
+                return false;
+            }
+            if (!ConsoleTunnel::offersProtocol(request_headers["sec-websocket-protocol"]))
+            {
+                cWarningDom("websocket") << "Console refused: subprotocol " << ConsoleTunnel::Protocol << " not offered";
+                return false;
+            }
+            //Created once the headers below are valid: its timer must not
+            //outlive a refused handshake
+        }
         else
         {
             cWarningDom("websocket") << "API version not implemented";
             return false;
         }
 
-        jsonApi->sendData.connect([=](const string &data)
-        {
-            sendTextMessage(data);
-        });
-        jsonApi->closeConnection.connect([=](int c, const string &r)
-        {
-            sendCloseFrame(static_cast<uint16_t>(c), r);
-        });
+        if (jsonApi)
+            connectJsonApi();
     }
 
     //2. Must contains non empty Host
@@ -381,6 +407,19 @@ bool WebSocket::checkHandshakeRequest()
         return false;
     }
 
+    if (proto_ver == API_CONSOLE_WEBSOCKET && !jsonApi)
+    {
+        console = new ConsoleTunnel(this, client_conn);
+        console->sendBinary.connect([this](const string &data)
+                                    {
+            sendBinaryMessage(data);
+        });
+        textMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientText));
+        binaryMessageReceived.connect(sigc::mem_fun(*console, &ConsoleTunnel::clientBinary));
+        jsonApi = console;
+        connectJsonApi();
+    }
+
     //The handshake is correct, build our response
     Params headers;
     headers.Add("Upgrade", "websocket");
@@ -388,23 +427,29 @@ bool WebSocket::checkHandshakeRequest()
     headers.Add("Access-Control-Allow-Credentials", "false");
     headers.Add("Access-Control-Allow-Methods", "GET");
     headers.Add("Access-Control-Allow-Headers", "content-type");
-    headers.Add("Access-Control-Allow-Origin", "*");
+    //A refused Origin never gets here: processHeaders() answered 403
+    if (!originDecision.enforced)
+        headers.Add("Access-Control-Allow-Origin", "*");
+    else if (originDecision.allowCors())
+        headers.Add("Access-Control-Allow-Origin", request_headers["origin"]);
+    if (console)
+        headers.Add("Sec-WebSocket-Protocol", ConsoleTunnel::Protocol);
 
     //calculate key
     string key = request_headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    CSHA1 sha1;
-    sha1.Update((const unsigned char *)key.c_str(), key.length());
-    sha1.Final();
-
-    string s;
-    sha1.ReportHashStl(s);
-    uint8_t message_digest[20];
-    sha1.GetHash(message_digest);
+    uint8_t message_digest[EVP_MAX_MD_SIZE];
+    unsigned int digest_len = 0;
+    if (EVP_Digest(key.data(), key.size(), message_digest, &digest_len,
+                   EVP_sha1(), nullptr) != 1 ||
+        digest_len != 20)
+    {
+        cWarningDom("websocket") << "SHA1 digest computation failed";
+        return false;
+    }
 
     cDebugDom("websocket") << "key : " << key;
-    cDebugDom("websocket") << "SHA1 : " << s;
 
-    string encoded_key = Utils::Base64_encode(message_digest, 20);
+    string encoded_key = Utils::Base64_encode(message_digest, digest_len);
     cDebugDom("websocket") << "Sec-Websocket-Accept : " << encoded_key;
     headers.Add("Sec-Websocket-Accept", encoded_key);
 
@@ -459,6 +504,7 @@ void WebSocket::processFrame(const string &data)
 
                     //Send close frame and close connection
                     sendCloseFrame(WebSocketFrame::CloseCodeProtocolError, err);
+                    break;
                 }
                 if (isfragmented && currentFrame.isDataFrame() && !currentFrame.isContinuationFrame())
                 {
@@ -468,6 +514,7 @@ void WebSocket::processFrame(const string &data)
 
                     //Send close frame and close connection
                     sendCloseFrame(WebSocketFrame::CloseCodeProtocolError, err);
+                    break;
                 }
 
                 if (!currentFrame.isContinuationFrame())
@@ -476,15 +523,16 @@ void WebSocket::processFrame(const string &data)
                     isfragmented = !currentFrame.isFinalFrame();
                 }
 
-                if (currentData.size() + currentFrame.getPayload().size() > MAX_MESSAGE_SIZE_IN_BYTES)
+                if (currentData.size() + currentFrame.getPayload().size() > TransportLimits::maxWebsocketMessageSize())
                 {
                     reset();
                     stringstream err;
-                    err << "Message exceeds size of " << MAX_MESSAGE_SIZE_IN_BYTES << " bytes";
+                    err << "Message exceeds size of " << TransportLimits::maxWebsocketMessageSize() << " bytes";
                     cWarningDom("websocket") << err.str();
 
                     //Send close frame and close connection
                     sendCloseFrame(WebSocketFrame::CloseCodeTooMuchData, err.str());
+                    break;
                 }
 
                 currentData.append(currentFrame.getPayload());
@@ -544,9 +592,26 @@ void WebSocket::processFrame(const string &data)
     }
 }
 
+void WebSocket::connectJsonApi()
+{
+    jsonApi->sendData.connect([this](const string &data)
+                              {
+        sendTextMessage(data);
+    });
+    jsonApi->closeConnection.connect([this](int c, const string &r)
+                                     {
+        sendCloseFrame(static_cast<uint16_t>(c), r);
+    });
+}
+
 void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceClose)
 {
     if (!isWebsocket) return;
+
+    //Every close, ours (pong timeout, size, framing) or the browser's, detaches
+    //the console at once
+    if (console)
+        console->clientClosing(code);
 
     //Already in closing state, do not send another close frame
     if (status == WSClosing) return;
@@ -567,13 +632,21 @@ void WebSocket::sendCloseFrame(uint16_t code, const string &reason, bool forceCl
     data_size += frame.size();
     uint frameSize = frame.size();
 
-    client_conn->once<uvw::WriteEvent>([this, forceClose, frameSize](const auto &, auto &)
+    //alive token: the WebSocket can be deleted with this write in flight
+    //(peer closes right away), the completion must not touch a dead `this`
+    client_conn->once<uvw::WriteEvent>([this, forceClose, frameSize, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
     {
+        if (token.expired()) return;
+
         this->DataWritten(frameSize);
 
         //start a timeout to wait for a close frame from the client
         if (!closeReceived && !forceClose)
         {
+            //DELETE_NULL(closeTimeout) from inside the timer's own callback
+            //is safe since T2.1: the uvw callback only holds a weak tag on
+            //the Timer, a deleted Timer is never dereferenced afterwards.
+            DELETE_NULL(closeTimeout);
             closeTimeout = new Timer(10.0, [=]()
             {
                 cDebugDom("websocket") << "Waiting too long for the close frame from the client, aborting.";
@@ -741,8 +814,10 @@ void WebSocket::sendFrameData(const string &data, bool isbinary)
         auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
         std::copy(frame.begin(), frame.end(), dataWrite.get());
         client_conn->write(std::move(dataWrite), dataSize);
-        client_conn->once<uvw::WriteEvent>([this, n](const auto &, auto &)
+        //alive token: same in-flight write hazard as HttpClient::sendToClient
+        client_conn->once<uvw::WriteEvent>([this, n, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
         {
+            if (token.expired()) return;
             this->DataWritten(n);
         });
 

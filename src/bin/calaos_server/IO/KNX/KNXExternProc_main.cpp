@@ -30,23 +30,22 @@ void KNXProcess::readTimeout()
 
 void KNXProcess::messageReceived(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    //E4.1e: json_loads() answered NULL on malformed input, Json::parse()
+    //throws. The non-throwing form plus is_discarded() keeps the same shape.
+    Json jroot = Json::parse(msg, nullptr, false);
 
-    if (!jroot || !json_is_object(jroot))
+    if (jroot.is_discarded() || !jroot.is_object())
     {
-        cWarningDom("knx") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("knx") << "Error parsing json from sub process. Raw message: " << msg;
         return;
     }
 
     Params jsonData;
-    jansson_decode_object(jroot, jsonData);
+    knxDecodeObject(jroot, jsonData);
 
     if (jsonData["type"] == "write")
     {
-        KNXValue v = KNXValue::fromJson(json_object_get(jroot, "value"));
+        KNXValue v = KNXValue::fromJson(knxJsonChild(jroot, "value"));
 
         writeKnxValue(jsonData["group_addr"], v);
     }
@@ -54,7 +53,6 @@ void KNXProcess::messageReceived(const string &msg)
     {
         sendReadKnxCommand(jsonData["group_addr"]);
     }
-    json_decref(jroot);
 }
 
 bool KNXProcess::setup(int &argc, char **&argv)
@@ -139,39 +137,11 @@ string KNXProcess::knxGroupAddr(eibaddr_t addr)
     return s.str();
 }
 
-eibaddr_t KNXProcess::eKnxPhysicalAddr(const string &addr)
-{
-    vector<string> tokens;
-    Utils::split(addr, tokens, ".", 3);
-    int a, b, c;
-    Utils::from_string(tokens[0], a);
-    Utils::from_string(tokens[1], b);
-    Utils::from_string(tokens[2], c);
-    return ((a & 0x0F) << 12) |
-           ((b & 0x0F) << 8) |
-           (c & 0xFF);
-}
-
-eibaddr_t KNXProcess::eKnxGroupAddr(const string &group_addr)
-{
-    vector<string> tokens;
-    Utils::split(group_addr, tokens, "/", 3);
-    int a, b, c;
-    Utils::from_string(tokens[0], a);
-    Utils::from_string(tokens[1], b);
-    Utils::from_string(tokens[2], c);
-    return ((a & 0x01F) << 11) |
-           ((b & 0x07) << 8) |
-           (c & 0xFF);
-}
-
 int KNXProcess::procMain()
 {
     connectKnxd();
 
-    run(500);
-
-    return 0;
+    return run(500)? 0: 1;
 }
 
 void KNXProcess::connectKnxd()
@@ -215,9 +185,7 @@ bool KNXProcess::monitorWait()
         cWarning() << "Error waiting for monitor data, stopping.";
         EIBClose(eibsock);
         eibsock = nullptr;
-        Params p = {{"type", "disconnected"}};
-
-        string res = jansson_to_string(p.toJson());
+        string res = knxDisconnectedMessage();
         if (!res.empty())
             sendMessage(res);
         return false;
@@ -259,14 +227,7 @@ bool KNXProcess::monitorWait()
     if (printValue && v.setValue(0, buf))
         cDebug() << t << " Value : " << v.toString();
 
-    Params p = {{"type", "event"},
-                {"group_addr", knxGroupAddr(dest)},
-                {"knx_type", type}};
-    json_t *j = p.toJson();
-    if (printValue)
-        json_object_set_new(j, "value", v.toJson());
-
-    string res = jansson_to_string(j);
+    string res = knxEventMessage(knxGroupAddr(dest), type, v, printValue);
     if (!res.empty())
         sendMessage(res);
 
@@ -277,7 +238,13 @@ void KNXProcess::writeKnxValue(const string &group_addr, const KNXValue &value)
 {
     cDebug() << "Writing KNX value to " << group_addr;
 
-    eibaddr_t knx_addr = eKnxGroupAddr(group_addr);
+    eibaddr_t knx_addr = 0;
+    if (!knxGroupAddrFromString(group_addr, knx_addr))
+    {
+        cError() << "Refusing to write to malformed KNX group address: " << group_addr;
+        return;
+    }
+
     vector<uint8_t> data;
 
     if (!value.toKnxData(data))
@@ -302,7 +269,12 @@ void KNXProcess::sendReadKnxCommand(const string &group_addr)
         return;
     }
 
-    eibaddr_t knx_addr = eKnxGroupAddr(group_addr);
+    eibaddr_t knx_addr = 0;
+    if (!knxGroupAddrFromString(group_addr, knx_addr))
+    {
+        cError() << "Refusing to read from malformed KNX group address: " << group_addr;
+        return;
+    }
 
     if (EIBOpenT_Group(eibobj->sock, knx_addr, 1) == -1)
     {

@@ -44,6 +44,10 @@ void EventManager::appendEvent(const CalaosEvent &ev)
     if (eventsQueue.empty())
     {
         //start idler if it was stopped
+        //T3.40: EventManager is a function-local static (EventManager.h) and
+        //nothing in the tree deletes it, so `this` outlives every idler this
+        //loop can run. Left unguarded on that measured ground, not on the
+        //assumption that "a singleton is safe".
         Idler::singleIdler([=]()
         {
             while (!eventsQueue.empty())
@@ -76,17 +80,29 @@ void EventManager::appendEvent(const CalaosEvent &ev)
         if (io->get_param("log_history") != "true")
             return;
 
-        json_t *j = ev.toJson();
-        char *d = json_dumps(j, JSON_COMPACT | JSON_ENSURE_ASCII /*| JSON_ESCAPE_SLASH*/);
-        if (!d)
-        {
-            json_decref(j);
-            cWarning() << "Failed to convert event to JSON";
-            return;
-        }
-        json_decref(j);
-        string jstr(d);
-        free(d);
+        /* E4.1l: the third wire of CalaosEvent::toJson(), and the one no test
+         * had an ORACLE on before core/EventWireBytes_test.cpp. It was NOT
+         * unexercised - the first delivery claimed that and it is false,
+         * measured by instrumenting this very line: three preexisting suites
+         * walk through here 13 times per make check, because seven IO classes
+         * set log_history="true" by default in their own constructor. They
+         * simply never asserted anything about the bytes it writes.
+         * The three emission invariants of
+         * the epic, all three together, exactly as on the two API emitters:
+         * compact, ensure_ascii = true (this row stays pure ASCII, as it was
+         * under JSON_ENSURE_ASCII; what changes on the bytes is the case of
+         * the hexadecimal, U+007F which jansson emitted RAW and nlohmann
+         * escapes, an embedded NUL which json_string() truncated at, and the
+         * invalid-UTF-8 pair that used to vanish - see RELEASE_NOTES.md), and
+         * error_handler_t::replace - NOT a try/catch. It matters here more than
+         * anywhere: this state comes straight from set_state, including the
+         * percent decoded GET parameter fallback of JsonApiHandlerHttp.cpp:88,
+         * which never goes through any JSON parser. A bare dump() would throw
+         * type_error.316 inside appendEvent(), where nothing catches it.
+         * The old json_dumps() NULL branch is gone with it: dump() with the
+         * replacing handler has no failure mode to test.
+         */
+        string jstr = ev.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
 
         HistEvent e = HistEvent::create();
         e.event_raw = jstr;
@@ -132,6 +148,19 @@ CalaosEvent EventManager::create(int type, string ioId, Params p, bool logHistor
     EventManager::Instance().appendEvent(ev);
 
     return ev;
+}
+
+void EventManager::createWithObjects(int type, string ioId, Params p, Json objects,
+                                     bool logHistory)
+{
+    CalaosEvent ev;
+    ev.evType = type;
+    ev.evParams = p;
+    ev.evObjects = std::move(objects);
+    ev.logHistory = logHistory;
+    ev.evParams.Add("id", ioId);
+
+    EventManager::Instance().appendEvent(ev);
 }
 
 CalaosEvent::CalaosEvent()
@@ -182,17 +211,34 @@ string CalaosEvent::typeToString(int type)
     return "unkown";
 }
 
-json_t *CalaosEvent::toJson() const
+Json CalaosEvent::toJson() const
 {
-    json_t *ret;
+    /* Where the silent pair drop really came from, MEASURED against the real
+     * jansson rather than read: json_pack("{s:s,...}") does NOT drop a pair
+     * whose C string is NULL - it answers NULL for the WHOLE OBJECT, and this
+     * function would then have returned nothing at all. The drop happened one
+     * level down, in jansson_from_params(): json_string() answers NULL on a
+     * value that is not valid UTF-8, json_object_set_new() answers -1, neither
+     * return code was tested, and only THAT pair vanished while the object
+     * stayed valid. So the old failure modes were two, not one. A degenerate
+     * event cannot lose a member here any more: the three scalars are always
+     * built (typeToString() answers "unkown" rather than nothing, and
+     * toString() url-encodes, so event_raw is ASCII whatever the parameters
+     * are), and an invalid parameter value now reaches the wire as U+FFFD
+     * instead of vanishing. Same arbitrage as E4.1j / F-LUA-2: both outcomes
+     * are garbage and the entry was already broken in both.
+     * Params is a std::map, so "data" is alphabetical here as it was before.
+     */
+    Json data = evParams.toJson();
+    if (!evObjects.is_null())
+        data.update(evObjects);
 
-    ret = json_pack("{s:s, s:s, s:s, s:o}",
-                    "event_raw", toString().c_str(),
-                    "type", Utils::to_string(getType()).c_str(),
-                    "type_str", typeToString(getType()).c_str(),
-                    "data", evParams.toJson());
-
-    return ret;
+    return Json{
+        { "event_raw", toString() },
+        { "type", Utils::to_string(getType()) },
+        { "type_str", typeToString(getType()) },
+        { "data", std::move(data) }
+    };
 }
 
 string CalaosEvent::toString() const

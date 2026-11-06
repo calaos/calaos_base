@@ -39,6 +39,21 @@ public:
     RemoteUIOutputRelay(Params &p);
     virtual ~RemoteUIOutputRelay() = default;
 
+    /* T3.25 (review reserve 1). The relay number this IO decided to drive,
+     * after the "relay_num" parameter has been parsed. Purely additive and
+     * const: it changes no behaviour and nothing in src/ calls it.
+     *
+     * It exists because the parsed value had NO OBSERVABLE at all. The only
+     * production consumer is set_value_real(), which hands it to
+     * RemoteUIManager::sendCommand(), and that returns early with a warning
+     * unless a RemoteUIWebSocketHandler is connected - i.e. unless a real
+     * device holds a live websocket. So a missing or blank "relay_num"
+     * silently drove relay 0 - a relay the ioDoc says does not exist (1..99) -
+     * and no test in the tree could see it. core/RemoteUIDeviceInfo_test pins
+     * the three shapes through this accessor.
+     */
+    int getRelayNum() const { return relay_num; }
+
     // Update internal state from a device-initiated change without sending a command back
     void updateStateFromDevice(bool val);
 };

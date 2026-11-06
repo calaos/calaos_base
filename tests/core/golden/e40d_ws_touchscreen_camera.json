@@ -1,0 +1,11 @@
+{
+  "data": {
+    "data": {
+      "id": "e40_cam_ptz"
+    },
+    "event_raw": "touchscreen_camera_request id:e40_cam_ptz",
+    "type": "21",
+    "type_str": "touchscreen_camera_request"
+  },
+  "msg": "event"
+}

@@ -1,8 +1,11 @@
 #include <json.hpp>
+#include <utility>
 
 #include "Utils.h"
 #include "IOFactory.h"
 #include "MqttCtrl.h"
+#include "MqttWire.h"
+#include "JsonPath.h"
 #include "Prefix.h"
 #include "Params.h"
 #include "ExpressionEvaluator.h"
@@ -11,114 +14,176 @@ using namespace Calaos;
 
 MqttCtrl::MqttCtrl(const Params &params)
 {
-    string host = "127.0.0.1";
-    string port = "1883";
-    string keepalive = "120";
+    string host, port, keepalive;
 
     //use default parameters if not set from config
-    if (params.Exists("host") && !params["host"].empty())
-        host = params["host"];
-    if (params.Exists("port") && !params["port"].empty())
-        port = params["port"];
-    if (params.Exists("keepalive") && !params["keepalive"].empty())
-        keepalive = params["keepalive"];
+    MqttWire::resolveBroker(params, host, port, keepalive);
 
     cDebugDom("mqtt") << "New MQTT external process " << host << ":" << port;
     process = new ExternProcServer("mqtt");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_mqtt";
 
-    json_t *root = json_object();
-    json_object_set_new(root, "host", json_string(host.c_str()));
-    json_object_set_new(root, "port", json_string(port.c_str()));
-    json_object_set_new(root, "keepalive", json_string(keepalive.c_str()));
+    /* NO ARGUMENT AT ALL. The broker configuration carries the password and
+     * /proc/<pid>/cmdline is mode 444, so it goes over the socket as the first
+     * message - the channel ReolinkCtrl already uses for its camera
+     * credentials. It is written again on every connection because a
+     * relaunched sidecar starts out knowing nothing. */
+    const Params cfg = params;
 
-    if (params.Exists("user") && params.Exists("password"))
+    process->processConnected.connect([=]()
     {
-        json_object_set_new(root, "user", json_string(params["user"].c_str()));
-        json_object_set_new(root, "password", json_string(params["password"].c_str()));
-    }
-
-    string arg = jansson_to_string(root);
+        process->sendMessage(MqttWire::encodeConfig(cfg));
+    });
 
     process->processExited.connect([=]()
     {
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "mqtt", arg);
+        process->startProcess(exe, "mqtt");
     });
 
     process->messageReceived.connect([=](const string &msg)
     {
-        json_error_t jerr;
-        json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+        Params p;
 
-        if (!jroot)
+        if (!MqttWire::decodeMessage(msg, p))
         {
-            cWarningDom("mqtt") << "Error parsing json: " << jerr.text;
-            if (jroot)
-                json_decref(jroot);
+            //A frame this end could not read was written by the same sender as
+            //one it can, and an mqtt payload is whatever a third party device
+            //published. WARNING prints on a stock install, so only the size
+            //crosses: it is what separates a sidecar talking nonsense from one
+            //that has gone quiet.
+            cWarningDom("mqtt") << "Error parsing json message from sub process ("
+                                << msg.size() << " bytes)";
             return;
         }
-        Params p;
-        jansson_decode_object(jroot, p);
 
         cDebugDom("mqtt") << "Topic :  " << p["topic"] << " payload : " << p["payload"];
 
         // Set or replace the message
-        messages[p["topic"]] = p["payload"];
-        for (auto& it: subscribeCb)
-        {
-            if (topicMatchesSubscription(it.first, p["topic"]))
-            {
-                cDebugDom("mqtt") << "New message received on topic " << msg;
+        storeMessage(p["topic"], p["payload"]);
 
-                // Call the all registered callbacks for this topic
-                for (auto &callback : it.second)
-                {
-                    callback(p["topic"], p["payload"]);
-                }
-            }
+        vector<uint64_t> matching;
+        for (const auto &it: subscribers)
+        {
+            if (topicMatchesSubscription(it.second.topic, p["topic"]))
+                matching.push_back(it.first);
         }
 
-        json_decref(jroot); });
+        //A callback may delete an IO, its own included: each one is looked up
+        //again, and called through a copy that outlives its entry.
+        replaying = p["retain"] == "true";
+        for (uint64_t id: matching)
+        {
+            auto it = subscribers.find(id);
+            if (it == subscribers.end())
+                continue;
+            cDebugDom("mqtt") << "New message received on topic " << msg;
+            MsgReceivedSignal callback = it->second.callback;
+            callback(p["topic"], p["payload"]);
+        }
+        replaying = false;
+    });
 
-    process->startProcess(exe, "mqtt", arg);
+    process->startProcess(exe, "mqtt");
 }
 
 MqttCtrl::~MqttCtrl()
 {
+    //Its handlers capture `this`.
+    delete process;
 }
 
-void MqttCtrl::subscribeTopic(const string topic, MsgReceivedSignal callback)
+void MqttCtrl::storeMessage(const string &topic, const string &payload)
 {
-    // subscribeCb contains a map of list of callbacks, register this callback to the key relative of this topic
+    //T3.35b. Extracted so that the only way a message enters this object has a
+    //name, and so that the error-flag suite can drive getValue() without a
+    //broker. Behaviour identical to the assignment it replaces.
+    messages[topic] = payload;
+}
+
+MqttCtrl::Subscription::Subscription(MqttCtrl *c, uint64_t i):
+    ctrl(c),
+    ctrlAlive(c->alive),
+    id(i)
+{
+}
+
+MqttCtrl::Subscription::Subscription(Subscription &&other) noexcept:
+    ctrl(std::exchange(other.ctrl, nullptr)),
+    ctrlAlive(std::move(other.ctrlAlive)),
+    id(std::exchange(other.id, 0))
+{
+}
+
+MqttCtrl::Subscription &MqttCtrl::Subscription::operator=(Subscription &&other) noexcept
+{
+    if (this != &other)
+    {
+        reset();
+        ctrl = std::exchange(other.ctrl, nullptr);
+        ctrlAlive = std::move(other.ctrlAlive);
+        id = std::exchange(other.id, 0);
+    }
+    return *this;
+}
+
+void MqttCtrl::Subscription::reset()
+{
+    if (active())
+        ctrl->subscribers.erase(id);
+    ctrl = nullptr;
+    ctrlAlive.reset();
+    id = 0;
+}
+
+bool MqttCtrl::Subscription::active() const
+{
+    return ctrl && !ctrlAlive.expired();
+}
+
+MqttCtrl::Subscription MqttCtrl::subscribeTopic(const string &topic, MsgReceivedSignal callback)
+{
     cDebugDom("mqtt") << "subscribeTopic : " << topic;
     if (topic == "")
     {
         cErrorDom("mqtt") << "Topic is empty !";
-        return;
+        return Subscription();
     }
 
-    auto v = subscribeCb[topic];
-    v.push_back(callback);
-    subscribeCb[topic] = v;
+    //The broker side keeps its subscription: the sidecar subscribes to "#".
+    const uint64_t id = nextSubscriptionId++;
+    subscribers[id] = { topic, callback };
+    return Subscription(this, id);
+}
+
+size_t MqttCtrl::subscriptionCount(const string &topic) const
+{
+    size_t n = 0;
+    for (const auto &it: subscribers)
+    {
+        if (it.second.topic == topic)
+            n++;
+    }
+    return n;
 }
 
 void MqttCtrl::publishTopic(const string topic, const string payload)
 {
-    string message;
-
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "topic", json_string(topic.c_str()));
-    json_object_set_new(jroot, "payload", json_string(payload.c_str()));
-
-    process->sendMessage(jansson_to_string(jroot));
-    json_decref(jroot);
+    process->sendMessage(MqttWire::encodeMessage(topic, payload));
 }
 
 string MqttCtrl::getValueJson(const Params &params, string path, string payload)
 {
+    bool err = false;
+    return getValueJson(params, path, payload, err);
+}
+
+string MqttCtrl::getValueJson(const Params &params, string path, string payload, bool &err)
+{
     string value;
+
+    err = false;
 
     // If path is empty, treat payload as direct raw value
     if (path.empty())
@@ -130,83 +195,27 @@ string MqttCtrl::getValueJson(const Params &params, string path, string payload)
         return value;
     }
 
-    // Original JSON parsing logic for non-empty paths
-    Json root;
-    try
+    // Original JSON parsing logic for non-empty paths.
+    // Non throwing form: the payload comes from a third party device.
+    const Json root = Json::parse(payload, nullptr, /*allow_exceptions=*/false);
+
+    if (root.is_discarded())
     {
-        root = Json::parse(payload);
-    }
-    catch (const std::exception &e)
-    {
-        cWarning() << "Error parsing " << payload << ":" << e.what();
+        err = true;
+        //Not a drift of the wire: any device publishing something that is not
+        //json on a topic an IO names lands here, on an ordinary read.
+        cWarningDom("mqtt") << "Error parsing mqtt payload ("
+                            << payload.size() << " bytes)";
         return string();
     }
 
-    vector<string> tokens;
-    Utils::split(path, tokens, "/");
-
-    if (!tokens.empty())
-    {
-        Json parent = root;
-        for (auto it = tokens.begin(); it != tokens.end(); it++)
-        {
-            string val = *it;
-
-            // Test if the token is an array index
-            // if it's the case, it must be something like [x]
-            if (val[0] == '[')
-            {
-                int idx;
-                // Remove first and last char
-                val.erase(0, 1);
-                val.pop_back();
-                // Read array index
-                Utils::from_string(val, idx);
-
-                try
-                {
-                    parent = parent.at(idx);
-                }
-                catch (const std::exception &e)
-                {
-                    cWarning() << "Error in path " << path << ", index not found " << *it << " : " << e.what();
-                    return string();
-                }
-            }
-            else
-            {
-                // Token is a normal object name
-                try
-                {
-                    parent = parent.at(val);
-                }
-                catch (const std::exception &e)
-                {
-                    cWarning() << "Error in path " << path << ", subpath not found " << *it << " : " << e.what();
-                    return string();
-                }
-            }
-        }
-
-        if (parent.is_null())
-            value = "null";
-        else if (parent.is_boolean())
-            value = parent.get<bool>() ? "true" : "false";
-        else if (parent.is_number())
-            value = Utils::to_string(parent.get<double>());
-        else if (parent.is_string())
-            value = parent.get<string>();
-        else if (parent.is_object())
-        {
-            cWarning() << "Error, path returns an object, not a value";
-            value = "object{}";
-        }
-        else if (parent.is_array())
-        {
-            cWarning() << "Error, path returns an array, not a value";
-            value = "array[]";
-        }
-    }
+    //T3.37. The ~55 line path parser that used to sit here, and again in
+    //WebCtrl::getValueJson(), now lives once in IO/JsonPath.h. Everything
+    //above this line is what is genuinely MQTT's: where the document comes
+    //from, and the empty-path shortcut that hands back the raw payload -
+    //a divergence from the Web copy that T3.29 froze by test and T3.37 kept
+    //on purpose (JsonPath.h explains why it is not a parser concern).
+    err = !JsonPath::resolve(root, path, value);
 
     return value;
 }
@@ -230,8 +239,11 @@ string MqttCtrl::getValue(const Params &params, bool &err, string topic_param, s
         err = true;
         return "";
     }
-    err = false;
-    return getValueJson(params, params[path_param], payload);
+    //T3.35b. `err` used to be cleared HERE, unconditionally, and getValueJson()
+    //was then free to fail: `battery_path = "["` crossed the caller's
+    //`if (!err)` with an empty value in hand. The flag now comes from the
+    //parser itself.
+    return getValueJson(params, params[path_param], payload, err);
 }
 
 double MqttCtrl::getValueDouble(const Params &params, bool &err)
@@ -241,68 +253,108 @@ double MqttCtrl::getValueDouble(const Params &params, bool &err)
     err = true;
 
     value = getValue(params, err, "topic_sub");
+    if (err)
+        return val;
 
     if (Utils::is_of_type<double>(value) && !value.empty())
-    {
         Utils::from_string(value, val);
-        err = false;
-    }
+    else
+        //T3.35b. This branch used to leave `err` at whatever getValue() had
+        //set - false - so a value that is not a number was reported as a
+        //successful reading of 0.
+        err = true;
 
     return val;
 }
 
 ColorValue MqttCtrl::getValueColor(const Params &params, bool &err)
 {
+    /* T3.35b. Three corrections, all the same defect seen from three sides.
+     *
+     *  - x, y and b are INITIALISED. They were not, and no error flag could
+     *    have saved them: `err` was CLEARED by any ONE of the three reads
+     *    succeeding, so a device whose path_x is mistyped and whose path_y is
+     *    not left err false and handed fromXYBrightness() an uninitialised x.
+     *    That is true with or without T3.25, which is why this site is closed
+     *    here and not left to it.
+     *  - `err` is now the AND of the three reads, not their OR. All three
+     *    parameters are declared MANDATORY in the ioDoc of MqttOutputLightRGB;
+     *    a colour built out of two of them is not a colour, and
+     *    MqttOutputLightRGB::readValue() reads err as "ignore this update",
+     *    which is the right answer.
+     *  - each value is checked for being a NUMBER, not merely for having been
+     *    read: a path landing on an object answers the marker "object{}".
+     */
     string value;
-    double x, y;
-    int b;
+    double x = 0, y = 0;
+    int b = 0;
+    bool e = true;
+
     err = true;
 
-    value = getValue(params, err, "topic_sub", "path_x");
-
-    if (Utils::is_of_type<double>(value) && !value.empty())
-    {
-        Utils::from_string(value, x);
-        err = false;
-    }
-
-    value = getValue(params, err, "topic_sub", "path_y");
-
-    if (Utils::is_of_type<double>(value) && !value.empty())
-    {
-        Utils::from_string(value, y);
-        err = false;
-    }
-
-    value = getValue(params, err, "topic_sub", "path_brightness");
-
-    if (Utils::is_of_type<int>(value) && !value.empty())
-    {
-        Utils::from_string(value, b);
-        err = false;
-    }
-
-    if (err)
+    value = getValue(params, e, "topic_sub", "path_x");
+    if (e || value.empty() || !Utils::is_of_type<double>(value))
         return {};
+    Utils::from_string(value, x);
+
+    value = getValue(params, e, "topic_sub", "path_y");
+    if (e || value.empty() || !Utils::is_of_type<double>(value))
+        return {};
+    Utils::from_string(value, y);
+
+    value = getValue(params, e, "topic_sub", "path_brightness");
+    if (e || value.empty() || !Utils::is_of_type<int>(value))
+        return {};
+    Utils::from_string(value, b);
+
+    err = false;
 
     return ColorValue::fromXYBrightness(x, y, b / 255.0);
 }
 
+bool MqttCtrl::readStatusNumber(const string &value, double &out)
+{
+    //T3.35b. Utils::from_string() does not write its destination on a blank
+    //string - its stream sentry fails before num_get runs - and returns
+    //iss.eof(), which is TRUE for that very string. Its return code therefore
+    //cannot be used to detect the case; the string has to be checked first.
+    if (value.empty() || !Utils::is_of_type<double>(value))
+        return false;
+
+    Utils::from_string(value, out);
+    return true;
+}
+
+string MqttCtrl::renderData(const string &tmpl, const string &val)
+{
+    //A JSON template needs the value escaped, or a quote in it breaks the
+    //document. Plain templates are sent as is.
+    string escaped = val;
+
+    const auto first = tmpl.find_first_not_of(" \t\r\n");
+    if (first != string::npos &&
+        (tmpl[first] == '{' || tmpl[first] == '[' || tmpl[first] == '"'))
+    {
+        const string quoted = Json(val).dump(-1, ' ', false, Json::error_handler_t::replace);
+        escaped = quoted.substr(1, quoted.size() - 2);
+    }
+
+    string data = tmpl;
+    replace_str(data, "__##VALUE##__", escaped);
+    return data;
+}
+
 void MqttCtrl::setValueString(const Params &params, string val)
 {
-    string data;
     string topic = params["topic_pub"];
 
-    if (params.Exists("data"))
-    {
-        data = params["data"];
-        replace_str(data, "__##VALUE##__", val);
-    }
-    else
+    if (!params.Exists("data"))
     {
         cErrorDom("mqtt") << "No data provided in configuration IO";
         return;
     }
+
+    const string data = renderData(params["data"], val);
 
     cDebugDom("mqtt") << "Publish " << data << " on topic" << topic;
 
@@ -346,16 +398,15 @@ void MqttCtrl::setValueInt(const Params &params, int val, string dataParam)
     if (params.Exists(dataParam))
     {
         data = params[dataParam];
-        double coeff_a, coeff_b;
+        //T3.35b. Initialised at their declaration: a coeff_a that EXISTS but
+        //is not a number left Utils::from_string() with nothing to say and the
+        //multiplication below read an uninitialised double.
+        double coeff_a = 1.0, coeff_b = 0.0;
         if (params.Exists("coeff_a"))
             Utils::from_string(params["coeff_a"], coeff_a);
-        else
-            coeff_a = 1.0;
 
         if (params.Exists("coeff_b"))
             Utils::from_string(params["coeff_b"], coeff_b);
-        else
-            coeff_b = 0.0;
 
 
         replace_str(data, "__##VALUE##__", Utils::to_string((int)(val * coeff_a + coeff_b)));
@@ -412,29 +463,29 @@ void MqttCtrl::commonDoc(IODoc *ioDoc)
     ioDoc->paramAdd("topic_pub", _("Topic on witch to publish."), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("topic_sub", _("Topic on witch to subscribe."), IODoc::TYPE_STRING, true);
 
-    ioDoc->paramAdd("path", _("The path where to find the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. if payload is simple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path"), IODoc::TYPE_STRING, true);
+    ioDoc->paramAdd("path", _("The path where to find the value in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. if payload is simple json, just try to use the key of the value you want to read, for example : {\"temperature\":14.23} use \"temperature\" as path"), IODoc::TYPE_STRING, true);
 
     ioDoc->paramAdd("battery_topic", _("The topic on witch to publish the battery status of the sensor. If not set, no battery status will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("battery_path", _("The path where to find the battery status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json object, just try to use the key of the value you want to read, for example : {\"battery\":90} use \"battery\" as path. When this path is set, and the level drops below 30%. The battery reported should be in percent. Use `battery_expr` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("battery_path", _("The path where to find the battery status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. If payload is simple json object, just try to use the key of the value you want to read, for example : {\"battery\":90} use \"battery\" as path. When this path is set, and the level drops below 30%. The battery reported should be in percent. Use `battery_expr` to adjust if required."), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("battery_expr", _("If the battery value is not directly available in the payload, you can use this parameter to calculate the battery value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the battery value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("connected_status_topic", _("The topic on witch to publish the connected status of the sensor. If not set, no connected status will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("connected_status_path", _("The path where to find the connected status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"connected\":true} use \"connected\" as path. The value should be a boolean. Use connected_status_expr to convert to a boolean"), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("connected_status_path", _("The path where to find the connected status in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. If payload is simple json, just try to use the key of the value you want to read, for example : {\"connected\":true} use \"connected\" as path. The value should be a boolean. Use connected_status_expr to convert to a boolean"), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("connected_status_expr", _("If the connected status value is not directly available in the payload, you can use this parameter to convert the value from the path to a boolean. The value will be calculated as any valid mathematic expression. In the expression, the variable `value` is replaced with the raw value from path. If not set, the connected status will be read directly from the path. Example: \"value == 'connected'\" or \"value > 30 and value < 150\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("wireless_signal_topic", _("The topic on witch to publish the wireless signal strength of the sensor. If not set, no wireless signal strength will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("wireless_signal_path", _("The path where to find the wireless signal strength in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"signal\": 70} use \"signal\" as path. The value should be a number in percent. Use `wireless_signal_expr` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wireless_signal_path", _("The path where to find the wireless signal strength in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. If payload is simple json, just try to use the key of the value you want to read, for example : {\"signal\": 70} use \"signal\" as path. The value should be a number in percent. Use `wireless_signal_expr` to adjust if required."), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("wireless_signal_expr", _("If the wireless signal value is not directly available in the payload, you can use this parameter to calculate the wireless signal value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the wireless signal value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("uptime_topic", _("The topic on witch to publish the uptime of the sensor. If not set, no uptime will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("uptime_path", _("The path where to find the uptime of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"uptime\": 3600} use \"uptime\" as path. The value should be a number in seconds. Use `uptime_expr` to adjust if required."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("uptime_path", _("The path where to find the uptime of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. If payload is simple json, just try to use the key of the value you want to read, for example : {\"uptime\": 3600} use \"uptime\" as path. The value should be a number in seconds. Use `uptime_expr` to adjust if required."), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("uptime_expr", _("If the uptime value is not directly available in the payload, you can use this parameter to calculate the uptime value from the payload. The value will be calculated as any valid mathematic expression. In the expression, the variable x is replaced with the raw value from path. If not set, the uptime value will be read directly from the path. Example: \"x * 100 / 255\""), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("ip_address_topic", _("The topic on witch to publish the IP address of the sensor. If not set, no IP address will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("ip_address_path", _("The path where to find the IP address of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"ip_address\": \"192.168.1.156\"} use \"ip_address\" as path. The value should be a string with the IP address."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("ip_address_path", _("The path where to find the IP address of the sensor in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. If payload is simple json, just try to use the key of the value you want to read, for example : {\"ip_address\": \"192.168.1.156\"} use \"ip_address\" as path. The value should be a string with the IP address."), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("wifi_ssid_topic", _("The topic on witch to publish the WiFi SSID of the sensor. If not set, no WiFi SSID will be reported."), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("wifi_ssid_path", _("The path where to find the WiFi SSID where the sensor is connected in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. for example weather[0]/description, try to read the description value of the 1 element of the array of the weather object. If payload is simple json, just try to use the key of the value you want to read, for example : {\"wifi_ssid\": \"MyWifi\"} use \"wifi_ssid\" as path. The value should be a string with the WiFi SSID."), IODoc::TYPE_STRING, false);
+    ioDoc->paramAdd("wifi_ssid_path", _("The path where to find the WiFi SSID where the sensor is connected in the mqtt payload. If payload if JSON, informations will be extracted depending on the path. Array indices are their own path segment, written between square brackets: for example weather/[0]/description reads the description value of the first element of the weather array. If payload is simple json, just try to use the key of the value you want to read, for example : {\"wifi_ssid\": \"MyWifi\"} use \"wifi_ssid\" as path. The value should be a string with the WiFi SSID."), IODoc::TYPE_STRING, false);
 
     ioDoc->paramAdd("notif_battery", _("If set, a notification will be sent when the battery level drops below 30%. This is only used if the battery_topic is set."), IODoc::TYPE_BOOL, false, "true");
     ioDoc->paramAdd("notif_connected", _("If set, a notification will be sent when the connected status changes. This is only used if the connected_status_topic is set."), IODoc::TYPE_BOOL, false, "false");
@@ -595,21 +646,39 @@ bool MqttCtrl::topicMatchesSubscription(string s, string t)
     return result;
 }
 
-void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
+vector<MqttCtrl::Subscription> MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
 {
+    vector<Subscription> subs;
     auto &params = io->get_params();
 
     // Subscribe to the status topics if they are defined
     if (params.Exists("battery_topic"))
     {
-        subscribeTopic(params["battery_topic"], [=](string, string)
+        MsgReceivedSignal onBattery = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "battery_topic", "battery_path");
             if (!err)
             {
-                double rawValue;
-                Utils::from_string(v, rawValue);
+                /* T3.35b. `double rawValue;` fed straight to
+                 * Utils::from_string(), which does NOT write its destination
+                 * when the string is blank. Before T3.35 a `battery_path`
+                 * of "[" killed the server; after it the parser returned an
+                 * empty string, getValue() reported success anyway, and this
+                 * block published an INDETERMINATE battery - a lie the
+                 * user reads in the interface and their rules act on, where
+                 * the crash at least announced itself. getValue() is honest
+                 * now, so `!err` no longer lets it in; this guard is the
+                 * second lock, and it also catches the value that resolves but
+                 * is not a number (a marker like "object{}", a string field).
+                 */
+                double rawValue = 0;
+                if (!readStatusNumber(v, rawValue))
+                {
+                    cWarningDom("mqtt") << "Battery value \"" << v << "\" read from path "
+                                        << params["battery_path"] << " is not a number, ignoring";
+                    return;
+                }
 
                 if (params.Exists("battery_expr") &&
                     ExpressionEvaluator::isExpressionValid(params["battery_expr"]))
@@ -638,12 +707,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["battery_topic"], onBattery));
     }
 
     if (params.Exists("connected_status_topic"))
     {
-        subscribeTopic(params["connected_status_topic"], [=](string, string)
+        MsgReceivedSignal onConnected = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "connected_status_topic", "connected_status_path");
@@ -676,19 +746,37 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["connected_status_topic"], onConnected));
     }
 
     if (params.Exists("wireless_signal_topic"))
     {
-        subscribeTopic(params["wireless_signal_topic"], [=](string, string)
+        MsgReceivedSignal onSignal = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "wireless_signal_topic", "wireless_signal_path");
             if (!err)
             {
-                double rawValue;
-                Utils::from_string(v, rawValue);
+                /* T3.35b. `double rawValue;` fed straight to
+                 * Utils::from_string(), which does NOT write its destination
+                 * when the string is blank. Before T3.35 a `wireless_signal_path`
+                 * of "[" killed the server; after it the parser returned an
+                 * empty string, getValue() reported success anyway, and this
+                 * block published an INDETERMINATE wireless signal - a lie the
+                 * user reads in the interface and their rules act on, where
+                 * the crash at least announced itself. getValue() is honest
+                 * now, so `!err` no longer lets it in; this guard is the
+                 * second lock, and it also catches the value that resolves but
+                 * is not a number (a marker like "object{}", a string field).
+                 */
+                double rawValue = 0;
+                if (!readStatusNumber(v, rawValue))
+                {
+                    cWarningDom("mqtt") << "Wireless signal value \"" << v << "\" read from path "
+                                        << params["wireless_signal_path"] << " is not a number, ignoring";
+                    return;
+                }
 
                 if (params.Exists("wireless_signal_expr") &&
                     ExpressionEvaluator::isExpressionValid(params["wireless_signal_expr"]))
@@ -715,19 +803,37 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["wireless_signal_topic"], onSignal));
     }
 
     if (params.Exists("uptime_topic"))
     {
-        subscribeTopic(params["uptime_topic"], [=](string, string)
+        MsgReceivedSignal onUptime = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "uptime_topic", "uptime_path");
             if (!err)
             {
-                double rawValue;
-                Utils::from_string(v, rawValue);
+                /* T3.35b. `double rawValue;` fed straight to
+                 * Utils::from_string(), which does NOT write its destination
+                 * when the string is blank. Before T3.35 a `uptime_path`
+                 * of "[" killed the server; after it the parser returned an
+                 * empty string, getValue() reported success anyway, and this
+                 * block published an INDETERMINATE uptime - a lie the
+                 * user reads in the interface and their rules act on, where
+                 * the crash at least announced itself. getValue() is honest
+                 * now, so `!err` no longer lets it in; this guard is the
+                 * second lock, and it also catches the value that resolves but
+                 * is not a number (a marker like "object{}", a string field).
+                 */
+                double rawValue = 0;
+                if (!readStatusNumber(v, rawValue))
+                {
+                    cWarningDom("mqtt") << "Uptime value \"" << v << "\" read from path "
+                                        << params["uptime_path"] << " is not a number, ignoring";
+                    return;
+                }
 
                 if (params.Exists("uptime_expr") &&
                     ExpressionEvaluator::isExpressionValid(params["uptime_expr"]))
@@ -754,12 +860,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->getStatusInfo());
                 }
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["uptime_topic"], onUptime));
     }
 
     if (params.Exists("ip_address_topic"))
     {
-        subscribeTopic(params["ip_address_topic"], [=](string, string)
+        MsgReceivedSignal onIpAddress = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "ip_address_topic", "ip_address_path");
@@ -772,12 +879,13 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->get_param("id"),
                                              io->getStatusInfo());
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["ip_address_topic"], onIpAddress));
     }
 
     if (params.Exists("wifi_ssid_topic"))
     {
-        subscribeTopic(params["wifi_ssid_topic"], [=](string, string)
+        MsgReceivedSignal onWifiSsid = [=](string, string)
         {
             bool err;
             auto v = getValue(params, err, "wifi_ssid_topic", "wifi_ssid_path");
@@ -790,6 +898,9 @@ void MqttCtrl::subscribeStatusTopics(Calaos::IOBase *io)
                                              io->get_param("id"),
                                              io->getStatusInfo());
             }
-        });
+        };
+        subs.push_back(subscribeTopic(params["wifi_ssid_topic"], onWifiSsid));
     }
+
+    return subs;
 }

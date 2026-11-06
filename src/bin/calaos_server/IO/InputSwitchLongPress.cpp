@@ -84,7 +84,8 @@ void InputSwitchLongPress::emitChange()
                            { "state", Utils::to_string(value) } });
 
     //reset input value to 0 after 250ms (simulate button press/release)
-    Timer::singleShot(0.250, [=]()
+    //T3.40: armed through the IO's lifetime tag, see IOBase::ioAlive.
+    ioAlive.singleShot(0.250, [this]()
     {
         value = 0;
     });

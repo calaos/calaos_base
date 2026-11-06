@@ -22,11 +22,7 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "MqttInputSwitch.h"
-#include "MqttBrokersList.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -34,26 +30,17 @@ using namespace Calaos;
 REGISTER_IO(MqttInputSwitch)
 
 MqttInputSwitch::MqttInputSwitch(Params &p):
-    InputSwitch(p)
+    MqttIOBase(p, "MqttInputSwitch", _("Switch value read from a mqtt broker"))
 {
-
-    ioDoc->friendlyNameSet("MqttInputSwitch");
-    ioDoc->descriptionSet(_("Switch value read from a mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
     ioDoc->paramAdd("on_value", _("Value to interpret as ON value"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("off_value", _("Value to interpret as OFF value"), IODoc::TYPE_STRING, true);
 
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-
     cDebugDom("mqtt") << "register on topic : " << get_param("topic_sub");
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
+    subscribeTopicSub([this]()
     {
         cDebugDom("mqtt") << "New value on topic " << get_param("topic_sub");
         hasChanged();
     });
-
-    ctrl->subscribeStatusTopics(this);
 
     cInfoDom("input") << "MqttInputSwitch::MqttInputSwitch()";
 }

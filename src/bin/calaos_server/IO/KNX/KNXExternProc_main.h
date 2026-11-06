@@ -22,10 +22,51 @@
 #define KNXEXTERNPROC_MAIN_H
 
 #include "ExternProc.h"
-#include "Jansson_Addition.h"
+#include "Params.h"
 
 extern "C" {
 #include <eibclient.h>
+}
+
+/* E4.1e - mirror of the flattening decoder it replaces, on top
+ * of nlohmann::json, shared by the two translation units of calaos_knx
+ * (KNXExternProc_main.cpp for the message envelope, KNXExternProc_cli.cpp for
+ * KNXValue::fromJson). A string stays a string, a boolean becomes
+ * "true"/"false", a number goes through Utils::to_string(double), anything else
+ * is recorded as an empty string, and NOTHING EVER THROWS - assigning a Json
+ * straight into a std::string, the way Params::fromJson() does, throws
+ * type_error.302 on a non-string, from inside messageReceived(), which has no
+ * handler above it.
+ */
+inline void knxDecodeObject(const Json &jroot, Params &params)
+{
+    if (!jroot.is_object())
+        return;
+
+    for (Json::const_iterator it = jroot.cbegin();it != jroot.cend();it++)
+    {
+        string svalue;
+
+        if (it->is_string())
+            svalue = it->get<string>();
+        else if (it->is_boolean())
+            svalue = it->get<bool>()?"true":"false";
+        else if (it->is_number())
+            svalue = Utils::to_string(it->get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+/* An absent "value" key must stay absent, not become null: fromJson() used to
+ * be handed the NULL that json_object_get() answered.
+ */
+inline Json knxJsonChild(const Json &jroot, const string &key)
+{
+    Json::const_iterator it = jroot.find(key);
+    if (it == jroot.cend())
+        return Json();
+    return *it;
 }
 
 class KNXValue
@@ -54,10 +95,93 @@ public:
     bool setValue(int eis, vector<uint8_t> data);
     bool toKnxData(vector<uint8_t> &data) const;
 
-    json_t *toJson() const;
-    static KNXValue fromJson(json_t *jval);
+    Json toJson() const;
+    static KNXValue fromJson(const Json &jval);
     static KNXValue fromString(int eis, const string &s);
 };
+
+/* E4.1e - the exact bytes calaos_knx puts on the wire, built in ONE place so
+ * that production and tests cannot drift apart. KNXProcess::monitorWait()
+ * blocks in EIBGetGroup_Src() on a live knxd socket, so a test can never reach
+ * it; freezing a copy of the assembly froze what the TEST did, not what the
+ * PRODUCT did. Both sides call these now.
+ */
+inline string knxEventMessage(const string &group_addr, const string &knx_type,
+                              const KNXValue &value, bool printValue)
+{
+    Params p = {{"type", "event"},
+                {"group_addr", group_addr},
+                {"knx_type", knx_type}};
+
+    Json j = p.toJson();
+    if (printValue)
+        j["value"] = value.toJson();
+
+    return j.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+inline string knxDisconnectedMessage()
+{
+    Params p = {{"type", "disconnected"}};
+
+    return p.toJson().dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+/*
+ * Whatever these answer is the group EIBSendGroup() writes to, so they refuse
+ * instead of inventing. Utils::split() pads its token list up to `max`, so "1"
+ * yields {"1", "", ""}: no out of bounds read, but two components nobody gave.
+ * The old & 0x0F / & 0xFF were a mask and not a guard - "1/2/300" wrote to
+ * 1/2/44, a group that exists. `out` is left untouched on a refusal so that a
+ * caller ignoring the return value cannot pick up a fabricated address.
+ *
+ * They sit in this header because KNXExternProc_main.cpp ends on
+ * EXTERN_PROC_CLIENT_MAIN and no test can link that translation unit.
+ */
+
+//Group address, 5/3/8 layout: main/middle/sub.
+inline bool knxGroupAddrFromString(const string &group_addr, eibaddr_t &out)
+{
+    vector<string> tokens;
+    Utils::split(group_addr, tokens, "/", 3);
+
+    int main_group = 0, middle_group = 0, sub_group = 0;
+    if (!Utils::from_string(tokens[0], main_group) ||
+        !Utils::from_string(tokens[1], middle_group) ||
+        !Utils::from_string(tokens[2], sub_group))
+        return false;
+
+    if (main_group < 0 || main_group > 31 ||
+        middle_group < 0 || middle_group > 7 ||
+        sub_group < 0 || sub_group > 255)
+        return false;
+
+    out = (eibaddr_t)((main_group << 11) | (middle_group << 8) | sub_group);
+
+    return true;
+}
+
+//Physical address, 4/4/8 layout: area.line.device.
+inline bool knxPhysicalAddrFromString(const string &addr, eibaddr_t &out)
+{
+    vector<string> tokens;
+    Utils::split(addr, tokens, ".", 3);
+
+    int area = 0, line = 0, device = 0;
+    if (!Utils::from_string(tokens[0], area) ||
+        !Utils::from_string(tokens[1], line) ||
+        !Utils::from_string(tokens[2], device))
+        return false;
+
+    if (area < 0 || area > 15 ||
+        line < 0 || line > 15 ||
+        device < 0 || device > 255)
+        return false;
+
+    out = (eibaddr_t)((area << 12) | (line << 8) | device);
+
+    return true;
+}
 
 class KnxdObj
 {
@@ -99,8 +223,6 @@ protected:
 
     string knxPhysicalAddr(eibaddr_t addr);
     string knxGroupAddr(eibaddr_t addr);
-    eibaddr_t eKnxGroupAddr(const string &group_addr);
-    eibaddr_t eKnxPhysicalAddr(const string &addr);
 
     string eibserver;
     EIBConnection *eibsock = nullptr;

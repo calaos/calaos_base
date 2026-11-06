@@ -32,6 +32,11 @@ namespace uvw {
 class AsyncHandle;
 }
 
+namespace sqlite
+{
+class database;
+}
+
 using namespace Calaos;
 
 class HistEvent
@@ -57,12 +62,26 @@ class HistWorkerAction;
 class PushToken
 {
 public:
-    PushToken(string &&t, int hw):
-        token(t), hw_type(hw) {}
+    PushToken(string &&t, int hw, int fmt = 0):
+        token(t),
+        hw_type(hw),
+        format(fmt)
+    {
+    }
     PushToken() {}
     string token;
     int hw_type = 0;
+    int format = 0;
+    //Chosen by the app, sanitized by register_push; empty for older apps
+    string device_name;
+    //Enrolled with the daemon: a register_push no longer changes its name or format
+    bool approver = false;
+    //Refreshed at every register_push: the last time the app was seen
     string created_at;
+    //The first register_push; the last seen time for tokens older than the column
+    string registered_at;
+    //register_push's push_key, 64 lowercase hex characters, empty when the app sent none
+    string push_key;
 };
 
 class HistLogger
@@ -89,8 +108,22 @@ public:
         PUSH_HW_ANDROID,
     };
 
-    //Add a new device token to the db
-    void registerPushToken(string token, int push_hw);
+    //What the app registered for. The store apps (3.1.x) send no format and
+    //cannot display a data-only FCM message.
+    enum
+    {
+        PUSH_FORMAT_NOTIFICATION = 0,
+        PUSH_FORMAT_DATA,
+    };
+
+    //Add a new device token to the db, or refresh it and update its format.
+    //An empty device_name or push_key keeps the one stored.
+    void registerPushToken(string token, int push_hw, int push_format = PUSH_FORMAT_NOTIFICATION,
+                           string device_name = string(), string push_key = string());
+
+    //Marks the token as the daemon's approver (approver_set) or not any more.
+    //A provedKey, the one that sealed its approver_confirm code, becomes its key.
+    void setPushTokenApprover(string token, bool approver, string provedKey = string());
 
     //Get all push token devices
     void getPushTokens(std::function<void(bool success, string errorMsg, const vector<PushToken> &tokens)> callback);
@@ -99,6 +132,8 @@ private:
     HistLogger();
 
     void sqliteWorker();
+    //Drains the queue once the database could not be opened.
+    void refuseAll();
 
     string dbname;
 
@@ -106,5 +141,31 @@ private:
     std::thread sqliteThread;
     ThreadedQueue<std::shared_ptr<HistWorkerAction>> eventQueue;
 };
+
+//push_tokens storage, run by the history worker thread. Throws sqlite errors,
+//except prepare().
+namespace PushTokenDb
+{
+//Creates the table and adds push_format, device_name and approver to tables
+//from older servers. False when push_format is still missing (database locked
+//or read only): tokens are then stored and read in the notification format.
+//*hasName tells the same of device_name, approver and registered_at, *hasKey of
+//push_key. *locked tells a failure that a later call may not hit.
+bool prepare(sqlite::database &db, bool *locked = nullptr, bool *hasName = nullptr, bool *hasKey = nullptr);
+void save(sqlite::database &db, const PushToken &token, bool hasFormat, bool hasName = false, bool hasKey = false);
+vector<PushToken> load(sqlite::database &db, bool hasFormat, bool hasName = false, bool hasKey = false);
+void setApprover(sqlite::database &db, const string &token, bool approver, const string &provedKey = string(),
+                 bool hasKey = false);
+//Tokens not registered again for 30 days, approvers kept when hasName.
+void purge(sqlite::database &db, bool hasName = false);
+} //namespace PushTokenDb
+
+//Statements of the paginated read and the retention purge, checked against
+//the index by the tests.
+namespace HistEventSql
+{
+extern const char *const ReadPage;
+extern const char *const Purge;
+} //namespace HistEventSql
 
 #endif

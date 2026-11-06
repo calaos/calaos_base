@@ -21,6 +21,8 @@
 #ifndef __REOLINK_INPUT_SWITCH_H__
 #define __REOLINK_INPUT_SWITCH_H__
 
+#include <memory>
+
 #include "InputSwitch.h"
 #include "ReolinkCtrl.h"
 
@@ -30,17 +32,30 @@ namespace Calaos
 class ReolinkInputSwitch : public InputSwitch
 {
 private:
-    ReolinkCtrl *ctrl;
+    ReolinkCtrl *ctrl = nullptr;
+    ReolinkCtrl::RegistrationId registrationId = ReolinkEventRegistry::INVALID_ID;
     string lastEventData;
     bool eventReceived;
 
-    void eventReceivedCallback(string hostname, string event_type, string event_data);
+    /* Lifetime token for asynchronous callbacks (camera events stored in
+     * the ReolinkCtrl singleton, Timer::singleShot): callbacks hold a
+     * weak_ptr on it, when this IO dies the token expires and stale
+     * callbacks become no-ops. */
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
+
+    /* T3.31 - three DISTINCT types. Three bare std::string in a row is the
+     * shape that lost every camera event when the caller got the order wrong;
+     * see IO/Reolink/ReolinkTypes.h, chain (2). */
+    void eventReceivedCallback(const ReolinkTypes::Hostname &hostname,
+                               const ReolinkTypes::EventType &event_type,
+                               const ReolinkTypes::EventData &event_data);
 
 protected:
     virtual bool readValue() override;
 
 public:
     ReolinkInputSwitch(Params &p);
+    virtual ~ReolinkInputSwitch();
 };
 
 }

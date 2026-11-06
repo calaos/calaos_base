@@ -54,6 +54,10 @@ calaos-*.tar.xz
 /data/theme/default/default.edj
 /config.h.in
 *.patch
+# The local patches carried against the vendored cpp-tui are part of the
+# sources: without them a fresh clone cannot replay them onto an upstream
+# update, and src/lib/cpptui/README.calaos documents a recipe that needs them.
+!src/lib/cpptui/patches/*.patch
 config.rpath
 *.po
 Makefile.am.user
@@ -91,12 +95,21 @@ calaos.includes
 po/remove-potcdate.sed
 Makefile.am.user*
 *.swp
-tests/ColorValue_test
-tests/WebSocketClient_test
+tests/*_test
+tests/*_helper
+tests/core/*_test
+tests/core/*.log
+tests/core/*.trs
+tests/core/*.o
 tests/*.log
 tests/*.trs
 test-driver
 tests/websockets/reports/
+
+# Configure-generated wrapper scripts (built from the matching .in file)
+src/bin/calaos_server/IO/Reolink/calaos_reolink
+src/bin/calaos_mcp/calaos_mcp
+src/bin/calaos_mcp/io_doc.json
 GPATH
 GRTAGS
 GTAGS
@@ -106,7 +119,7 @@ build
 build_doc
 
 __pycache__
-CLAUDE.md
 homeassitant
 reolink_aio
 claudedocs
+/graft/

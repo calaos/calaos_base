@@ -41,22 +41,37 @@ WODali::WODali(Params &_p):
     ioDoc->paramAddInt("port", _("Wago ethernet port, default to 502"), 0, 65535, false, 502);
     ioDoc->paramAdd("line", _("DALI bus line, usually 1"), IODoc::TYPE_INT, false, "1");
     ioDoc->paramAddInt("address", _("Device address. For DALI address is between 1-64. "
-                                 "For DMX, the address starts at 100. So for DMX device 5, address should be 105"), 1, 612, true);
+                                 "For DMX the address is 100 + the channel, so DMX channel 5 is address 105; "
+                                 "channel 1 is address 101 and 100 itself is not a DMX address"), 1, 355, true);
     ioDoc->paramAddInt("group", _("Set to 1 if address is a DALI group address, set to 0 otherwise."), 0, 1, false);
     ioDoc->paramAddInt("fade_time", _("DALI fade time. value is between 1-10"), 1, 10, false);
 
     host = get_param("host");
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     WagoMap::Instance(host, port);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (!get_params().Exists("line")) set_param("line", "1");
     if (!get_params().Exists("fade_time")) set_param("fade_time", "1");
+    /* The PLC parser mis-reads an EMPTY parameter (its digit loop runs to
+     * INT_TO_BYTE(-1) = 255 and converts bytes past the string), so a missing
+     * group must become "0" and never an empty field. set_value_real() below
+     * reads the same key and had the same hole. */
+    if (!get_params().Exists("group")) set_param("group", "0");
 
-    string cmd = "WAGO_DALI_GET " + get_param("line") + " " + get_param("address");
-    WagoMap::Instance(host, port).SendUDPCommand(cmd, sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
+    /* The frame is built by WagoMap, not here: whether it may carry the group
+     * flag at all depends on the PLC program version, which is not known yet
+     * when this constructor runs. The addIO() below is given back by the
+     * callback and by nothing else, so this call must reach the wire on every
+     * path - including the one where the version never answers. */
+    WagoMap::Instance(host, port).SendDaliGetCommand(get_param("line"), get_param("address"),
+                                                     get_param("group"),
+                                                     sigc::mem_fun(*this, &WODali::WagoUDPCommand_cb));
 
     Calaos::StartReadRules::Instance().addIO();
     cDebugDom("output") << get_param("id") << ": Ok";
@@ -76,20 +91,33 @@ bool WODali::set_value_real(int val)
     return true;
 }
 
-void WODali::WagoUDPCommand_cb(bool status, string command, string result)
+void WODali::WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result)
 {
     if (!status)
     {
-        cInfoDom("output") << "Error with request " << command;
+        cInfoDom("output") << "Error with request " << command.v;
         Calaos::StartReadRules::Instance().ioRead();
 
         return;
     }
 
-    if (command.find("WAGO_DALI_GET") != string::npos)
+    if (command.v.find("WAGO_DALI_GET") != string::npos)
     {
         vector<string> tokens;
-        split(result, tokens);
+        split(result.v, tokens);
+
+        /* A refused read leaves the ballast where a 2s timeout leaves it: the
+         * previous state kept, no change emitted, the start-up token given
+         * back. Publishing anything here would publish a state nobody read. */
+        if (daliReplyIsError(tokens))
+        {
+            cInfoDom("output") << get_param("id") << ": PLC refused the DALI read '"
+                               << command.v << "': " << daliReplyErrorReason(tokens);
+            Calaos::StartReadRules::Instance().ioRead();
+
+            return;
+        }
+
         if (tokens.size() >= 3)
         {
             //get the status of the ballast

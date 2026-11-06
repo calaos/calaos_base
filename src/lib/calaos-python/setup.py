@@ -5,7 +5,7 @@ setup(
     version="1.0.0",
     packages=find_packages(),
     install_requires=[
-        'colorama>=0.4.4'
+        'colorama>=0.4.4,<0.5'
     ],
     author="Calaos",
     author_email="team@calaos.fr",

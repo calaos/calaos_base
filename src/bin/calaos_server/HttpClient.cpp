@@ -26,134 +26,182 @@
 #include "Prefix.h"
 #include "CalaosConfig.h"
 #include "HttpCodes.h"
+#include "AdminState.h"
+#include "ConsoleTunnel.h"
 #include "libuvw.h"
+
+#include <algorithm>
+#include <set>
 
 using namespace Calaos;
 
-#ifndef json_array_foreach
-#define json_array_foreach(array, index, value) \
-    for(index = 0; \
-    index < json_array_size(array) && (value = json_array_get(array, index)); \
-    index++)
-#endif
-
-int _parser_begin(llhttp_t *parser)
+namespace
 {
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
 
-    //reset status flags to parse another request on the same connection
-    client->parse_done = false;
-    client->has_field = false;
-    client->has_value = false;
-    client->hfield.clear();
-    client->hvalue.clear();
-    client->bodymessage.clear();
-    client->parse_url.clear();
-
-    return 0;
+/* WHAT MAY BE PUBLISHED OF AN INCOMING REQUEST HEADER, enumerated the other
+ * way round from a redaction list: the value of a header this server routes on
+ * is protocol grammar, everything else is rendered as a name and a byte count.
+ * The failure direction is the whole point - the next authorization header
+ * nobody here has heard of is withheld because it is not in this set, not
+ * published because nobody thought to forbid it. The carriers are real and
+ * this repository makes them: the bearer get_mcp_info hands out with the
+ * instruction to send it back here, the one HMACAuthenticator reads, a
+ * browser session cookie. */
+const std::set<string> &loggableHeaderValues()
+{
+    static const std::set<string> v =
+    { "connection", "content-length", "content-type", "host",
+      "sec-websocket-version", "upgrade" };
+    return v;
 }
 
-int _parser_header_field(llhttp_t *parser, const char *at, size_t length)
+string headersForLog(const unordered_map<string, string> &headers)
 {
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
+    vector<string> names;
+    names.reserve(headers.size());
+    for (const auto &h: headers)
+        names.push_back(h.first);
 
-    if (client->has_field && client->has_value)
+    //An unordered_map has no order of its own, and a line that reshuffles
+    //itself between two requests cannot be compared with the previous one.
+    std::sort(names.begin(), names.end());
+
+    stringstream out;
+    for (size_t i = 0;i < names.size();i++)
     {
-        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
-        client->has_field = false;
-        client->has_value = false;
-        client->hfield.clear();
-        client->hvalue.clear();
+        out << (i? ", ": "") << names[i];
+
+        if (loggableHeaderValues().count(names[i]))
+            out << "=" << headers.at(names[i]);
+        else
+            out << "[" << headers.at(names[i]).size() << "B]";
     }
 
-    if (!client->has_field)
-        client->has_field = true;
-
-    client->hfield.append(at, length);
-
-    return 0;
+    return out.str();
 }
 
-int _parser_header_value(llhttp_t *parser, const char *at, size_t length)
-{
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    if (!client->has_value)
-        client->has_value = true;
-
-    client->hvalue.append(at, length);
-
-    return 0;
 }
 
-int _parser_headers_complete(llhttp_t *parser)
+//Only used here, to refuse a request body bigger than
+//TransportLimits::maxHttpBodySize()
+#define HTTP_413 "HTTP/1.0 413 Payload Too Large"
+#define HTTP_413_BODY "<html><head>" \
+    "<title>413 Payload Too Large</title>" \
+    "</head>" \
+    "<body>" \
+    "<h1>Calaos Server - Payload Too Large</h1>" \
+    "<p>The request body is bigger than what the server accepts.</p>" \
+    "</body>" \
+    "</html>"
+
+//Only used here, to refuse a request with more than
+//TransportLimits::MaxHeadersSize bytes of headers
+#define HTTP_431 "HTTP/1.0 431 Request Header Fields Too Large"
+#define HTTP_431_BODY "<html><head>" \
+    "<title>431 Request Header Fields Too Large</title>" \
+    "</head>" \
+    "<body>" \
+    "<h1>Calaos Server - Request Header Fields Too Large</h1>" \
+    "<p>The request headers are bigger than what the server accepts.</p>" \
+    "</body>" \
+    "</html>"
+
+#define HTTP_429_BODY "<html><head>" \
+    "<title>429 Too Many Requests</title>" \
+    "</head>" \
+    "<body>" \
+    "<h1>Calaos Server - Too Many Requests</h1>" \
+    "<p>Too many simultaneous connections from this address.</p>" \
+    "</body>" \
+    "</html>"
+
+//--- TransportLimits: config overrides -------------------------------------
+//Each limit is read from local_config.xml once, on first use, and clamped
+//back to its default when unset or broken. The literal keys below are
+//declared in the option registry (src/lib/ConfigOptions.cpp) and checked by
+//tests/check-config-options.sh.
+uint64_t TransportLimits::maxHttpBodySize()
 {
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    if (client->has_field && client->has_value)
-    {
-        client->request_headers[Utils::str_to_lower(client->hfield)] = client->hvalue;
-        client->has_field = false;
-        client->has_value = false;
-        client->hfield.clear();
-        client->hvalue.clear();
-    }
-
-    return 0;
+    static const uint64_t v = parseLimit(
+        Utils::get_config_option("max_http_body_size"),
+        DefaultMaxHttpBodySize, 4096, 1024 * 1024 * 1024);
+    return v;
 }
 
-int _parser_url(llhttp_t *parser, const char *at, size_t length)
+uint64_t TransportLimits::maxWebsocketMessageSize()
 {
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    client->parse_url.append(at, length);
-
-    return 0;
+    static const uint64_t v = parseLimit(
+        Utils::get_config_option("max_websocket_message_size"),
+        DefaultMaxWebsocketMessageSize, 4096, 1024 * 1024 * 1024);
+    return v;
 }
 
-int _parser_message_complete(llhttp_t *parser)
+std::size_t TransportLimits::maxConnections()
 {
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
-
-    client->parse_done = true;
-    client->request_method = parser->method;
-
-    return 0;
+    static const std::size_t v = parseLimit(
+        Utils::get_config_option("max_connections"),
+        DefaultMaxConnections, 1, 10000);
+    return v;
 }
 
-int _parser_body_complete(llhttp_t* parser, const char *at, size_t length)
+std::size_t TransportLimits::maxConnectionsPerIp()
 {
-    HttpClient *client = reinterpret_cast<HttpClient *>(parser->data);
+    static const std::size_t v = parseLimit(
+        Utils::get_config_option("max_connections_per_ip"),
+        DefaultMaxConnectionsPerIp, 1, 10000);
+    return v;
+}
 
-    client->bodymessage.append(at, length);
-
-    return 0;
+double TransportLimits::requestReadTimeout()
+{
+    static const double v = (double)parseLimit(
+        Utils::get_config_option("request_read_timeout"),
+        (uint64_t)DefaultRequestReadTimeout, 1, 600);
+    return v;
 }
 
 HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
     client_conn(client)
 {
-    llhttp_settings_init(&parser_settings);
+    //The llhttp callbacks live header-inline in HttpParsing (HttpClient.h)
+    //and only ever see the RequestState part of this object: per-request
+    //state, wiped by _parser_begin on every request of the connection
+    HttpParsing::initParserSettings(parser_settings);
 
-    //set up callbacks for the parser
-    parser_settings.on_message_begin = _parser_begin;
-    parser_settings.on_url = _parser_url;
-    parser_settings.on_header_field = _parser_header_field;
-    parser_settings.on_header_value = _parser_header_value;
-    parser_settings.on_headers_complete = _parser_headers_complete;
-    parser_settings.on_body = _parser_body_complete;
-    parser_settings.on_message_complete = _parser_message_complete;
+    maxBodySize = TransportLimits::maxHttpBodySize();
 
     parser = (llhttp_t *)calloc(1, sizeof(llhttp_t));
-    llhttp_init(parser, HTTP_REQUEST, &parser_settings);
-    parser->data = this;
+    reinitParser();
 
     cDebugDom("network") << this;
 
-    client_conn->once<uvw::ErrorEvent>([this](const auto &, auto &)
+    //Read and write failures both land here. The peer is read now: once the
+    //socket is reset, getpeername() has nothing left to say.
+    client_conn->once<uvw::ErrorEvent>([this, token = std::weak_ptr<bool>(alive),
+                                        peer = HttpClient::getClientIp()](const uvw::ErrorEvent &ev, auto &)
     {
-        cCriticalDom("network")
-                << "Error sending data ! Closing connection.";
+        if (token.expired()) return;
+
+        const string who = ipTracked? trackedIp: peer;
+        if (Calaos::isPeerDisconnect(ev.code()))
+            cDebugDom("network") << "Connection with " << who << " lost: "
+                                 << ev.name() << " (" << ev.what() << "), closing";
+        else
+            cWarningDom("network") << "Connection error with " << who << ": "
+                                   << ev.name() << " (" << ev.what() << "), closing";
+
+        this->CloseConnection();
+    });
+
+    //A client that opens a connection and then says nothing (or sends its
+    //headers one byte at a time) holds a slot forever, and slots are capped.
+    //It is cancelled as soon as a complete request has been read.
+    readTimeout = new Timer(TransportLimits::requestReadTimeout(), [this]()
+    {
+        cWarningDom("network")
+                << "No complete request after "
+                << TransportLimits::requestReadTimeout()
+                << "s, closing connection";
 
         this->CloseConnection();
     });
@@ -161,18 +209,101 @@ HttpClient::HttpClient(const std::shared_ptr<uvw::TcpHandle> &client):
 
 HttpClient::~HttpClient()
 {
+    if (ipTracked)
+        HttpServer::Instance().releaseClientIp(trackedIp);
+
     delete jsonApi;
     delete remoteUIHandler;
     delete otaHandler;
     free(parser);
     DELETE_NULL(closeTimer);
+    DELETE_NULL(readTimeout);
 
     cDebugDom("network") << this;
+}
+
+void HttpClient::cancelReadTimeout()
+{
+    DELETE_NULL(readTimeout);
+}
+
+void HttpClient::sendRequestTooLarge()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponse(HTTP_413, headers, HTTP_413_BODY);
+    sendToClient(res);
+}
+
+void HttpClient::sendForbidden()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponse(HTTP_403, headers, HTTP_403_BODY);
+    sendToClient(res);
+}
+
+void HttpClient::sendRequestHeadersTooLarge()
+{
+    Params headers;
+    headers.Add("Connection", "close");
+    headers.Add("Content-Type", "text/html");
+    string res = buildHttpResponse(HTTP_431, headers, HTTP_431_BODY);
+    sendToClient(res);
+}
+
+bool HttpClient::trackPerIpCap()
+{
+    if (ipTracked)
+        return true;
+
+    string ip = getEffectiveClientIp();
+
+    if (!HttpServer::Instance().trackClientIp(ip))
+    {
+        cWarningDom("network")
+                << "Client " << ip << " already has "
+                << TransportLimits::maxConnectionsPerIp()
+                << " connections opened, refusing this one";
+        return false;
+    }
+
+    ipTracked = true;
+    trackedIp = ip;
+    return true;
 }
 
 int HttpClient::processHeaders(const string &request)
 {
     enum llhttp_errno err = llhttp_execute(parser, request.c_str(), request.size());
+
+    if (headersTooLarge)
+    {
+        headersTooLarge = false;
+
+        cWarningDom("network") << "Request headers are bigger than "
+                << TransportLimits::MaxHeadersSize << " bytes, rejecting it";
+
+        cancelReadTimeout();
+        sendRequestHeadersTooLarge();
+
+        return HTTP_PROCESS_DONE;
+    }
+
+    if (bodyTooLarge)
+    {
+        bodyTooLarge = false;
+
+        cWarningDom("network") << "Request body is bigger than "
+                << TransportLimits::maxHttpBodySize() << " bytes, rejecting it";
+
+        cancelReadTimeout();
+        sendRequestTooLarge();
+
+        return HTTP_PROCESS_DONE;
+    }
 
     if (err != HPE_OK &&
         err != HPE_PAUSED &&
@@ -191,18 +322,70 @@ int HttpClient::processHeaders(const string &request)
     if (!parse_done)
         return HTTP_PROCESS_MOREDATA;
 
+    cancelReadTimeout();
+
+    //Per-source connection cap, enforced on the first parsed request rather
+    //than at accept time: the client identity may come from X-Forwarded-For,
+    //which does not exist before the headers are read. The global cap at accept
+    //time (HttpServer::addConnection) still bounds what an unparsed connection
+    //can hold.
+    if (!trackPerIpCap())
+    {
+        Params headers;
+        headers.Add("Connection", "close");
+        headers.Add("Content-Type", "text/html");
+        string res = buildHttpResponse(HTTP_429, headers, HTTP_429_BODY);
+        sendToClient(res);
+
+        return HTTP_PROCESS_DONE;
+    }
+
     //Finally parsing of request is done, we can search for
     //a response for the requested path
 
-    cDebugDom("network") << "Client headers: HTTP/" << Utils::to_string(parser->http_major) << "." << Utils::to_string(parser->http_minor) << " " << parse_url;
-    for (auto it = request_headers.begin();it!= request_headers.end();++it)
-        cDebugDom("network") << it->first << ": " << it->second;
+    cDebugDom("network") << "Client request: HTTP/"
+            << (int)parser->http_major << "." << (int)parser->http_minor << " "
+            << llhttp_method_name((llhttp_method_t)request_method) << " "
+            << Utils::requestTargetForLog(parse_url);
+    cDebugDom("network") << "Client headers (" << request_headers.size()
+            << "): " << headersForLog(request_headers);
+
+    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
+    const string &reqPath = req_url.getPath();
+    const bool wsUpgrade = Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive) &&
+                           Utils::str_to_lower(request_headers["upgrade"]) == "websocket";
+    const bool apiPath = reqPath == "/api" || reqPath == "/api.php" || Utils::strStartsWith(reqPath, "/api/");
+    //A console is never offered to a foreign page, admin defined or not
+    const bool enforced = AdminState::Instance().enforced() || reqPath == ConsoleTunnel::Path;
+
+    //Static files are never refused: Chromium sends Origin with the module
+    //scripts and fonts of the web app, a refusal would only show a blank page.
+    //They need no ACAO either, and get none once enforced.
+    if (wsUpgrade || apiPath)
+    {
+        originDecision = OriginPolicy::decide(request_headers, getClientIp(),
+                                              getEffectiveClientIp(), enforced);
+        if (originDecision.refused())
+        {
+            sendForbidden();
+            return HTTP_PROCESS_DONE;
+        }
+    }
+    else
+    {
+        originDecision = OriginPolicy::Decision();
+        originDecision.enforced = enforced;
+        if (request_headers.count("origin"))
+            originDecision.verdict = OriginPolicy::Verdict::Refused;
+    }
 
     //Handle CORS here
-    if (request_headers.find("origin") != request_headers.end())
+    if (originDecision.allowCors())
     {
         resHeaders.Add("Access-Control-Allow-Origin", request_headers["origin"]);
+        resHeaders.Add("Access-Control-Allow-Credentials", "false");
         resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+        resHeaders.Add("Vary", "Origin");
     }
 
     if (request_method == HTTP_OPTIONS)
@@ -225,8 +408,7 @@ int HttpClient::processHeaders(const string &request)
     }
 
     //If client asks for websocket just return and let websocket class handle connection
-    if (Utils::strContains(request_headers["connection"], "upgrade", Utils::CaseInsensitive) &&
-        Utils::str_to_lower(request_headers["upgrade"]) == "websocket")
+    if (wsUpgrade)
     {
         cDebugDom("websocket") << "Upgrading connection to WebSocket";
         isWebsocket = true;
@@ -241,8 +423,6 @@ int HttpClient::processHeaders(const string &request)
 
         return HTTP_PROCESS_DONE;
     }
-
-    hef::HfURISyntax req_url("http://0.0.0.0" + parse_url);
 
     //decode GET parameters
     paramsGET.clear();
@@ -384,31 +564,6 @@ int HttpClient::processHeaders(const string &request)
         req_url.getPath() == "/api")
         proto_ver = API_HTTP;
 
-    //Handle CORS here
-    if (request_headers.find("Origin") != request_headers.end())
-    {
-        resHeaders.Add("Access-Control-Allow-Origin", request_headers["Origin"]);
-        resHeaders.Add("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    }
-
-    if (request_method == HTTP_OPTIONS)
-    {
-        if (request_headers.find("Access-Control-Request-Method") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
-        if (request_headers.find("Access-Control-Request-Headers") != request_headers.end())
-            resHeaders.Add("Access-Control-Allow-Headers", request_headers["Access-Control-Request-Headers"]);
-
-        resHeaders.Add("Connection", "Close");
-        resHeaders.Add("Cache-Control", "no-cache, must-revalidate");
-        resHeaders.Add("Expires", "Mon, 26 Jul 1997 05:00:00 GMT");
-        resHeaders.Add("Content-Type", "text/html");
-        string res = buildHttpResponse(HTTP_200, resHeaders, "");
-        sendToClient(res);
-
-        return HTTP_PROCESS_DONE;
-    }
-
     return HTTP_PROCESS_HTTP;
 }
 
@@ -453,11 +608,13 @@ void HttpClient::CloseConnection()
         cDebugDom("network") << "Shutdown failed: " << ev.what() << ". Closing.";
         h.close();
     });
-    client_conn->on<uvw::ShutdownEvent>([this](const uvw::ShutdownEvent &, auto &)
+    client_conn->on<uvw::ShutdownEvent>([](const uvw::ShutdownEvent &, auto &h)
     {
-        //After shutdown close handle
+        //After shutdown close handle. Closing through the handle itself, not
+        //through this->client_conn: the HttpClient may be gone by now (the
+        //peer can close first, EndEvent -> CloseEvent -> delete).
         cDebugDom("network") << "Shutdown done. Closing.";
-        client_conn->close();
+        h.close();
     });
     client_conn->shutdown();
 }
@@ -529,8 +686,14 @@ void HttpClient::sendToClient(string res)
     auto dataWrite = std::unique_ptr<char[]>(new char[dataSize]);
     std::copy(res.begin(), res.end(), dataWrite.get());
     client_conn->write(std::move(dataWrite), dataSize);
-    client_conn->once<uvw::WriteEvent>([this, dataSize](const auto &, auto &)
+
+    //The uvw handle outlives this HttpClient: if the client is deleted with
+    //writes still in flight, libuv delivers their completion afterwards, and
+    //a raw `this` would dangle. The alive token makes the stale callback a
+    //no-op instead (wave-4 finding, was relying on libuv delivery order).
+    client_conn->once<uvw::WriteEvent>([this, dataSize, token = std::weak_ptr<bool>(alive)](const auto &, auto &)
     {
+        if (token.expired()) return;
         this->DataWritten(dataSize);
     });
 }
@@ -641,18 +804,12 @@ string HttpClient::getClientIp() const
 
     try
     {
-        auto addr = client_conn->peer<uvw::IPv4>();
-        if (!addr.ip.empty())
-            return addr.ip;
-
-        // Try IPv6 if IPv4 failed
-        auto addr6 = client_conn->peer<uvw::IPv6>();
-        if (!addr6.ip.empty())
-            return addr6.ip;
+        const string ip = Calaos::tcpPeerAddress(*client_conn);
+        if (!ip.empty())
+            return ip;
     }
     catch (...)
     {
-        // If both fail, return unknown
     }
 
     return "unknown";

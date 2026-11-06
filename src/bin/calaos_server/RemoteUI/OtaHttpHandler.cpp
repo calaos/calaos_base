@@ -24,7 +24,9 @@
 #include "HMACAuthenticator.h"
 #include "IO/RemoteUI/RemoteUI.h"
 #include "FileUtils.h"
+#include <algorithm>
 #include <fstream>
+#include <vector>
 
 static const char *TAG = "ota";
 
@@ -158,7 +160,7 @@ void OtaHttpHandler::handleRescan()
 
     cInfoDom(TAG) << "Firmware rescan triggered via HTTP from " << getClientIP();
 
-    OtaFirmwareManager::Instance().rescan();
+    OtaFirmwareManager::Instance().rescanFromPackage();
 
     Json response;
     response["success"] = true;
@@ -170,7 +172,10 @@ void OtaHttpHandler::handleRescan()
 
 void OtaHttpHandler::sendJsonResponse(const Json &response, int status_code)
 {
-    string response_str = response.dump();
+    //E4.1b: sendErrorResponse() reflects the hardware id taken verbatim out of
+    //the request URI (handleFirmwareDownload()), which is raw bytes and not a
+    //parsed JSON string.
+    string response_str = response.dump(-1, ' ', true, Json::error_handler_t::replace);
 
     string statusText;
     switch (status_code)
@@ -216,15 +221,6 @@ void OtaHttpHandler::sendFirmwareFile(const string &filePath, const string &chec
     std::streamsize fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    // Read file content
-    std::vector<char> buffer(fileSize);
-    if (!file.read(buffer.data(), fileSize))
-    {
-        sendErrorResponse("FILE_READ_ERROR", "Failed to read firmware file", 500);
-        return;
-    }
-    file.close();
-
     // Build HTTP response headers
     std::ostringstream response;
     response << "HTTP/1.1 200 OK\r\n";
@@ -235,11 +231,28 @@ void OtaHttpHandler::sendFirmwareFile(const string &filePath, const string &chec
     response << "Connection: close\r\n";
     response << "\r\n";
 
-    string headers = response.str();
+    httpClient->sendToClient(response.str());
 
-    // Send headers + body
-    string fullResponse = headers + string(buffer.begin(), buffer.end());
-    httpClient->sendToClient(fullResponse);
+    // Stream the body in fixed-size chunks instead of materializing the
+    // whole firmware (plus a concatenated copy) in memory
+    static const std::streamsize chunkSize = 64 * 1024;
+    std::vector<char> buffer(chunkSize);
+    std::streamsize remaining = fileSize;
+    while (remaining > 0)
+    {
+        std::streamsize toRead = std::min(remaining, chunkSize);
+        if (!file.read(buffer.data(), toRead))
+        {
+            // Headers already sent: we cannot switch to an error response.
+            // Connection: close + short body lets the client detect the
+            // truncation against Content-Length (checksum also fails).
+            cErrorDom(TAG) << "OtaHttpHandler: Read error while streaming firmware file, "
+                           << remaining << " bytes were not sent";
+            return;
+        }
+        httpClient->sendToClient(string(buffer.data(), toRead));
+        remaining -= toRead;
+    }
 
     cInfoDom(TAG) << "OtaHttpHandler: Sent firmware file (" << fileSize << " bytes)";
 }
@@ -251,11 +264,10 @@ string OtaHttpHandler::getClientIP() const
 
 bool OtaHttpHandler::isLocalhost() const
 {
-    string ip = getClientIP();
-    return (ip == "127.0.0.1" ||
-            ip == "::1" ||
-            ip == "localhost" ||
-            ip.find("127.0.0.") == 0);
+    //The same rule as the trusted-proxy hop, and for the same reason: this is
+    //the one gate keyed on the peer address that GRANTS something, so a peer
+    //this tree calls the machine itself elsewhere must not be a stranger here.
+    return TransportLimits::isLoopbackPeer(getClientIP());
 }
 
 bool OtaHttpHandler::authenticateRequest()

@@ -22,6 +22,7 @@
 #include "ListeRule.h"
 #include "CalaosConfig.h"
 #include "AnalogIO.h"
+#include "AnalogBounds.h"
 
 using namespace Calaos;
 
@@ -51,14 +52,21 @@ InputAnalog::InputAnalog(Params &p):
 
     AnalogIO::commonDoc(ioDoc);
 
+    AnalogBounds::dropLegacyBounds(this);
+
     set_param("gui_type", "analog_in");
 
     readConfig();
 
     string v;
+    //Known from the cache: the drivers only signal a reading that differs,
+    //so a stable room would otherwise stay unknown until it changes.
     if (Config::Instance().ReadValueIO(get_param("id"), v) &&
         Utils::is_of_type<double>(v))
+    {
         Utils::from_string(v, value);
+        setValueKnown();
+    }
 
     timer = Utils::getMainLoopTime();
     ListeRule::Instance().Add(this); //add this specific input to the EventLoop
@@ -83,6 +91,7 @@ InputAnalog::InputAnalog(Params &p):
 
 InputAnalog::~InputAnalog()
 {
+    DELETE_NULL(timerChanged);
 }
 
 void InputAnalog::readConfig()
@@ -90,32 +99,47 @@ void InputAnalog::readConfig()
     if (!get_params().Exists("visible"))
         set_param("visible", "true");
 
+    /* T3.25a. Exists() proves the key is there, never that it carries a
+     * number, and hasChanged() compares `sec >= frequency`: a period of zero
+     * reads the hardware on every turn of the rules loop, for good. Every
+     * branch below therefore falls back to the documented default rather than
+     * to whatever the parse left behind - from_string() publishes a saturated
+     * value on an overflow and the digits it managed to read on a partial
+     * one. The rename is the one that matters most: it SAVES what it decides
+     * into io.xml, so its mistake survives the restart. */
+    const double defaultPeriodMs = 15000.0;
+
     /* rename frequency to period */
     if (get_params().Exists("frequency"))
     {
-	    Utils::from_string(get_param("frequency"), frequency);
-        set_param("period", Utils::to_string(frequency));
+        set_param("period",
+                  Utils::to_string(Utils::from_string_or(get_param("frequency"),
+                                                         defaultPeriodMs)));
         del_param("frequency");
     }
 
     if (get_params().Exists("interval"))
     {
         /* Interval for legacy reasons is in seconds */
-        Utils::from_string(get_param("interval"), frequency);
+        frequency = Utils::from_string_or(get_param("interval"),
+                                          defaultPeriodMs / 1000.0);
     }
     else if (get_params().Exists("period"))
     {
-        Utils::from_string(get_param("period"), frequency);
-        /* frequency parameter is in millisecond */
-        frequency /= 1000.0;
+        /* period parameter is in millisecond */
+        frequency = Utils::from_string_or(get_param("period"),
+                                          defaultPeriodMs) / 1000.0;
     }
     else
-        frequency = 15.0;
+        frequency = defaultPeriodMs / 1000.0;
 
-    if (!get_params().Exists("precision"))
-        precision = 2;
-    else
-        Utils::from_string(get_param("precision"), precision);
+    /* T3.25 (review). The default is written FIRST and the parse is _or_keep:
+     * `precision` is a plain `int` member with no in-class initialiser
+     * (InputAnalog.h:36), so the old else-branch turned a "precision" parameter
+     * that is present and blank into 0 decimals instead of the documented 2. */
+    precision = 2;
+    if (get_params().Exists("precision"))
+        Utils::from_string_or_keep(get_param("precision"), precision);
 }
 
 void InputAnalog::emitChange()

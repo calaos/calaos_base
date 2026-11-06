@@ -20,8 +20,6 @@
  ******************************************************************************/
 #include "WebSocketFrame.h"
 
-const uint64_t MAX_FRAME_SIZE_IN_BYTES = INT_MAX - 1;
-
 WebSocketFrame::WebSocketFrame()
 {
     clear();
@@ -116,6 +114,22 @@ bool WebSocketFrame::processFrameData(string &data)
 
                 checkValid();
 
+                //An invalid header (RSV bits, reserved opcode, fragmented or
+                //oversized control frame) is fatal: the connection is closed
+                //with closeCode anyway, so stop here instead of keeping on
+                //parsing (and buffering the payload) of a frame already
+                //refused. Note that testing the 7 bit length code against
+                //125 in checkValid() is correct even before the extended
+                //length is read: codes 126/127 announce an extended length,
+                //which is > 125 by construction, and any other code IS the
+                //real length (audit of T2.11 item 4).
+                if (haserror)
+                {
+                    finished = true;
+                    state = StateReadHeader;
+                    break;
+                }
+
                 //Handle 0 length payload here for client
                 if (state == StateReadPayload && payload_length == 0)
                 {
@@ -160,10 +174,10 @@ bool WebSocketFrame::processFrameData(string &data)
                         (uint64_t(uint8_t(data[1])) << 48) |
                         (uint64_t(uint8_t(data[2])) << 40) |
                         (uint64_t(uint8_t(data[3])) << 32) |
-                        (uint8_t(data[4]) << 24) |
-                        (uint8_t(data[5]) << 16) |
-                        (uint8_t(data[6]) << 8) |
-                        uint8_t(data[7]);
+                        (uint64_t(uint8_t(data[4])) << 24) |
+                        (uint64_t(uint8_t(data[5])) << 16) |
+                        (uint64_t(uint8_t(data[6])) << 8) |
+                        uint64_t(uint8_t(data[7]));
                 data.erase(0, 8);
 
                 uint64_t v = 1;
@@ -179,6 +193,16 @@ bool WebSocketFrame::processFrameData(string &data)
                 {
                     closeCode = CloseCodeProtocolError;
                     closeReason = "Frame smaller than 65536 (2^16) must be expressed as 2 bytes";
+                    isvalid = false;
+                    finished = true;
+                    state = StateReadHeader;
+                }
+                else if (payload_length > MAX_FRAME_SIZE_IN_BYTES)
+                {
+                    //Refused on the announced length: not one payload byte of a
+                    //frame that will never be accepted is buffered
+                    closeCode = CloseCodeTooMuchData;
+                    closeReason = "Maximum framesize exceeded";
                     isvalid = false;
                     finished = true;
                     state = StateReadHeader;
@@ -287,8 +311,11 @@ string WebSocketFrame::toString()
       << " Continue:" << (isContinuationFrame()?'1':'0')
       << " isText:" << (getOpcode() == OpCodeText?'1':'0')
       << " payloadSize:" << payload_length;
-    if (isTextFrame())
-        s << " " << (payload.size() > 40?payload.substr(0, 40):payload);
+
+    //No excerpt of the payload here. This line is written for EVERY frame that
+    //arrives, the payload of a text frame is the api request itself - the
+    //credentials of a client logging in - and it reaches this point before the
+    //json handler has built its redacted dump.
 
     return s.str();
 }

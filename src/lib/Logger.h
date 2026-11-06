@@ -50,6 +50,7 @@ private:
         string file, function;
         int line;
         int level;
+        int journalPriority = -1;
         ostringstream stream;
     };
 
@@ -87,6 +88,13 @@ public:
     LogStream(const string &d, const string &f, const string &fn, int ln, int l):
         logData(new LogData(d, f, fn, ln, l))
     {}
+
+    //Journal priority of this line when it is not the one its level gives
+    LogStream &withJournalPriority(int priority)
+    {
+        logData->journalPriority = priority;
+        return *this;
+    }
 
     ~LogStream();
 };
@@ -131,7 +139,24 @@ public:
         return LogStream(domainName, file, function, line, LOG_LEVEL_WARNING);
     }
 
+    /* The ceiling configured for this domain, and the test a caller has to
+     * make BEFORE building an expensive argument: LogStream streams whatever
+     * it is given and only compares the levels in its destructor, so
+     * `cDebugDom(d) << expensive()` pays for expensive() at every level.
+     */
+    int maxLevel() const;
+    bool isLevelEnabled(int level) const { return level <= maxLevel(); }
+
     static bool isColorEnabled();
+
+    /* True when CALAOS_JOURNAL_PRIORITY=1 is set and stdout is no terminal:
+     * every written line then starts with the <n> that journald's stdout
+     * transport reads as its priority. Colors are off in that mode.
+     */
+    static bool isJournalPriorityEnabled();
+
+    //Removes a leading <n> from a line. Returns n, or -1 if there is none.
+    static int takeJournalPriority(string &line);
 };
 
 #endif

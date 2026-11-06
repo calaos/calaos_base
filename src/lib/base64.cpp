@@ -1,7 +1,16 @@
 /*
    base64.cpp and base64.h
 
-   Copyright (C) 2004-2008 René Nyffenegger
+   Originally Copyright (C) 2004-2008 René Nyffenegger (public-domain style
+   license, see below). Rewritten for Calaos (T3.4 hardening): strict RFC 4648
+   validation on decode (invalid characters, misplaced or broken '=' padding,
+   impossible lengths and non-canonical trailing bits are rejected instead of
+   silently truncating the output), constexpr reverse lookup table (no
+   locale-dependent isalnum()), size_t length handling and overflow-checked
+   size math on encode. This altered version must not be misrepresented as
+   the original source code.
+
+   Original license:
 
    This source code is provided 'as-is', without any express or implied
    warranty. In no event will the author be held liable for any damages
@@ -22,102 +31,139 @@
    3. This notice may not be removed or altered from any source distribution.
 
    René Nyffenegger rene.nyffenegger@adp-gmbh.ch
-
 */
 
 #include "base64.h"
-#include <iostream>
 
-static const std::string base64_chars =
+#include <array>
+#include <cstdint>
+#include <limits>
+
+namespace
+{
+
+constexpr char base64_chars[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz"
         "0123456789+/";
 
+constexpr int8_t INVALID_SYMBOL = -1;
 
-static inline bool is_base64(unsigned char c) {
-    return (isalnum(c) || (c == '+') || (c == '/'));
+//256-entry reverse lookup table: symbol value for alphabet chars,
+//INVALID_SYMBOL for everything else (including '=', handled separately).
+constexpr std::array<int8_t, 256> makeDecodeTable()
+{
+    std::array<int8_t, 256> t{};
+    for (auto &v: t)
+        v = INVALID_SYMBOL;
+    for (int i = 0; i < 64; i++)
+        t[static_cast<unsigned char>(base64_chars[i])] = static_cast<int8_t>(i);
+    return t;
 }
 
-std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
+constexpr std::array<int8_t, 256> decode_table = makeDecodeTable();
+
+} // namespace
+
+std::string base64_encode(unsigned char const *bytes, size_t len)
+{
+    if (len == 0)
+        return {};
+    if (!bytes)
+        return {};
+
+    //4 output chars per 3 input bytes; guard ((len + 2) / 3) * 4 overflow
+    if (len > (std::numeric_limits<size_t>::max() / 4) * 3 - 2)
+        return {};
+
     std::string ret;
-    int i = 0;
-    int j = 0;
-    unsigned char char_array_3[3];
-    unsigned char char_array_4[4];
+    ret.reserve(((len + 2) / 3) * 4);
 
-    while (in_len--) {
-        char_array_3[i++] = *(bytes_to_encode++);
-        if (i == 3) {
-            char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-            char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-            char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-            char_array_4[3] = char_array_3[2] & 0x3f;
-
-            for(i = 0; (i <4) ; i++)
-                ret += base64_chars[char_array_4[i]];
-            i = 0;
-        }
-    }
-
-    if (i)
+    size_t i = 0;
+    for (; i + 3 <= len; i += 3)
     {
-        for(j = i; j < 3; j++)
-            char_array_3[j] = '\0';
+        uint32_t triple = (static_cast<uint32_t>(bytes[i]) << 16) |
+                          (static_cast<uint32_t>(bytes[i + 1]) << 8) |
+                          static_cast<uint32_t>(bytes[i + 2]);
+        ret += base64_chars[(triple >> 18) & 0x3f];
+        ret += base64_chars[(triple >> 12) & 0x3f];
+        ret += base64_chars[(triple >> 6) & 0x3f];
+        ret += base64_chars[triple & 0x3f];
+    }
 
-        char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-        char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-        char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-        char_array_4[3] = char_array_3[2] & 0x3f;
-
-        for (j = 0; (j < i + 1); j++)
-            ret += base64_chars[char_array_4[j]];
-
-        while((i++ < 3))
-            ret += '=';
-
+    size_t rest = len - i;
+    if (rest == 1)
+    {
+        uint32_t v = static_cast<uint32_t>(bytes[i]) << 16;
+        ret += base64_chars[(v >> 18) & 0x3f];
+        ret += base64_chars[(v >> 12) & 0x3f];
+        ret += '=';
+        ret += '=';
+    }
+    else if (rest == 2)
+    {
+        uint32_t v = (static_cast<uint32_t>(bytes[i]) << 16) |
+                     (static_cast<uint32_t>(bytes[i + 1]) << 8);
+        ret += base64_chars[(v >> 18) & 0x3f];
+        ret += base64_chars[(v >> 12) & 0x3f];
+        ret += base64_chars[(v >> 6) & 0x3f];
+        ret += '=';
     }
 
     return ret;
-
 }
 
-std::string base64_decode(std::string const& encoded_string) {
-    int in_len = encoded_string.size();
-    int i = 0;
-    int j = 0;
-    int in_ = 0;
-    unsigned char char_array_4[4], char_array_3[3];
+std::optional<std::string> base64_decode_checked(std::string const &encoded_string)
+{
+    const size_t n = encoded_string.size();
+    if (n == 0)
+        return std::string();
+
+    //Trailing '=' padding: at most 2, only at the very end, and only on
+    //4-aligned input (padding exists precisely to reach that alignment).
+    size_t pad = 0;
+    while (pad < n && encoded_string[n - 1 - pad] == '=')
+        pad++;
+    if (pad > 2)
+        return std::nullopt;
+    if (pad > 0 && n % 4 != 0)
+        return std::nullopt;
+
+    const size_t symbols = n - pad;
+    //4k+1 symbols can never be produced by a base64 encoder (a leftover
+    //group carries 2 or 3 symbols, never 1).
+    if (symbols % 4 == 1)
+        return std::nullopt;
+
     std::string ret;
+    ret.reserve((symbols / 4) * 3 + 2);
 
-    while (in_len-- && ( encoded_string[in_] != '=') && is_base64(encoded_string[in_])) {
-        char_array_4[i++] = encoded_string[in_]; in_++;
-        if (i ==4) {
-            for (i = 0; i <4; i++)
-                char_array_4[i] = base64_chars.find(char_array_4[i]);
-
-            char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-            char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-            char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-            for (i = 0; (i < 3); i++)
-                ret += char_array_3[i];
-            i = 0;
+    uint32_t acc = 0;
+    unsigned acc_bits = 0;
+    for (size_t i = 0; i < symbols; i++)
+    {
+        const int8_t v = decode_table[static_cast<unsigned char>(encoded_string[i])];
+        if (v == INVALID_SYMBOL) //covers '=' before the trailing run too
+            return std::nullopt;
+        acc = (acc << 6) | static_cast<uint32_t>(v);
+        acc_bits += 6;
+        if (acc_bits >= 8)
+        {
+            acc_bits -= 8;
+            ret += static_cast<char>((acc >> acc_bits) & 0xff);
         }
     }
 
-    if (i) {
-        for (j = i; j <4; j++)
-            char_array_4[j] = 0;
-
-        for (j = 0; j <4; j++)
-            char_array_4[j] = base64_chars.find(char_array_4[j]);
-
-        char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-        char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-        char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-        for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
-    }
+    //Canonical form (RFC 4648 §3.5): bits left over in the accumulator must
+    //be zero, otherwise the input does not round-trip.
+    if (acc_bits > 0 && (acc & ((1u << acc_bits) - 1)) != 0)
+        return std::nullopt;
 
     return ret;
+}
+
+std::string base64_decode(std::string const &encoded_string)
+{
+    auto decoded = base64_decode_checked(encoded_string);
+    return decoded ? std::move(*decoded) : std::string();
 }

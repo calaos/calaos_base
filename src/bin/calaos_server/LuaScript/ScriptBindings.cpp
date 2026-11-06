@@ -20,41 +20,11 @@
  ******************************************************************************/
 #include "ScriptBindings.h"
 #include "ScriptManager.h"
+#include "ScriptWire.h"
 #include "UrlDownloader.h"
 #include "libuvw.h"
 
 using namespace Calaos;
-
-//Debug
-void Calaos::Lua_stackDump(lua_State *L)
-{
-    int i;
-    int top = lua_gettop(L);
-    for (i = 1; i <= top; i++)
-    {  /* repeat for each level */
-        int t = lua_type(L, i);
-        switch (t)
-        {
-        case LUA_TSTRING:  /* strings */
-            printf("`%s'", lua_tostring(L, i));
-            break;
-
-        case LUA_TBOOLEAN:  /* booleans */
-            printf(lua_toboolean(L, i) ? "true" : "false");
-            break;
-
-        case LUA_TNUMBER:  /* numbers */
-            printf("%g", lua_tonumber(L, i));
-            break;
-
-        default:  /* other values */
-            printf("%s", lua_typename(L, t));
-            break;
-        }
-        printf("  ");  /* put a separator */
-    }
-    printf("\n");  /* end the listing */
-}
 
 /* This print version will replace the one in base lib. It prints out everything
  * through the shared logging facility instead of stdout
@@ -89,19 +59,18 @@ int Calaos::Lua_print(lua_State *L)
 
 void Calaos::Lua_DebugHook(lua_State *L, lua_Debug *ar)
 {
+    double elapsed;
+
+    if (ScriptManager::watchdogExpired(elapsed))
+    {
+        string err = "Aborting script, takes too much time to execute (";
+        err += Utils::to_string(elapsed) + " sec.)";
+
+        lua_pushstring(L, err.c_str());
+        lua_error(L);
+    }
+
     ScriptManager::Instance().LuaDebugHook(L, ar);
-//    double time;
-//
-//    time = Utils::getMainLoopTime();
-//
-//    if (time - ScriptManager::start_time > SCRIPT_MAX_EXEC_TIME)
-//    {
-//        string err = "Aborting script, takes too much time to execute (";
-//        err += Utils::to_string(time - ScriptManager::start_time) + " sec.)";
-//
-//        lua_pushstring(L, err.c_str());
-//        lua_error(L);
-//    }
 }
 
 Lunar<Lua_Calaos>::RegType Lua_Calaos::methods[] =
@@ -291,7 +260,24 @@ int Lua_Calaos::setIOParam(lua_State *L)
         lua_error(L);
     }
 
-    return 1;
+    /* T3.27: 0, not 1. This used to declare one result and push nothing, and
+     * Lunar::thunk leaves the call arguments on the stack, so lua handed the
+     * script back the top of it - the third argument, `value`. Every
+     * `if calaos:setIOParam(...) then` therefore read true.
+     *
+     * 0 is the convention of this method table: the three getters
+     * (getIOValue/getIOParam/getEnv) return 1 and push their value, the
+     * setters and actions (setIOValue, requestUrl, sendPushNotif, print)
+     * return 0. setIOValue() right above is this function's own sibling.
+     *
+     * NOT a pushed boolean, and the reason is measurable rather than stylistic:
+     * LuaIOBase::set_param() is void and fire-and-forget over the ExternProc
+     * socket, and every failure path here longjmps through lua_error(). There
+     * is no success/failure information to report, so `lua_pushboolean(L, true)`
+     * would be a hardcoded constant - it would keep the guard above reading
+     * true forever, which is the defect under a better name.
+     */
+    return 0;
 }
 
 int Lua_Calaos::waitForIO(lua_State *L)
@@ -311,7 +297,10 @@ int Lua_Calaos::waitForIO(lua_State *L)
         {
             //loop until io has reveived a change event
             //it doesnt actually loop, but the process is doing a blocking select
-            while (!waitForIOChanged.emit(id) && !abort) ;
+            {
+                ScriptWatchdogPause pause;
+                while (!waitForIOChanged.emit(id) && !abort) ;
+            }
 
             if (abort)
             {
@@ -328,7 +317,16 @@ int Lua_Calaos::waitForIO(lua_State *L)
         lua_error(L);
     }
 
-    return 1;
+    /* T3.27: 0, not 1. Same defect as setIOParam() above - the declared result
+     * was never pushed, so the script got back the top of the stack, here the
+     * only argument: the io id. A non-empty string is truthy, so
+     * `if calaos:waitForIO(io) then` took the true branch unconditionally.
+     *
+     * Nothing to report either: this function returns normally only when
+     * waitForIOChanged.emit() answered true AND abort is false. The abort case
+     * raises. A pushed boolean could only ever be the constant true.
+     */
+    return 0;
 }
 
 int Lua_Calaos::requestUrl(lua_State *L)
@@ -340,10 +338,15 @@ int Lua_Calaos::requestUrl(lua_State *L)
         string url = lua_tostring(L, 1);
 
         UrlDownloader *dl = new UrlDownloader(url, true);
+        //T2.19: user-scripted URL, insecure by default (policy). No natural
+        //per-item config exists here: the URL comes from the Lua code at
+        //runtime, there is no device param to opt in to verification.
+        dl->setInsecure();
         dl->httpGet();
 
         //we are in an extern process here, so run a loop to do the download
         //it will be stopped when the download is finished
+        ScriptWatchdogPause pause;
         uvw::Loop::getDefault()->run();
     }
     else if (nb == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
@@ -352,8 +355,11 @@ int Lua_Calaos::requestUrl(lua_State *L)
         string post_data = lua_tostring(L, 2);
 
         UrlDownloader *dl = new UrlDownloader(url, true);
+        //T2.19: user-scripted URL, insecure by default (policy), see above
+        dl->setInsecure();
         dl->httpPost(string(), post_data);
 
+        ScriptWatchdogPause pause;
         uvw::Loop::getDefault()->run();
     }
     else
@@ -398,14 +404,18 @@ int Lua_Calaos::sendPushNotif(lua_State *L)
 
     if (argCount == 1 && lua_isstring(L, 1))
     {
-        Params p = {{ "message", string(lua_tostring(L, 1)) }};
-        sendJson("send_push_notif", p);
+        //The message is whatever the user's Lua script passed. A Lua string
+        //is a byte string, so it can carry any byte at all - which is why the
+        //dump() behind this call carries an invalid-UTF-8 error handler.
+        extClient->sendMessage(
+                    ScriptWire::buildPushNotifMessage(string(lua_tostring(L, 1))));
     }
     else if (argCount == 2 && lua_isstring(L, 1) && lua_isstring(L, 2))
     {
-        Params p = {{ "message", string(lua_tostring(L, 1)) },
-                    { "attachment", string(lua_tostring(L, 2)) }};
-        sendJson("send_push_notif", p);
+        extClient->sendMessage(
+                    ScriptWire::buildPushNotifMessage(
+                        string(lua_tostring(L, 1)),
+                        ScriptWire::PushAttachment{string(lua_tostring(L, 2))}));
     }
     else
     {
@@ -415,14 +425,6 @@ int Lua_Calaos::sendPushNotif(lua_State *L)
     }
 
     return 0;
-}
-
-void Lua_Calaos::sendJson(const string &msg_type, const Params &param) const
-{
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", param.toJson());
-    extClient->sendMessage(jansson_to_string(jroot));
 }
 
 bool LuaIOBase::get_value_bool() const
@@ -445,41 +447,33 @@ string LuaIOBase::get_value_string() const
 
 void LuaIOBase::set_value(bool val) const
 {
-    Params p = {{ "id", params["id"] },
-                { "value", val?"true":"false" }};
-
-    sendJson("set_state", p);
+    extClient->sendMessage(
+                ScriptWire::buildSetStateMessage(ScriptWire::IoId{params["id"]},
+                                                 val?"true":"false"));
 }
 
 void LuaIOBase::set_value(double val) const
 {
-    Params p = {{ "id", params["id"] },
-                { "value", Utils::to_string(val) }};
-
-    sendJson("set_state", p);
+    //Utils::to_string(double) is a bare ostringstream: six significant digits,
+    //then scientific notation. Frozen behaviour, not corrected here.
+    extClient->sendMessage(
+                ScriptWire::buildSetStateMessage(ScriptWire::IoId{params["id"]},
+                                                 Utils::to_string(val)));
 }
 
 void LuaIOBase::set_value(std::string val) const
 {
-    Params p = {{ "id", params["id"] },
-                { "value", val }};
-
-    sendJson("set_state", p);
+    //val comes from the user's Lua script and can carry any byte.
+    extClient->sendMessage(
+                ScriptWire::buildSetStateMessage(ScriptWire::IoId{params["id"]}, val));
 }
 
 void LuaIOBase::set_param(const string &key, const string &val)
 {
-    Params p = {{ "id", params["id"] },
-                { "param", key },
-                { "value", val }};
-
-    sendJson("set_param", p);
-}
-
-void LuaIOBase::sendJson(const string &msg_type, const Params &param) const
-{
-    json_t *jroot = json_object();
-    json_object_set_new(jroot, "msg", json_string(msg_type.c_str()));
-    json_object_set_new(jroot, "data", param.toJson());
-    extClient->sendMessage(jansson_to_string(jroot));
+    //Three strings in a row: the named types make an exchange of any two of
+    //them a compile error rather than a silent wire defect.
+    extClient->sendMessage(
+                ScriptWire::buildSetParamMessage(ScriptWire::IoId{params["id"]},
+                                                 ScriptWire::ParamKey{key},
+                                                 ScriptWire::ParamValue{val}));
 }

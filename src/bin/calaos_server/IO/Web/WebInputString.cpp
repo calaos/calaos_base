@@ -22,40 +22,17 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebInputString.h"
-#include "WebCtrl.h"
-#include "jansson.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
 REGISTER_IO(WebInputString)
 
 WebInputString::WebInputString(Params &p):
-    InputString(p)
+    WebInputBase(p, "WebInputString", _("String input providing from a web document"))
 {
-    ioDoc->friendlyNameSet("WebInputString");
-    ioDoc->descriptionSet(_("String input providing from a web document"));
-    docBase.initDoc(ioDoc);
-
-    cInfoDom("input") << "WebInputString::WebInputString()";
-    Calaos::StartReadRules::Instance().addIO();
-
-    if (!get_param("path").empty())
-    {
-        // Add input to WebCtrl instance
-        WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()
-        {
-            readValue();
-            Calaos::StartReadRules::Instance().ioRead();
-        });
-    }
-    cInfoDom("input") << "Period : " << frequency;
-}
-
-WebInputString::~WebInputString()
-{
-    WebCtrl::Instance(get_params()).Del(get_param("path"));
+    webRegisterPolling();
 }
 
 void WebInputString::readValue()

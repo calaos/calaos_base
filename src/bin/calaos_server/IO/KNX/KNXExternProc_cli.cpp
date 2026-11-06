@@ -67,10 +67,14 @@ void KNXProcess::doRead(int argc, char **argv)
         cpt++;
     }
 
-    if (Utils::strContains(sgroup_addr, "/"))
-        knx_addr = eKnxGroupAddr(sgroup_addr.c_str());
-    else
-        knx_addr = knx_addr & 0xffff;
+    //The "16-bit integer" form the --help text advertises was never implemented:
+    //the else branch here used to and-mask knx_addr with itself.
+    if (Utils::strContains(sgroup_addr, "/") &&
+        !knxGroupAddrFromString(sgroup_addr, knx_addr))
+    {
+        cError() << "Invalid KNX group address: " << sgroup_addr;
+        return;
+    }
 
     //send a read command
     if (EIBOpenT_Group(eibobj->sock, knx_addr, 1) == -1)
@@ -135,8 +139,12 @@ void KNXProcess::doWrite(int argc, char **argv)
         return;
     }
 
-    if (Utils::strContains(sgroup_addr, "/"))
-        knx_addr = eKnxGroupAddr(sgroup_addr);
+    if (Utils::strContains(sgroup_addr, "/") &&
+        !knxGroupAddrFromString(sgroup_addr, knx_addr))
+    {
+        cError() << "Invalid KNX group address: " << sgroup_addr;
+        return;
+    }
 
     KNXValue kvalue = KNXValue::fromString(eis, value);
     vector<uint8_t> data;
@@ -490,7 +498,7 @@ string KNXValue::toString()
     return string();
 }
 
-json_t *KNXValue::toJson() const
+Json KNXValue::toJson() const
 {
     Params p = {{"type", Utils::to_string(type) },
                 {"eis", Utils::to_string(eis)},
@@ -501,17 +509,26 @@ json_t *KNXValue::toJson() const
     return p.toJson();
 }
 
-KNXValue KNXValue::fromJson(json_t *jval)
+KNXValue KNXValue::fromJson(const Json &jval)
 {
     Params p;
-    jansson_decode_object(jval, p);
+    knxDecodeObject(jval, p);
 
+    /* T3.25. from_string_or_keep(), NOT from_string(): KNXValue's in-class
+     * defaults are not all zero - `eis` is -1 (KNXCtrl.h:80), the "no EIS type
+     * was given" sentinel, and 0 is a REAL eis type (EIS_Autodetect). Since
+     * T3.25 from_string() writes T{} when it cannot read anything, so a
+     * message whose "eis" key is absent would have silently decoded as
+     * eis = 0 instead of eis = -1. Caught by KNXCtrlWire_test and
+     * KNXExternProcWire_test (MissingKeysLeaveTheDefaultsAndNothingThrows),
+     * which is what those suites are for.
+     */
     KNXValue v;
-    Utils::from_string(p["type"], v.type);
-    Utils::from_string(p["eis"], v.eis);
-    Utils::from_string(p["value_int"], v.value_int);
-    Utils::from_string(p["value_float"], v.value_float);
-    Utils::from_string(p["value_char"], v.value_char);
+    Utils::from_string_or_keep(p["type"], v.type);
+    Utils::from_string_or_keep(p["eis"], v.eis);
+    Utils::from_string_or_keep(p["value_int"], v.value_int);
+    Utils::from_string_or_keep(p["value_float"], v.value_float);
+    Utils::from_string_or_keep(p["value_char"], v.value_char);
     v.value_string = p["value_string"];
 
     return v;

@@ -50,6 +50,9 @@ public:
     Internal(Params &p);
     ~Internal();
 
+    //Every write is signalled, an unchanged one too.
+    bool datesEveryReading() override { return true; }
+
     virtual DATA_TYPE get_type()
     {
         if (get_param("type") == "InternalBool") return TBOOL;
@@ -66,7 +69,7 @@ public:
     virtual bool set_value(double val);
     virtual bool set_value(string val);
 
-    virtual bool SaveToXml(TiXmlElement *node);
+    virtual bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

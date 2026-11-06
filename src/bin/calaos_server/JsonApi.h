@@ -22,14 +22,106 @@
 #define JSONAPI_H
 
 #include "Calaos.h"
-#include <jansson.h>
-#include "Jansson_Addition.h"
+#include "Params.h"
 #include "Room.h"
 #include "AudioPlayer.h"
+
+#include <set>
 
 using namespace Calaos;
 
 class HttpClient;
+
+namespace Calaos
+{
+struct DaemonReply;
+}
+
+/*
+ * Login brute force protection, per source address.
+ *
+ * Every failed login grows a backoff window for the source address (1s, 2s,
+ * 4s... capped at 60s). While that window is open, logins from the address are
+ * refused without even looking at the credentials. There is no hard lockout: a
+ * legitimate user is only slowed down, and the window is cleared as soon as one
+ * login succeeds.
+ *
+ * Nothing here ever sleeps. calaos_server runs everything on a single libuv
+ * loop, so delaying an answer by blocking would stall the whole server. Only
+ * timestamps are compared, the caller passes the current loop time.
+ *
+ * The table is bounded and quiet entries expire, so an attacker spoofing source
+ * addresses cannot grow it indefinitely.
+ */
+class LoginThrottle
+{
+public:
+    //Delay of the first backoff window, doubled at each subsequent failure
+    static constexpr double BaseDelay = 1.0;
+    //Longest backoff window
+    static constexpr double MaxDelay = 60.0;
+    //An address not seen for that long is forgotten
+    static constexpr double EntryTimeout = 900.0;
+    //Highest number of tracked addresses, oldest one is evicted above that
+    static constexpr int MaxEntries = 1024;
+
+    //A loopback peer names its client in X-Forwarded-For. haproxy does, but so
+    //can any process in the host network, and each new name would start a new
+    //backoff. Per scope, at most MaxForwardedIdentities names that never logged
+    //in keep their own bucket, until ForwardedSlotTimeout without an attempt;
+    //new names beyond that, and names that are not an address, share the
+    //OverflowIdentity bucket. A name that logged in keeps its bucket outside the
+    //cap until TrustedSlotTimeout without a success. In memory only: a restart
+    //forgets it. 16 is far above the clients of a home failing within 5 min.
+    static constexpr int MaxForwardedIdentities = 16;
+    static constexpr double ForwardedSlotTimeout = 300.0;
+    static constexpr double TrustedSlotTimeout = 7 * 86400.0;
+    static constexpr const char *OverflowIdentity = "loopback-overflow";
+
+    //The key to throttle ip on. scope keeps separate buckets ("" for the
+    //household login, "admin:", "service:"); forwarded is true when ip was
+    //read from X-Forwarded-For rather than being the TCP peer.
+    static string key(const string &scope, const string &ip, bool forwarded, double now);
+
+    //True when ip is inside its backoff window and must not be allowed to login
+    static bool isBlocked(const string &ip, double now);
+
+    static void registerFailure(const string &ip, double now);
+    static void registerSuccess(const string &ip);
+
+    //Seconds left in the backoff window of ip, 0 when it is not blocked
+    static double retryAfter(const string &ip, double now);
+
+    //Number of tracked addresses, and full reset. Both for the tests.
+    static int trackedCount();
+    static void clear();
+
+private:
+    struct Entry
+    {
+        int failures = 0;
+        double blockedUntil = 0.0;
+        double lastSeen = 0.0;
+    };
+
+    static map<string, Entry> entries;
+
+    struct Slot
+    {
+        string scope;
+        double lastSeen = 0.0;
+        double lastSuccess = 0.0;
+        bool trusted = false;
+    };
+
+    //Forwarded names holding their own bucket, by key. Per scope, trusted
+    //slots are bounded by MaxEntries, the others by MaxForwardedIdentities.
+    static map<string, Slot> forwardedSlots;
+    //The shared buckets handed out by key(), one per scope
+    static std::set<string> overflowKeys;
+
+    static void purge(double now);
+};
 
 class JsonApi: public sigc::trackable
 {
@@ -43,84 +135,409 @@ public:
     sigc::signal<void, const string &> sendData;
     sigc::signal<void, int, const string &> closeConnection;
 
+    /* Security helpers, shared by every transport */
+
+    /* Compares two secrets in constant time. Both are hashed first, so neither
+     * the content nor the length of the expected secret leaks through the time
+     * taken by the comparison.
+     */
+    static bool secureCompare(const string &expected, const string &received);
+
+    /* Single implementation of the credential check: reads the configured
+     * user/password (cn_user/cn_pass when set, calaos_user/calaos_password
+     * otherwise) and compares them with secureCompare().
+     */
+    static bool checkCredentials(const string &user, const string &pass);
+
+    /* True when value is a decimal integer inside [minValue, maxValue]. Used to
+     * validate every parameter given to an external command.
+     */
+    static bool isValidIntParam(const string &value, int minValue, int maxValue);
+
+    /* THE COMMANDS A SERVICE SCOPED SESSION MAY NOT RUN, and the only copy of
+     * that list. The scope belongs to the SESSION, not to the transport that
+     * opened it, so a transport that learns to open one inherits the refusal
+     * instead of having to remember it. A second copy of an authorisation rule
+     * behaves like a rule nothing tests.
+     */
+    static const vector<string> &serviceScopeDeniedCommands();
+
+    /* The refusal payload, and it is deliberately the same on every transport:
+     * a client that got a different shape from each would learn which one it is
+     * talking to from an error it is not allowed to distinguish.
+     */
+    static Json scopeDeniedAnswer();
+
+    /* Administration (docs/08_http_api.md, section Administration). The admin
+     * password is checked by calaos-container, never here, and this server
+     * keeps no admin session: the client sends it back with every message.
+     */
+    static bool isAdminCommand(const string &command);
+
+    //{"success":"false","error":code,"msg":msg}, the one admin error shape
+    static Json adminError(const string &code, const string &msg);
+
+    //An admin_session as the daemon issues it: 64 lowercase hex characters
+    static bool isValidAdminSession(const string &session);
+
+    /* False while the household credentials are the ones anybody knows: empty,
+     * user/pass, or the legacy keys checkCredentials() falls back to. Defining
+     * the admin with them would hand it to whoever read the manual.
+     */
+    static bool householdAllowsBootstrap();
+
+    //The client answer for a failed daemon call, per the translation table
+    static Json adminErrorFromReply(const DaemonReply &reply);
+    //The same, once AdminState learnt what the reply says of the admin mode
+    static Json adminRelayFailure(const DaemonReply &reply);
+
+    //The package rule of calaos-container's docs/API.md (Upgrade jobs)
+    static bool isValidPackageName(const string &name);
+
+    //An interface name network_apply accepts: the daemon's rule, the route
+    //words of network/ and the loopback refused
+    static bool isValidInterfaceName(const string &name);
+
+    //The `admin` message: null when the action is in the closed table and its
+    //params are valid, the refusal otherwise
+    static Json adminRequestRefusal(const string &action, const Json &request);
+
+    //Transfer timeout of the daemon call behind a relayed action, 0 if none
+    static long adminRelayTimeout(const string &action);
+
+    /* Resolves the picture of a push event to a path inside the push_pictures
+     * cache directory. False when picUid tries to escape the directory or when
+     * the file does not exist, and the caller must then answer a 404.
+     */
+    static bool resolveEventPicture(const string &picUid, string &outPath);
+
+    /* WHAT MAY BE PUBLISHED OF AN INCOMING REQUEST BODY. The mirror of what
+     * HttpClient does with the headers of the same request, and it is built the
+     * same way round: the value of a field this server routes on is grammar,
+     * everything else is a name, a count and a per-process tag. A redaction
+     * list cannot hold this line - config/put carries the whole of
+     * local_config.xml under a key that is a file name, and it runs before
+     * checkCredentials(). The output is bounded whatever the document, so the
+     * line no longer costs what it used to on a deep body.
+     */
+    static string describeRequestForLog(const Json &jroot);
+
+    /* Deepest nesting a request body may carry. nlohmann::json has no limit of
+     * its own and a 4 MiB body buys two million levels, which the dispatch then
+     * walks member by member, on a path that runs before the credentials are
+     * checked. The ceiling is the one the previous parser enforced, so nothing
+     * the API has ever accepted is refused by it.
+     */
+    static constexpr int MaxRequestNestingDepth = 2048;
+
+    /* False when the request text nests objects or arrays deeper than
+     * MaxRequestNestingDepth. Reads the raw bytes so the deep document is never
+     * built; braces inside a string are not nesting, and the count stops at the
+     * first zero byte because the lexer does.
+     */
+    static bool requestNestingWithinLimit(const string &data);
+
 
 
     /* API calls helpers */
 
-    json_t *buildJsonHome();
-    json_t *buildJsonCameras();
-    json_t *buildJsonAudio();
-    json_t *buildFlatIOList();
+    Json buildJsonHome();
+    Json buildJsonCameras();
+    Json buildJsonAudio();
+    Json buildFlatIOList();
 
-    void buildJsonIO(IOBase *io, json_t *jio);
-    json_t *buildJsonRoomIO(Room *room);
+    /* The params an IO projection publishes, and the ONE declaration of that
+     * list. RemoteUI projects the same params on its own transport with its own
+     * value policy; a second copy of the list is how the last re-key of the
+     * scenario marker reached one transport and not the other.
+     */
+    static const vector<string> &ioProjectionParams();
 
-    //result is given with a call to a lambda because we may need to wait for
-    //network queries
-    void buildJsonState(vector<string> iolist, std::function<void(json_t *)>result_lambda);
-    void buildJsonStates(const Params &jParam, std::function<void(json_t *)>result_lambda);
-    void buildQuery(const Params &jParam, std::function<void(json_t *)>result_lambda);
+    /* Which of the two projections is being built. The params are the same on
+     * both (above); the VALUE policy is not, and neither side can adopt the
+     * other's without moving a wire - 5454 is under golden files, the config
+     * payload is read by a screen that is not upgraded with the server and
+     * negotiates no version. The three differences are declared once, in
+     * buildJsonIO(). Two of them wait on a decision: F-REMOTEUI-2 in
+     * docs/refactoring/FINDINGS.md.
+     */
+    enum class IoProjection
+    {
+        Api,            //5454
+        DeviceConfig,   //remote_ui_config_update
+    };
 
-    json_t *buildJsonGetParam(const Params &jParam);
-    json_t *buildJsonSetParam(const Params &jParam);
-    json_t *buildJsonDelParam(const Params &jParam);
+    void buildJsonIO(IOBase *io, Json &jio,
+                     IoProjection projection = IoProjection::Api);
+    Json buildJsonRoomIO(Room *room);
 
-    json_t *buildJsonGetTimerange(const Params &jParam);
-    json_t *buildJsonSetTimerange(json_t *jdata);
+    /* result is given with a call to a lambda because we may need to wait for
+     * network queries.
+     *
+     * E4.1n: the three of them answer a Json BY VALUE, and that is the whole
+     * change of ownership. With json_t* the callee handed over a reference and
+     * the caller had to json_decref() it on EVERY path, including the abandon
+     * path of an async chain; with a value there is nothing to release. THE
+     * LIFE GUARDS ARE NOT PART OF THAT, and must not be removed with the
+     * decrefs: apiAlive (:256) protects `this` and the raw handler pointers the
+     * result lambda captures, not the document.
+     *
+     * The copy is real: buildJsonState() captures by copy through six nested
+     * lambdas. It is correct, and it is the price of the guarantee. If it ever
+     * matters, std::move - but NEVER a captured `Json &`, the lambda outlives
+     * its scope.
+     */
+    void buildJsonState(vector<string> iolist, std::function<void(Json)>result_lambda);
+    void buildJsonStates(const Params &jParam, std::function<void(Json)>result_lambda);
+    void buildQuery(const Params &jParam, std::function<void(Json)>result_lambda);
 
-    json_t *buildAutoscenarioList(json_t *jdata);
-    json_t *buildAutoscenarioGet(json_t *jdata);
-    json_t *buildAutoscenarioCreate(json_t *jdata);
-    json_t *buildAutoscenarioDelete(json_t *jdata);
-    json_t *buildAutoscenarioModify(json_t *jdata);
-    json_t *buildAutoscenarioAddSchedule(json_t *jdata);
-    json_t *buildAutoscenarioDelSchedule(json_t *jdata);
+    /* E4.1o. The five of them answer a Json BY VALUE, and buildJsonSetTimerange()
+     * READS one - the only builder of this chain that consumes client JSON.
+     *
+     * ⛔ buildJsonSetParam() IS ALSO CALLED OUTSIDE ANY HANDLER, by
+     * LuaScript/ScriptExec.cpp. Its result must be READ AS A DOCUMENT there:
+     * JSON_USE_IMPLICIT_CONVERSIONS is 1 in this tree, so `if (!answer)`
+     * compiles without a warning on a Json and throws type_error.302 at
+     * runtime, on the uvw loop, with nothing catching it. The failure of these
+     * three builders is reported IN the document, as {"error":"wrong io/param"}.
+     *
+     * The input parsing itself still belongs to the dispatch (E4.1s); what
+     * changed here is only the type buildJsonSetTimerange() traverses.
+     */
+    Json buildJsonGetParam(const Params &jParam);
+    Json buildJsonSetParam(const Params &jParam);
+    Json buildJsonDelParam(const Params &jParam);
 
-    json_t *buildJsonGetIO(vector<string> iolist);
+    Json buildJsonGetTimerange(const Params &jParam);
+    Json buildJsonSetTimerange(const Json &jdata);
 
-    json_t *buildJsonStatusInfo(IOBase *io);
+    /* ONE SCHEMA: what `get` answers is exactly what `create` and `modify`
+     * accept, so a client may send back what it read. The derived
+     * members - category, broken, disabled_missing_io, missing_ios and the
+     * `resolved` of an action - are accepted and ignored on the way in.
+     */
+    Json buildAutoscenarioList(const Json &jdata);
+    Json buildAutoscenarioGet(const Json &jdata);
+    Json buildAutoscenarioCreate(const Json &jdata);
+    Json buildAutoscenarioDelete(const Json &jdata);
+    Json buildAutoscenarioModify(const Json &jdata);
+    Json buildAutoscenarioAddSchedule(const Json &jdata);
+    Json buildAutoscenarioDelSchedule(const Json &jdata);
+    /* T3.18. The manual re-enable of a scenario disabled because one of the IOs
+     * one of its steps uses disappeared. A command of its own and not a
+     * set_param on `disabled_missing_io`, because set_param CANNOT REFUSE:
+     * re-enabling a still broken scenario would answer success and change
+     * nothing, which is exactly the silent no-op this ticket removes. */
+    Json buildAutoscenarioReenable(const Json &jdata);
+
+    Json buildJsonGetIO(vector<string> iolist);
+
+    Json buildJsonStatusInfo(IOBase *io);
 
     void buildJsonEventLog(const Params &jParam, std::function<void(Json &)> callback);
     bool registerPushToken(const Params &jParam);
+    //register_push's push_format, the notification format for anything unknown.
+    static int pushFormatFromString(const string &value);
 
-    bool decodeSetState(Params &jParam);
-    void decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda);
-    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda);
+    //register_push's push_key when it is 64 lowercase hex characters, empty otherwise
+    static string pushKeyFromString(const string &value);
 
-    AudioPlayer *getAudioPlayer(json_t *jdata, string &err);
-    void audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    /* Also taken over plain HTTP: the phones of the stores talk to port 5454 on
+     * the LAN, where whoever could read the key reads the household password
+     * too, and a refused key leaves the code in clear at the push service.
+     */
+    static constexpr bool PushKeyNeedsSecureTransport = false;
 
-    json_t *processDbResult(const AudioPlayerData &data);
-    void audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    //register_push's device_name: the admin picks an approver phone by it, and
+    //every phone is pushed it when that phone becomes an approver
+    static constexpr size_t MaxDeviceName = 64;
 
-    void audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t *)>result_lambda);
-    void audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    /* At most maxCodePoints code points of text, without invalid UTF-8, control
+     * characters, or the bidi and invisible ones a name could hide behind;
+     * runs of spaces are folded, the ends trimmed.
+     */
+    static string printableText(const string &text, size_t maxCodePoints);
 
-    void audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>result_lambda);
+    //First 16 hex characters of the SHA-256 of a push token: the daemon's
+    //token_id, the only form of a token a client ever sees
+    static string pushTokenId(const string &token);
+
+    //First 8 hex characters of the SHA-256 of a session, as the daemon's audit log names it
+    static string sessionAuditId(const string &session);
+
+    //An approver id, a code id or a token_id: 16 lowercase hex characters
+    static bool isDaemonId(const string &s);
+
+    //`source` names the caller in the warning for a write to a protected output.
+    bool decodeSetState(Params &jParam, const char *source);
+    void decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda);
+
+    /* E4.1q. THE ONLY READER OF THE REQUEST ID LEFT. E4.1p had a second,
+     * transitional json_t* overload because processAudioDb() still dispatched
+     * its sixteen callers with one; E4.1q migrated that dispatcher and DELETED
+     * the overload, which is that ticket's stated acceptance criterion - the
+     * name of this function no longer appears anywhere in src/ next to a
+     * jansson type, and there must be no reason to bring one back.
+     * audioPlayerById()
+     * stays where it is: it is the shared resolution, and it is what guarantees
+     * the two halves of the audio family cannot answer two different refusals.
+     */
+    AudioPlayer *getAudioPlayer(const Json &jdata, string &err);
+    /* T3.19. Answers the refusal and returns true when the player owns no music
+     * database. Called by the sixteen audio_db methods IMMEDIATELY BEFORE their
+     * get_database() dereference, never at the top of the method - see the
+     * comment on the definition in JsonApi.cpp.
+     */
+    bool audioDbUnavailable(AudioPlayer *player,
+                            const std::function<void(const Json &)> &result_lambda);
+    /* ⛔ audioGetDbStats() is NOT an `audio` action: processAudioDb() is what
+     * dispatches it (JsonApiHandlerHttp.cpp, JsonApiHandlerWS.cpp), together
+     * with the fourteen audioDbGet*. That is why it belongs to E4.1q and not
+     * to the player ticket; the four below are the ones processAudio() reaches.
+     */
+    void audioGetDbStats(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetPlaylistSize(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetTime(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetPlaylistItem(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioGetCoverInfo(const Json &jdata, std::function<void(const Json &)>result_lambda);
+
+    /* E4.1q. The answer shape of FOURTEEN of the fifteen methods below. Its
+     * contract is unchanged and deliberately so - the count marker is read AND
+     * appended to the items array, a count of "0" clears the array but still
+     * emits total_count, and no count at all means NO total_count key rather
+     * than a null. What DID change, declared: "total_count" was inserted before
+     * "items" and nlohmann sorts, so "items" now comes first on the wire.
+     */
+    Json processDbResult(const AudioPlayerData &data);
+    void audioDbGetAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetArtists(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetYears(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetGenres(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetPlaylists(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetMusicFolder(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetSearch(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetRadios(const Json &jdata, std::function<void(const Json &)>result_lambda);
+
+    void audioDbGetAlbumArtistItem(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetYearAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetGenreArtists(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetAlbumTitles(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetPlaylistTitles(const Json &jdata, std::function<void(const Json &)>result_lambda);
+    void audioDbGetRadioItems(const Json &jdata, std::function<void(const Json &)>result_lambda);
+
+    void audioDbGetTrackInfos(const Json &jdata, std::function<void(const Json &)>result_lambda);
 
 
 protected:
 
+    /* Internal stage of decodeGetPlaylist()'s recursion, never called from
+     * outside JsonApi.cpp. Takes the player by ID, not by pointer: one network
+     * round trip happens between two consecutive items, and the IO can be
+     * deleted through the API in between, so the player is looked up again at
+     * every step - exactly like buildJsonState() does (T2.15).
+     */
+    void getNextPlaylistItem(const string &playerId, Json jplayer, Json jplaylist, int it_current, int it_count, std::function<void(const Json &)>result_lambda);
+
+    /* E4.1p. The player resolution shared by the two getAudioPlayer()
+     * overloads, so that the reader that is migrated and the one that is not
+     * cannot answer two different refusals.
+     */
+    AudioPlayer *audioPlayerById(const string &id, string &err);
+
+    /* Set when the session was opened with login_service. It restricts the set
+     * of allowed commands to a read+control subset; see the list above for why
+     * it lives here rather than in a transport class.
+     */
+    bool serviceScope = false;
+
+    bool serviceScopeDenies(const string &command) const;
+
+    /* Refuses command when this session is service scoped, and hands the
+     * refusal payload to answer. One rule, one log line, one payload; a
+     * transport supplies nothing but the envelope it wraps the payload in.
+     */
+    bool refuseServiceScope(const string &command,
+                            const std::function<void(const Json &)> &answer);
+
     HttpClient *httpClient = nullptr;
+
+    //LoginThrottle::key() of the client of this connection
+    string loginThrottleKey(const string &scope) const;
+    //The client behind a throttle key, for logs: the key can be a shared bucket
+    string loginClientForLog(const string &key) const;
 
     map<string, int> playerCounts;
 
+    /* Destruction guard for the async audio-player callbacks that outlive
+     * their request: they capture a weak_ptr on it and no-op once the JsonApi
+     * is gone (client disconnected while a player answer was in flight). It
+     * covers every transport, since both handlers derive from JsonApi and die
+     * with it. Same pattern as JsonApiHandlerHttp::handlerAlive.
+     * Guarded: buildJsonState() (T2.15), the recursive playlist chain
+     * decodeGetPlaylist()/getNextPlaylistItem() (T3.17a), the five single-shot
+     * player-state methods audioGetDbStats()/audioGetPlaylistSize()
+     * /audioGetTime()/audioGetPlaylistItem()/audioGetCoverInfo() (T3.17b), the
+     * 15 audioDbGet* music-database methods (T3.17c) and buildJsonEventLog()
+     * (T3.17f), whose two callbacks wait on HistLogger's sqlite worker thread.
+     * That last one is also the warning to keep: it odr-uses no `this` at all,
+     * so it raises no -Wdeprecated implicit-capture warning and every earlier
+     * inventory of this file walked past it. What it carries is the
+     * std::function of the handler, captured by value. The danger is any freed
+     * object REACHABLE from the closure, not just a captured `this`.
+     * Every async callback of this file is guarded now, and T3.17e measured
+     * that the WS transport needs no token of its own on top of this one.
+     *
+     * SCOPE OF THIS MEMBER, MEASURED - do not confuse it with its sibling.
+     * `apiAlive` is read from JsonApi.cpp (24 guards, one per asynchronous
+     * callback of the 26 std::function methods declared above, the two
+     * synchronous ones - buildJsonStates() and buildQuery() - needing none) and
+     * from JsonApiAdmin.cpp, whose admin answers also reach handler members:
+     * both tokens die in the same delete, on the one loop thread. The five guarded
+     * callbacks that live in JsonApiHandlerHttp.cpp (:462, :727, :936, :1057,
+     * :1075 - get_cover twice, the camera snapshots, the singleShot re-arm) use
+     * the handler's OWN token, JsonApiHandlerHttp::handlerAlive
+     * (JsonApiHandlerHttp.h:64), never this one; RemoteUIWebSocketHandler has a
+     * third, again its own. Two class levels, two tokens, and a callback must
+     * take the one belonging to the object whose members it will touch.
+     */
+    std::shared_ptr<bool> apiAlive { std::make_shared<bool>(true) };
+
     bool changeCredentials(string olduser, string oldpass, string newuser, string newpass);
+
+    using AdminAnswer = std::function<void(const Json &)>;
+
+    //Peer on the loopback (haproxy) and X-Forwarded-Proto: https
+    bool secureTransport() const;
+
+    //request is the JSON object holding the fields: "data" on the websocket,
+    //the body over HTTP (null when the body was not a JSON object).
+    void processAdminUnlock(const Json &request, const AdminAnswer &answer);
+    void processAdminSet(const Json &request, const AdminAnswer &answer);
+
+    /* config and get_mcp_info: allowed() runs when they may be served, as
+     * today while no admin is defined, with a valid admin_session from the
+     * request body once one is. Otherwise answer gets the refusal.
+     */
+    void gateAdminOnly(const Json &request, const AdminAnswer &answer, const std::function<void()> &allowed);
+
+    /* The steps every admin message shares. withAdminMode() polls the daemon
+     * first unless the admin is known to be set, so its answer decides.
+     * adminModeRefusal() is the answer for every mode but Set, null for Set.
+     */
+    void withAdminMode(const std::function<void()> &next);
+    static Json adminModeRefusal();
+    //GET admin/status with the session: done(null) when it is valid
+    void validateAdminSession(const string &session, const AdminAnswer &done);
+    //config_list, config_set, config_backup, served here once the session is valid
+    void configAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
+    void restoreConfig(const Json &params, const string &session, const AdminAnswer &answer);
+    //The frozen memory no longer matches the disk: the process must go, client or not
+    static void exitAfterConfigReplaced();
+    //One row of the relay table, for a request adminRequestRefusal() accepted
+    void relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer);
+    string adminClientIp() const;
+    //Drops the answer once this session object is gone
+    AdminAnswer guardedAnswer(const AdminAnswer &answer);
 };
 
 #endif // JSONAPI_H

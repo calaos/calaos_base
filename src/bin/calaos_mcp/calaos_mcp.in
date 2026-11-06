@@ -3,4 +3,6 @@
 # Generated from calaos_mcp.in by configure.
 CALAOS_PREFIX=@prefix@
 export PYTHONPATH=$CALAOS_PREFIX/lib/python:$CALAOS_PREFIX/lib/calaos:$PYTHONPATH
+# Device command documentation, generated at build time by calaos_server --gendoc.
+export CALAOS_IODOC_PATH=${CALAOS_IODOC_PATH:-$CALAOS_PREFIX/share/calaos/io_doc.json}
 exec python3 -m calaos_mcp "$@"

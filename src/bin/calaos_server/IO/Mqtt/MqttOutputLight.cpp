@@ -19,7 +19,6 @@
  **
  ******************************************************************************/
 #include "MqttOutputLight.h"
-#include "MqttBrokersList.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
@@ -27,15 +26,10 @@ using namespace Calaos;
 REGISTER_IO(MqttOutputLight)
 
 MqttOutputLight::MqttOutputLight(Params &p):
-    OutputLight(p)
+    MqttIOBase(p, "MqttOutputLight", _("Control lights through mqtt broker"))
 {
     // We use real state for this IO: only emit change when the value really changes
     useRealState = true;
-
-    // Define IO documentation
-    ioDoc->friendlyNameSet("MqttOutputLight");
-    ioDoc->descriptionSet(_("Control lights through mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
 
     ioDoc->paramAdd("on_value", _("Value to interpret as ON value"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("off_value", _("Value to interpret as OFF value"), IODoc::TYPE_STRING, true);
@@ -43,13 +37,7 @@ MqttOutputLight::MqttOutputLight(Params &p):
                               "with the state (on_value, off_value) to be sent."),
                     IODoc::TYPE_STRING, true);
 
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
-    });
-
-    ctrl->subscribeStatusTopics(this);
+    subscribeTopicSub([this]() { readValue(); });
 
     cInfoDom("output") << "MqttOutputLight::MqttOutputLight()";
 }
@@ -64,29 +52,21 @@ void MqttOutputLight::readValue()
 
     cDebugDom("mqtt") << "Read value " << val;
 
+    bool newValue;
     if (val == get_param("on_value"))
-    {
-        bool hasChanged = value != true;
-        cDebugDom("mqtt") << "TRUE : " << get_param("on_value");
-        value = true;
-
-        if (hasChanged)
-        {
-            EmitSignalIO();
-            emitChange();
-        }
-    }
+        newValue = true;
     else if (val == get_param("off_value"))
-    {
-        bool hasChanged = value != false;
-        cDebugDom("mqtt") << "FALSE : " << get_param("off_value");
-        value = false;
+        newValue = false;
+    else
+        return;
 
-        if (hasChanged)
-        {
-            EmitSignalIO();
-            emitChange();
-        }
+    bool hasChanged = value != newValue;
+    value = newValue;
+
+    if (hasChanged)
+    {
+        EmitSignalIO();
+        emitChange();
     }
 }
 

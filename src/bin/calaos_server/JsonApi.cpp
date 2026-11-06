@@ -23,8 +23,852 @@
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "AutoScenario.h"
+#include "AutoScenarioDef.h"
 #include "CalaosConfig.h"
+#include "CameraTokens.h"
 #include "HistLogger.h"
+#include "Device.h"
+
+#include <openssl/evp.h>
+#include <openssl/crypto.h>
+#include <arpa/inet.h>
+
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
+#include <algorithm>
+#include <set>
+
+namespace
+{
+
+/* A scenario lives in both files: with one of them left unloaded a change would
+ * only be half written, so it is refused before anything moves.
+ */
+bool scenarioFilesLoaded()
+{
+    return Config::Instance().ioFileLoaded() && Config::Instance().rulesFileLoaded();
+}
+
+Json configNotLoadedError()
+{
+    return Params({ { "error", Calaos::CONFIG_NOT_LOADED } }).toJson();
+}
+
+Json configNotWrittenError()
+{
+    return Params({ { "error", Calaos::CONFIG_NOT_WRITTEN } }).toJson();
+}
+
+/* What an answer has to own up to. An unloaded file is not part of it: the
+ * actions that need the file refused before changing anything, the others
+ * do not touch it.
+ */
+bool notWritten(Config::SaveResult result)
+{
+    return result == Config::SaveResult::Frozen || result == Config::SaveResult::WriteFailed;
+}
+
+//rules.xml is attempted whatever became of io.xml: the change is already in
+//memory, and one file on disk is closer to it than none.
+bool saveConfigFiles()
+{
+    const Config::SaveResult io = Config::Instance().SaveConfigIO();
+    const Config::SaveResult rules = Config::Instance().SaveConfigRule();
+    return !notWritten(io) && !notWritten(rules);
+}
+
+/* E4.1o. jansson_string_get()'s contract, kept BY HAND for a nlohmann
+ * document: the DEFAULT on an absent member, on a member that is not a JSON
+ * string, and on a root that is not an object (json_object_get(NULL, k)
+ * answered NULL). `j["k"].get<string>()` does none of that - it throws.
+ */
+inline std::string jsonStringGet(const Json &j, const char *key,
+                                 const std::string &defaultValue = std::string())
+{
+    if (!j.is_object())
+        return defaultValue;
+
+    const Json::const_iterator it = j.find(key);
+    if (it == j.cend() || !it->is_string())
+        return defaultValue;
+
+    return it->get<std::string>();
+}
+
+/* E4.1o. jansson_decode_object()'s FLATTENING CONTRACT, kept BY HAND: a
+ * string as is, a boolean as the WORD "true"/"false", any number through
+ * Utils::to_string(double) - a bare ostringstream, frozen on purpose and not
+ * "fixed" here - and ANY OTHER TYPE (object, array, null) the EMPTY STRING,
+ * WITH THE KEY STILL ADDED. That last clause matters downstream: an absent
+ * key and a key at "" are not the same thing to TimeRange(Params).
+ *
+ * A non object (a null, which is what an absent key parses to, included)
+ * iterates zero times, exactly as json_object_foreach() did on a NULL or on a
+ * non object.
+ *
+ * Identical, deliberately, to ScriptWire::decodeObject() and to the four
+ * driver wires that carry the same helper: five copies of one contract, still
+ * to be folded into one place.
+ */
+inline void decodeJsonObject(const Json &j, Params &params)
+{
+    if (!j.is_object())
+        return;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        std::string svalue;
+
+        if (it.value().is_string())
+            svalue = it.value().get<std::string>();
+        else if (it.value().is_boolean())
+            svalue = it.value().get<bool>()?"true":"false";
+        else if (it.value().is_number())
+            svalue = Utils::to_string(it.value().get<double>());
+
+        params.Add(it.key(), svalue);
+    }
+}
+
+/* The auto scenario payload on the way in. The schema is the one
+ * Scenario::toJson() emits, key for key: what a client reads back is what it
+ * may send. The derived keys it also reads - id, category, broken,
+ * disabled_missing_io, missing_ios, schedule and an action's `resolved` - are
+ * accepted and ignored here, which is what makes get -> modify -> get an
+ * identity instead of a slow amputation. Parsing is separate from applying:
+ * create and modify commit nothing until the whole document is accepted.
+ */
+
+struct ScenarioPayload
+{
+    string name;
+    Room *room = nullptr;
+    bool visible = false;
+    bool cycle = false;
+    bool enabled = false;
+    vector<AutoScenarioDefStep> steps;
+    AutoScenarioDefStep finalStep;
+};
+
+inline bool jsonBoolGet(const Json &j, const char *key, bool defaultValue)
+{
+    return jsonStringGet(j, key, defaultValue? "true": "false") == "true";
+}
+
+//A pause is client text. Anything that is not a finite number is refused
+//rather than silently read as zero, which is how a typo became a missing wait.
+bool parseScenarioPause(const string &raw, double &out)
+{
+    out = 0.0;
+    if (raw.empty()) return true;
+
+    char *end = nullptr;
+    errno = 0;
+    const double v = strtod(raw.c_str(), &end);
+
+    if (!end || *end != '\0' || end == raw.c_str()) return false;
+    if (errno == ERANGE || !std::isfinite(v)) return false;
+
+    out = v;
+    return true;
+}
+
+bool parseScenarioActions(const Json &jactions, vector<AutoScenarioDefAction> &out,
+                          const string &where, string &err)
+{
+    if (jactions.is_null()) return true;
+
+    if (!jactions.is_array())
+    {
+        err = where + ": actions must be an array";
+        return false;
+    }
+
+    int n = 0;
+    for (const Json &jact: jactions)
+    {
+        if (!jact.is_object())
+        {
+            err = where + ": action " + Utils::to_string(n) + " is not an object";
+            return false;
+        }
+
+        AutoScenarioDefAction a;
+        a.ioId = jsonStringGet(jact, "io");
+        if (a.ioId.empty())
+        {
+            err = where + ": action " + Utils::to_string(n) + " names no io";
+            return false;
+        }
+
+        /* The id is NOT resolved. An action pointing at an IO that no longer
+         * exists is a scenario to repair, not a request to refuse: refusing it
+         * would make a broken scenario impossible to rename, and dropping it
+         * would erase the only trace of what is missing.
+         */
+        a.value = jsonStringGet(jact, "value");
+
+        out.push_back(a);
+        n++;
+    }
+
+    return true;
+}
+
+bool parseScenarioPayload(const Json &jdata, ScenarioPayload &out, string &err)
+{
+    if (!jdata.is_object())
+    {
+        err = "invalid payload: not an object";
+        return false;
+    }
+
+    out.name = jsonStringGet(jdata, "name", _("New unnamed scenario"));
+    out.visible = jsonBoolGet(jdata, "visible", false);
+    out.cycle = jsonBoolGet(jdata, "cycle", false);
+    out.enabled = jsonBoolGet(jdata, "enabled", false);
+
+    const string roomName = jsonStringGet(jdata, "room_name");
+    const string roomType = jsonStringGet(jdata, "room_type");
+    out.room = ListeRoom::Instance().searchRoomByNameAndType(roomName, roomType);
+    if (!out.room)
+    {
+        err = "invalid payload: no room \"" + roomName + "\" of type \"" + roomType + "\"";
+        return false;
+    }
+
+    std::set<string> stepIds;
+    const Json::const_iterator itSteps = jdata.find("steps");
+    if (itSteps != jdata.cend() && !itSteps->is_null())
+    {
+        if (!itSteps->is_array())
+        {
+            err = "invalid payload: steps must be an array";
+            return false;
+        }
+
+        int n = 0;
+        for (const Json &jstep: *itSteps)
+        {
+            const string where = "invalid payload: step " + Utils::to_string(n);
+
+            if (!jstep.is_object())
+            {
+                err = where + " is not an object";
+                return false;
+            }
+
+            AutoScenarioDefStep step;
+            step.stepId = jsonStringGet(jstep, "step_id");
+
+            if (step.stepId.empty())
+            {
+                step.stepId = AutoScenarioDef::newStepId();
+            }
+            else if (!AutoScenarioDef::isValidStepId(step.stepId))
+            {
+                err = where + ": step_id \"" + step.stepId + "\" is not a valid id";
+                return false;
+            }
+            else
+            {
+                //A client sent us an id: fold it into the allocator so it can
+                //never be handed out a second time.
+                AutoScenarioDef::observeStepId(step.stepId);
+            }
+
+            if (!stepIds.insert(step.stepId).second)
+            {
+                err = where + ": step_id \"" + step.stepId + "\" is used twice";
+                return false;
+            }
+
+            if (!parseScenarioPause(jsonStringGet(jstep, "pause"), step.pause))
+            {
+                err = where + ": pause is not a number";
+                return false;
+            }
+
+            const Json::const_iterator itActions = jstep.find("actions");
+            if (itActions != jstep.cend() &&
+                !parseScenarioActions(*itActions, step.actions, where, err))
+                return false;
+
+            out.steps.push_back(step);
+            n++;
+        }
+    }
+
+    const Json::const_iterator itFinal = jdata.find("final_step");
+    if (itFinal != jdata.cend() && !itFinal->is_null())
+    {
+        if (!itFinal->is_object())
+        {
+            err = "invalid payload: final_step must be an object";
+            return false;
+        }
+
+        const Json::const_iterator itActions = itFinal->find("actions");
+        if (itActions != itFinal->cend() &&
+            !parseScenarioActions(*itActions, out.finalStep.actions,
+                                  "invalid payload: final_step", err))
+            return false;
+    }
+
+    return true;
+}
+
+/* The auto scenario a time range IO belongs to, or null. A LOOKUP and not a
+ * back-pointer on the IO: such a pointer has to be cleared from three places,
+ * and any one of them missed leaves it naming a destroyed object.
+ */
+AutoScenario *autoScenarioOfTimeRange(IOBase *o)
+{
+    if (!o) return nullptr;
+
+    for (Scenario *sc: ListeRoom::Instance().getAutoScenarios())
+    {
+        AutoScenario *as = sc? sc->getAutoScenario(): nullptr;
+        if (as && as->getIOTimeRange() == o)
+            return as;
+    }
+
+    return nullptr;
+}
+
+/* The params of a scenario definition are DERIVED, and derived from one place:
+ * AutoScenarioDef re-emits the whole set at every save and deletes the ones it
+ * did not produce. A client write is therefore either erased at the next save
+ * or, for the uid, hands a second scenario the key everything it owns is
+ * derived from - inert until the next start, which is where the duplicate then
+ * has to be repaired.
+ * The set is ASKED of the class that derives it rather than spelled out here,
+ * the same way the structural guard asks IOFactory: a key the definition gains
+ * is refused with nobody having to remember it. The refusal is at the API and
+ * not in IOBase, because IOBase is what the derivation itself writes through.
+ * `disabled`, `cycle`, `visible` and `disabled_missing_io` are deliberately
+ * NOT in it: they are live state a client is meant to set.
+ */
+bool isDerivedScenarioParam(const std::string &key)
+{
+    return AutoScenarioDef::isDefinitionParam(key);
+}
+
+} //namespace
+
+map<string, LoginThrottle::Entry> LoginThrottle::entries;
+map<string, LoginThrottle::Slot> LoginThrottle::forwardedSlots;
+std::set<string> LoginThrottle::overflowKeys;
+
+static bool isIpLiteral(const string &s)
+{
+    unsigned char buf[sizeof(struct in6_addr)];
+    return inet_pton(AF_INET, s.c_str(), buf) == 1 || inet_pton(AF_INET6, s.c_str(), buf) == 1;
+}
+
+string LoginThrottle::key(const string &scope, const string &ip, bool forwarded, double now)
+{
+    if (!forwarded)
+        return scope + ip;
+
+    for (auto it = forwardedSlots.begin(); it != forwardedSlots.end();)
+    {
+        const bool expired = it->second.trusted ? now - it->second.lastSuccess > TrustedSlotTimeout : now - it->second.lastSeen > ForwardedSlotTimeout;
+        if (expired)
+            it = forwardedSlots.erase(it);
+        else
+            ++it;
+    }
+
+    const string overflow = scope + OverflowIdentity;
+
+    //haproxy only writes addresses; any other name could spell the key of
+    //another scope ("admin:...") or the shared bucket itself
+    if (!isIpLiteral(ip))
+    {
+        overflowKeys.insert(overflow);
+        return overflow;
+    }
+
+    const string k = scope + ip;
+
+    auto it = forwardedSlots.find(k);
+    if (it != forwardedSlots.end())
+    {
+        it->second.lastSeen = now;
+        return k;
+    }
+
+    int used = 0;
+    for (const auto &s: forwardedSlots)
+    {
+        if (!s.second.trusted && s.second.scope == scope)
+            used++;
+    }
+
+    if (used < MaxForwardedIdentities)
+    {
+        forwardedSlots[k] = Slot{ scope, now, 0.0, false };
+        return k;
+    }
+
+    overflowKeys.insert(overflow);
+    return overflow;
+}
+
+void LoginThrottle::purge(double now)
+{
+    for (auto it = entries.begin();it != entries.end();)
+    {
+        if (now - it->second.lastSeen > EntryTimeout)
+            it = entries.erase(it);
+        else
+            ++it;
+    }
+}
+
+bool LoginThrottle::isBlocked(const string &ip, double now)
+{
+    auto it = entries.find(ip);
+    if (it == entries.end())
+        return false;
+
+    if (now - it->second.lastSeen > EntryTimeout)
+    {
+        entries.erase(it);
+        return false;
+    }
+
+    return now < it->second.blockedUntil;
+}
+
+void LoginThrottle::registerFailure(const string &ip, double now)
+{
+    purge(now);
+
+    auto it = entries.find(ip);
+    if (it == entries.end())
+    {
+        if ((int)entries.size() >= MaxEntries)
+        {
+            //Table is full, forget the address not seen for the longest time
+            auto oldest = entries.begin();
+            for (auto e = entries.begin();e != entries.end();++e)
+            {
+                if (e->second.lastSeen < oldest->second.lastSeen)
+                    oldest = e;
+            }
+            entries.erase(oldest);
+        }
+
+        it = entries.insert({ ip, Entry() }).first;
+    }
+
+    Entry &entry = it->second;
+    if (entry.failures < 1000)
+        entry.failures++;
+
+    double delay = BaseDelay;
+    for (int i = 1;i < entry.failures && delay < MaxDelay;i++)
+        delay *= 2.0;
+    if (delay > MaxDelay)
+        delay = MaxDelay;
+
+    entry.lastSeen = now;
+    entry.blockedUntil = now + delay;
+}
+
+void LoginThrottle::registerSuccess(const string &ip)
+{
+    //The shared bucket is also the spoofer's: one client getting in through
+    //it must not reset his backoff
+    if (overflowKeys.count(ip))
+        return;
+
+    entries.erase(ip);
+
+    auto it = forwardedSlots.find(ip);
+    if (it == forwardedSlots.end())
+        return;
+
+    //Only a success renews the trust: failures on a guessed trusted name must
+    //not keep it outside the cap for ever. key() stamped lastSeen just before.
+    it->second.lastSuccess = it->second.lastSeen;
+    if (it->second.trusted)
+        return;
+    it->second.trusted = true;
+
+    int trusted = 0;
+    auto oldest = forwardedSlots.end();
+    for (auto s = forwardedSlots.begin(); s != forwardedSlots.end(); ++s)
+    {
+        if (!s->second.trusted || s->second.scope != it->second.scope)
+            continue;
+        trusted++;
+        if (oldest == forwardedSlots.end() || s->second.lastSuccess < oldest->second.lastSuccess)
+            oldest = s;
+    }
+    if (trusted > MaxEntries)
+        forwardedSlots.erase(oldest);
+}
+
+double LoginThrottle::retryAfter(const string &ip, double now)
+{
+    if (!isBlocked(ip, now))
+        return 0.0;
+    return entries[ip].blockedUntil - now;
+}
+
+int LoginThrottle::trackedCount()
+{
+    return (int)entries.size();
+}
+
+void LoginThrottle::clear()
+{
+    entries.clear();
+    forwardedSlots.clear();
+    overflowKeys.clear();
+}
+
+string JsonApi::loginThrottleKey(const string &scope) const
+{
+    if (!httpClient)
+        return scope + "unknown";
+
+    return LoginThrottle::key(scope, httpClient->getEffectiveClientIp(),
+                              httpClient->effectiveClientIpForwarded(),
+                              Utils::getMainLoopTime());
+}
+
+string JsonApi::loginClientForLog(const string &key) const
+{
+    const string client = httpClient ? httpClient->getEffectiveClientIp() : string("unknown");
+    return client == key ? key : client + " (bucket " + key + ")";
+}
+
+bool JsonApi::secureCompare(const string &expected, const string &received)
+{
+    unsigned char de[EVP_MAX_MD_SIZE], dr[EVP_MAX_MD_SIZE];
+    unsigned int lene = 0, lenr = 0;
+
+    if (EVP_Digest(expected.data(), expected.size(), de, &lene, EVP_sha256(), nullptr) != 1 ||
+        EVP_Digest(received.data(), received.size(), dr, &lenr, EVP_sha256(), nullptr) != 1 ||
+        lene != lenr)
+        return false;
+
+    return CRYPTO_memcmp(de, dr, lene) == 0;
+}
+
+bool JsonApi::checkCredentials(const string &user, const string &pass)
+{
+    string confUser = Utils::get_config_option("calaos_user");
+    string confPass = Utils::get_config_option("calaos_password");
+
+    if (Utils::get_config_option("cn_user") != "" &&
+        Utils::get_config_option("cn_pass") != "")
+    {
+        confUser = Utils::get_config_option("cn_user");
+        confPass = Utils::get_config_option("cn_pass");
+    }
+
+    //Both comparisons are always done, a wrong user must not answer faster
+    bool userOk = secureCompare(confUser, user);
+    bool passOk = secureCompare(confPass, pass);
+
+    return userOk && passOk;
+}
+
+bool JsonApi::isValidIntParam(const string &value, int minValue, int maxValue)
+{
+    if (value.empty() || value.size() > 11)
+        return false;
+
+    string::size_type i = 0;
+    if (value[0] == '-')
+    {
+        if (value.size() == 1)
+            return false;
+        i = 1;
+    }
+
+    for (;i < value.size();i++)
+    {
+        if (!isdigit((unsigned char)value[i]))
+            return false;
+    }
+
+    long v = 0;
+    try
+    {
+        v = std::stol(value);
+    }
+    catch (...)
+    {
+        return false;
+    }
+
+    return v >= minValue && v <= maxValue;
+}
+
+const vector<string> &JsonApi::serviceScopeDeniedCommands()
+{
+    /* Every one of them writes: configuration params, the audio database, a
+     * schedule, a scenario and its rules, the event log, a push registration,
+     * the credentials themselves. config is HTTP only today; it is listed so
+     * that a websocket route added later is born refused (put replaces the
+     * configuration files). The admin messages, and console (the open message
+     * of /api/console), are refused with the admin error shape (adminError(),
+     * not_allowed), and so is the HTTP config_backup. camera_token only reads,
+     * but it would hand the service a camera access it has never had.
+     */
+    static const vector<string> denied = { "set_param", "del_param", "audio_db", "set_timerange", "autoscenario",
+                                           "eventlog", "register_push", "settings", "config",
+                                           "admin_unlock", "admin_set", "admin", "console", "config_backup",
+                                           "camera_token" };
+
+    return denied;
+}
+
+Json JsonApi::scopeDeniedAnswer()
+{
+    return Json{{ "error", "scope denied" }};
+}
+
+bool JsonApi::serviceScopeDenies(const string &command) const
+{
+    if (!serviceScope)
+        return false;
+
+    const vector<string> &denied = serviceScopeDeniedCommands();
+
+    return std::find(denied.begin(), denied.end(), command) != denied.end();
+}
+
+bool JsonApi::refuseServiceScope(const string &command,
+                                 const std::function<void(const Json &)> &answer)
+{
+    if (!serviceScopeDenies(command))
+        return false;
+
+    cWarningDom("mcp") << "service scope denied action: " << command;
+    answer(isAdminCommand(command) ? adminError("not_allowed", "scope denied") : scopeDeniedAnswer());
+
+    return true;
+}
+
+bool JsonApi::resolveEventPicture(const string &picUid, string &outPath)
+{
+    outPath.clear();
+
+    if (picUid.empty())
+        return false;
+
+    return FileUtils::resolveSafePath(Utils::getCacheFile("push_pictures"),
+                                      picUid + ".jpg",
+                                      outPath);
+}
+
+bool JsonApi::requestNestingWithinLimit(const string &data)
+{
+    int depth = 0;
+    bool inString = false;
+    bool escaped = false;
+
+    for (unsigned char c: data)
+    {
+        //Both parsers treat 0x00 as end of input, so bytes past it are never
+        //looked at: counting them would refuse a document nobody parses.
+        if (c == '\0')
+            break;
+
+        if (inString)
+        {
+            if (escaped)
+                escaped = false;
+            else if (c == '\\')
+                escaped = true;
+            else if (c == '"')
+                inString = false;
+            continue;
+        }
+
+        if (c == '"')
+            inString = true;
+        else if (c == '{' || c == '[')
+        {
+            if (++depth > MaxRequestNestingDepth)
+                return false;
+        }
+        else if (c == '}' || c == ']')
+            depth--;
+    }
+
+    return true;
+}
+
+namespace
+{
+
+/* WHAT MAY BE PUBLISHED OF AN INCOMING REQUEST BODY, enumerated the other way
+ * round from a redaction list: the value of a field this server ROUTES on is
+ * protocol grammar, every other value is a byte count. The failure direction is
+ * the whole point - config/put uploads local_config.xml, io.xml and rules.xml
+ * under keys that are FILE NAMES, and no list of credential names had a reason
+ * to carry them, while local_config.xml is where this server writes mcp_token
+ * and io.xml where an install keeps its camera and broker passwords. set_param
+ * is the same shape one level down: the secret travels under the key `value`
+ * and the word "password" is the value of `param`.
+ *
+ * The lookup is CASE SENSITIVE, unlike the list it replaces: folding widens
+ * what is published, and this set may only ever narrow it. */
+const std::set<string> &loggableRequestValues()
+{
+    static const std::set<string> v =
+    { "action", "msg", "msg_id", "type", "hardware" };
+    return v;
+}
+
+/* Every word this server routes on is under twenty bytes; nothing longer is
+ * grammar, and this runs before the credentials are checked. */
+constexpr size_t MaxLoggedValue = 40;
+constexpr size_t MaxLoggedName = 48;
+//A body nests 2048 levels deep by permission, and this line is built at every
+//request: what bounds the cost is the budget, not the document.
+constexpr int MaxDescribeDepth = 4;
+constexpr size_t MaxDescribeEntries = 64;
+
+//A key or a routing word goes on a log LINE: a control byte in it would forge
+//one, and there is no reading of the rest that recovers from that.
+string logToken(const string &s, size_t cap)
+{
+    string out;
+    out.reserve(std::min(s.size(), cap));
+
+    for (size_t i = 0; i < s.size() && i < cap; i++)
+        out.push_back((static_cast<unsigned char>(s[i]) < 0x20 || s[i] == 0x7f)? '.': s[i]);
+
+    if (s.size() > cap)
+        out += "~";
+
+    return out;
+}
+
+void describeValue(const Json &j, ostringstream &out, int depth, size_t &budget);
+
+void describeMembers(const Json &j, ostringstream &out, int depth, size_t &budget)
+{
+    size_t written = 0;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        if (budget == 0)
+        {
+            out << (written? ", ...": "...");
+            return;
+        }
+        budget--;
+
+        if (written++)
+            out << ", ";
+
+        out << logToken(it.key(), MaxLoggedName);
+
+        const bool routed = loggableRequestValues().count(it.key()) > 0;
+
+        if (routed && !it.value().is_structured())
+        {
+            const string v = it.value().is_string()? it.value().get<string>()
+                                                   : it.value().dump();
+            if (v.size() <= MaxLoggedValue)
+            {
+                out << "=" << logToken(v, MaxLoggedValue);
+                continue;
+            }
+        }
+
+        describeValue(it.value(), out, depth, budget);
+    }
+}
+
+void describeItems(const Json &j, ostringstream &out, int depth, size_t &budget)
+{
+    size_t written = 0;
+
+    for (Json::const_iterator it = j.cbegin(); it != j.cend(); ++it)
+    {
+        if (budget == 0)
+        {
+            out << (written? ", ...": "...");
+            return;
+        }
+        budget--;
+
+        if (written++)
+            out << ", ";
+
+        describeValue(*it, out, depth, budget);
+    }
+}
+
+void describeValue(const Json &j, ostringstream &out, int depth, size_t &budget)
+{
+    if (j.is_object())
+    {
+        out << "{" << j.size();
+        if (!j.empty() && depth + 1 < MaxDescribeDepth)
+        {
+            out << ": ";
+            describeMembers(j, out, depth + 1, budget);
+        }
+        out << "}";
+        return;
+    }
+
+    if (j.is_array())
+    {
+        out << "[" << j.size();
+        if (!j.empty() && depth + 1 < MaxDescribeDepth)
+        {
+            out << ": ";
+            describeItems(j, out, depth + 1, budget);
+        }
+        out << "]";
+        return;
+    }
+
+    const string v = j.is_string()? j.get<string>(): j.dump();
+    out << "[" << v.size() << "B]";
+}
+
+}
+
+string JsonApi::describeRequestForLog(const Json &jroot)
+{
+    //A null Json is what the two callers hold when a non throwing parse
+    //discarded the message, and there is nothing to describe about it.
+    if (jroot.is_null() || jroot.is_discarded())
+        return string();
+
+    ostringstream out;
+    size_t budget = MaxDescribeEntries;
+
+    out << "api request ";
+    describeValue(jroot, out, 0, budget);
+
+    /* Two bodies that differ only in what is withheld must not render the same
+     * line, or a journal cannot say which request it is looking at. The error
+     * handler is not decoration: dump() throws type_error.316 on a byte that is
+     * not UTF-8, and this function is public and static. The two callers hand a
+     * parsed document, which cannot hold one - a third caller building a Json
+     * from bytes of its own could, on a path that runs before the credentials
+     * are checked. Nothing valid changes byte. */
+    out << " #" << Utils::logTag(jroot.dump(-1, ' ', false,
+                                            Json::error_handler_t::replace));
+
+    return out.str();
+}
 
 JsonApi::JsonApi(HttpClient *client):
     httpClient(client)
@@ -39,19 +883,33 @@ JsonApi::~JsonApi()
 {
 }
 
-void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
+const vector<string> &JsonApi::ioProjectionParams()
 {
-    vector<string> params =
+    /* The published scenario marker is the definition uid, not `auto_scenario`.
+     * The legacy key survives on IOs the server no longer treats as scenarios
+     * at all - and on the internal IOs of every scenario - so publishing it
+     * names something the API cannot be asked about.
+     */
+    static const vector<string> params =
     { "id", "name", "type", "hits", "var_type", "visible",
       "chauffage_id", "rw", "unit", "gui_type", "state",
-      "auto_scenario", "step", "io_type", "io_style",
+      AutoScenarioDef::KEY_UID, "step", "io_type", "io_style",
       "value_warning" };
 
-    for (string &param: params)
+    return params;
+}
+
+void JsonApi::buildJsonIO(IOBase *io, Json &jio, IoProjection projection)
+{
+    const bool device = (projection == IoProjection::DeviceConfig);
+
+    for (const string &param: ioProjectionParams())
     {
         string value;
 
-        if (param == "state")
+        //The screen gets its states from remote_ui_io_states, so on its
+        //transport these two are read as plain params like any other.
+        if (!device && param == "state")
         {
             if (io->get_type() == TINT)
                 value = Utils::to_string(io->get_value_double());
@@ -60,7 +918,7 @@ void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
             else if (io->get_type() == TSTRING)
                 value = io->get_value_string();
         }
-        else if (param == "var_type")
+        else if (!device && param == "var_type")
         {
             if (io->get_type() == TINT) value = "float";
             else if (io->get_type() == TBOOL) value = "bool";
@@ -71,79 +929,106 @@ void JsonApi::buildJsonIO(IOBase *io, json_t *jio)
             if (!io->get_params().Exists(param))
                 continue;
             value = io->get_param(param);
+
+            //A param that exists and is empty is a key on 5454 and no key at
+            //all for the screen.
+            if (device && value.empty())
+                continue;
         }
 
-        json_object_set_new(jio, param.c_str(),
-                            json_string(value.c_str()));
+        /* E4.1m. THE `continue` ABOVE IS THE CONTRACT: an absent param emits NO
+         * KEY, never a null and never an empty string. This assignment is only
+         * ever reached for a param that exists, or for the two computed ones.
+         *
+         * value is passed WHOLE here, where json_string(value.c_str()) used to
+         * stop at the first NUL and answer NULL outright on invalid UTF-8 -
+         * and neither its return code nor json_object_set_new()'s was tested,
+         * so the pair vanished from the payload in silence. Pinned by the R_
+         * and Z_ cases of core/JsonApiModelWireBytes_test.
+         */
+        jio[param] = value;
     }
 
-    auto jstatus = buildJsonStatusInfo(io);
-    if (jstatus)
-        json_object_set_new(jio, "status_info", jstatus);
+    //status_info has never been on the config payload, and it is a nested
+    //object: adding it would change what an already shipped screen receives.
+    if (device)
+        return;
+
+    //The one typed object of an IO item: numbers and booleans are real JSON.
+    if (Device *dev = dynamic_cast<Device *>(io))
+        jio["device"] = dev->deviceObject();
+
+    //A null Json means "this IO has no status info" - NOT an empty object,
+    //which is truthy and would add "status_info":{} to every IO of the API.
+    Json jstatus = buildJsonStatusInfo(io);
+    if (!jstatus.is_null())
+        jio["status_info"] = jstatus;
 }
 
-json_t *JsonApi::buildJsonRoomIO(Room *room)
+Json JsonApi::buildJsonRoomIO(Room *room)
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     for (int i = 0;i < room->get_size();i++)
     {
-        json_t *jio = json_object();
+        Json jio = Json::object();
         IOBase *io = room->get_io(i);
 
         buildJsonIO(io, jio);
 
-        json_array_append_new(jdata, jio);
+        jdata.emplace_back(std::move(jio));
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildJsonHome()
+Json JsonApi::buildJsonHome()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     for (Room *room: ListeRoom::Instance().getRoomsByHits())
     {
-        json_t *jroom = json_object();
+        Json jroom = Json::object();
 
-        json_t *jitems = buildJsonRoomIO(room);
+        Json jitems = buildJsonRoomIO(room);
 
-        json_object_set_new(jroom, "type", json_string(room->get_type().c_str()));
-        json_object_set_new(jroom, "name", json_string(room->get_name().c_str()));
-        json_object_set_new(jroom, "hits", json_string(Utils::to_string(room->get_hits()).c_str()));
-        json_object_set_new(jroom, "items", jitems);
+        //hits STAYS A STRING. Zero json_integer() in this file, and the oracle
+        //of the whole E4.0 series is type strict: 3 is not "3".
+        jroom["type"] = room->get_type();
+        jroom["name"] = room->get_name();
+        jroom["hits"] = Utils::to_string(room->get_hits());
+        jroom["items"] = std::move(jitems);
 
-        json_array_append_new(jdata, jroom);
+        jdata.emplace_back(std::move(jroom));
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildFlatIOList()
+Json JsonApi::buildFlatIOList()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     for (int iroom = 0;iroom < ListeRoom::Instance().size();iroom++)
     {
         Room *room = ListeRoom::Instance().get_room(iroom);
         for (int i = 0;i < room->get_size();i++)
         {
-            json_t *jio = json_object();
+            Json jio = Json::object();
             IOBase *io = room->get_io(i);
 
             buildJsonIO(io, jio);
 
-            json_array_append_new(jdata, jio);
+            jdata.emplace_back(std::move(jio));
         }
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildJsonCameras()
+Json JsonApi::buildJsonCameras()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     list<IOBase *> camlist = ListeRoom::Instance().getCameraList();
 
@@ -153,27 +1038,28 @@ json_t *JsonApi::buildJsonCameras()
         IPCam *camera = dynamic_cast<IPCam *>(io);
         if (!camera) continue;
 
-        json_t *jcam = json_object();
-        json_object_set_new(jcam, "id", json_string(camera->get_param("id").c_str()));
-        json_object_set_new(jcam, "name", json_string(camera->get_param("name").c_str()));
-        json_object_set_new(jcam, "type", json_string(camera->get_param("type").c_str()));
+        Json jcam = Json::object();
+        jcam["id"] = camera->get_param("id");
+        jcam["name"] = camera->get_param("name");
+        jcam["type"] = camera->get_param("type");
         Params caps = camera->getCapabilities();
+        //THE WORD "true", not the JSON literal. Same reason as hits above.
         if (caps["ptz"] == "true")
-            json_object_set_new(jcam, "ptz", json_string("true"));
+            jcam["ptz"] = "true";
         else
-            json_object_set_new(jcam, "ptz", json_string("false"));
+            jcam["ptz"] = "false";
 
         cpt++;
 
-        json_array_append_new(jdata, jcam);
+        jdata.emplace_back(std::move(jcam));
     }
 
     return jdata;
 }
 
-json_t *JsonApi::buildJsonAudio()
+Json JsonApi::buildJsonAudio()
 {
-    json_t *jdata = json_array();
+    Json jdata = Json::array();
 
     list<IOBase *> audiolist = ListeRoom::Instance().getAudioList();
 
@@ -182,18 +1068,21 @@ json_t *JsonApi::buildJsonAudio()
         AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
         if (!player) continue;
 
-        json_t *jaudio = json_object();
-        json_object_set_new(jaudio, "id", json_string(player->get_param("id").c_str()));
-        json_object_set_new(jaudio, "name", json_string(player->get_param("name").c_str()));
-        json_object_set_new(jaudio, "type", json_string(player->get_param("type").c_str()));
+        Json jaudio = Json::object();
+        jaudio["id"] = player->get_param("id");
+        jaudio["name"] = player->get_param("name");
+        jaudio["type"] = player->get_param("type");
 
-        json_object_set_new(jaudio, "playlist", json_string(player->canPlaylist()?"true":"false"));
-        json_object_set_new(jaudio, "database", json_string(player->canDatabase()?"true":"false"));
+        //Four capability flags, all of them WORDS. A real JSON boolean here
+        //would break every client that compares them to the string "true".
+        jaudio["playlist"] = player->canPlaylist()?"true":"false";
+        jaudio["database"] = player->canDatabase()?"true":"false";
 
+        //Optional: absent param, absent key. Never null, never "".
         if (player->get_params().Exists("amp"))
-            json_object_set_new(jaudio, "avr", json_string(player->get_param("amp").c_str()));
+            jaudio["avr"] = player->get_param("amp");
 
-        json_array_append_new(jdata, jaudio);
+        jdata.emplace_back(std::move(jaudio));
 
         //don't query detailed player infos here, other informations need to be queried to the squeezecenter
         //so the get_home request will be delayed by all the squeezecenter's requests.
@@ -203,9 +1092,27 @@ json_t *JsonApi::buildJsonAudio()
     return jdata;
 }
 
-void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)> result_lambda)
+void JsonApi::buildJsonState(vector<string> iolist, std::function<void(Json)> result_lambda)
 {
-    json_t *jio = json_object();
+    /* The audio-player part below is asynchronous (squeezebox answers come back
+     * later on the loop), so the document being filled is SHARED between the
+     * player chains and the completion: it stays behind a shared_ptr.
+     *
+     * E4.1n: what the shared_ptr no longer carries is a REFCOUNT. The jansson
+     * version needed json_decref as a deleter and an explicit json_incref to
+     * hand the result over; with a Json the container owns its subtree, the
+     * result goes out BY VALUE, and there is nothing left to release on any
+     * path - including the one where the callback is never invoked at all.
+     * The T2.15 leak (json_object_set instead of _new, one reference lost per
+     * state built) cannot be written any more.
+     *
+     * Json::object() and NOT `Json sjio;`: a default-constructed Json is
+     * `null`, not `{}`, and an empty state answered as null would be a silent
+     * change of document that no golden can see (they compare parsed
+     * documents; null and {} are both valid). Pinned by
+     * core/JsonApiStateWireBytes_test.
+     */
+    auto sjio = std::make_shared<Json>(Json::object());
     list<AudioPlayer *> audioplayers;
 
     for (string ioid: iolist)
@@ -215,12 +1122,17 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
 
         if (io->get_param("gui_type") != "audio_player")
         {
+            //Everything leaves as a STRING, int and double included: the
+            //oracle of the golden suite is type-strict (3 != "3") and a real
+            //JSON number here would break every client. std::string and not
+            //c_str(): jansson truncated a value at an embedded NUL in silence,
+            //this does not.
             if (io->get_type() == TBOOL)
-                json_object_set_new(jio, ioid.c_str(), json_string(io->get_value_bool()?"true":"false"));
+                (*sjio)[ioid] = io->get_value_bool()?"true":"false";
             else if (io->get_type() == TINT)
-                json_object_set_new(jio, ioid.c_str(), json_string(Utils::to_string(io->get_value_double()).c_str()));
+                (*sjio)[ioid] = Utils::to_string(io->get_value_double());
             else if (io->get_type() == TSTRING)
-                json_object_set_new(jio, ioid.c_str(), json_string(io->get_value_string().c_str()));
+                (*sjio)[ioid] = io->get_value_string();
         }
         else
         {
@@ -232,37 +1144,81 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
     string uuid = Utils::createRandomUuid();
     playerCounts[uuid] = 0;
 
+    //Destruction guard: this JsonApi dies with its client connection while
+    //squeezebox answers may still be in flight. Every async callback checks
+    //the token before touching this/playerCounts or calling result_lambda
+    //(which captures raw handler pointers). Same pattern as
+    //JsonApiHandlerHttp::handlerAlive.
+    std::weak_ptr<bool> alive = apiAlive;
+
+    //One player chain is done (or aborted): decrement the pending count and
+    //send the answer when it was the last one. Only call with alive checked.
+    auto finishOne = [this, uuid, result_lambda, sjio]()
+    {
+        playerCounts[uuid] = playerCounts[uuid] - 1;
+
+        if (playerCounts[uuid] <= 0)
+        {
+            playerCounts.erase(uuid);
+            result_lambda(*sjio);
+        }
+    };
+
     for (AudioPlayer *player: audioplayers)
     {
         playerCounts[uuid] = playerCounts[uuid] + 1;
 
-        json_t *jplayer = json_object();
+        //The player IO can be deleted through the API while a request is in
+        //flight: never keep the raw pointer across an async boundary, look
+        //it up again by id at each step instead.
+        const string playerId = player->get_param("id");
+        auto playerById = [playerId]() -> AudioPlayer *
+        {
+            return dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
+        };
+
+        auto sjplayer = std::make_shared<Json>(Json::object());
+
         player->get_playlist_current([=](AudioPlayerData data1)
         {
-            json_object_set_new(jplayer,
-                                "playlist_current_track",
-                                json_string(Utils::to_string(data1.ivalue).c_str()));
+            if (alive.expired()) return;
 
-            player->get_volume([=](AudioPlayerData data2)
+            (*sjplayer)["playlist_current_track"] = Utils::to_string(data1.ivalue);
+
+            AudioPlayer *p1 = playerById();
+            if (!p1) { finishOne(); return; }
+
+            p1->get_volume([=](AudioPlayerData data2)
             {
-                json_object_set_new(jplayer,
-                                    "volume",
-                                    json_string(Utils::to_string(data2.ivalue).c_str()));
+                if (alive.expired()) return;
 
-                player->get_playlist_size([=](AudioPlayerData data3)
+                (*sjplayer)["volume"] = Utils::to_string(data2.ivalue);
+
+                AudioPlayer *p2 = playerById();
+                if (!p2) { finishOne(); return; }
+
+                p2->get_playlist_size([=](AudioPlayerData data3)
                 {
-                    json_object_set_new(jplayer,
-                                        "playlist_size",
-                                        json_string(Utils::to_string(data3.ivalue).c_str()));
+                    if (alive.expired()) return;
 
-                    player->get_current_time([=](AudioPlayerData data4)
+                    (*sjplayer)["playlist_size"] = Utils::to_string(data3.ivalue);
+
+                    AudioPlayer *p3 = playerById();
+                    if (!p3) { finishOne(); return; }
+
+                    p3->get_current_time([=](AudioPlayerData data4)
                     {
-                        json_object_set_new(jplayer,
-                                            "time_elapsed",
-                                            json_string(Utils::to_string(data4.dvalue).c_str()));
+                        if (alive.expired()) return;
 
-                        player->get_status([=](AudioPlayerData data5)
+                        (*sjplayer)["time_elapsed"] = Utils::to_string(data4.dvalue);
+
+                        AudioPlayer *p4 = playerById();
+                        if (!p4) { finishOne(); return; }
+
+                        p4->get_status([=](AudioPlayerData data5)
                         {
+                            if (alive.expired()) return;
+
                             string status;
                             switch (data5.ivalue)
                             {
@@ -274,37 +1230,35 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
                             case AudioSongChange: status = "song_change"; break;
                             }
 
-                            json_object_set_new(jplayer,
-                                                "status",
-                                                json_string(status.c_str()));
+                            (*sjplayer)["status"] = status;
 
-                            json_t *jtrack = json_object();
-                            player->get_songinfo([=](AudioPlayerData data6)
+                            AudioPlayer *p5 = playerById();
+                            if (!p5) { finishOne(); return; }
+
+                            auto sjtrack = std::make_shared<Json>(Json::object());
+                            p5->get_songinfo([=](AudioPlayerData data6)
                             {
+                                if (alive.expired()) return;
+
                                 Params &infos = data6.params;
                                 for (int i = 0;i < infos.size();i++)
                                 {
                                     string inf_key, inf_value;
                                     infos.get_item(i, inf_key, inf_value);
 
-                                    json_object_set_new(jtrack,
-                                                        inf_key.c_str(),
-                                                        json_string(inf_value.c_str()));
+                                    (*sjtrack)[inf_key] = inf_value;
                                 }
 
-                                json_object_set_new(jplayer,
-                                                    "current_track",
-                                                    jtrack);
+                                //A copy of the subtree, owned by its parent.
+                                //The reference dance of T2.15 (json_object_set
+                                //rather than _new, so the shared_ptr keeps its
+                                //own reference) has no equivalent and needs
+                                //none.
+                                (*sjplayer)["current_track"] = *sjtrack;
 
                                 //Add player to array, and send data back if all players requests are done.
-                                json_object_set(jio, player->get_param("id").c_str(), jplayer);
-                                playerCounts[uuid] = playerCounts[uuid] - 1;
-
-                                if (playerCounts[uuid] <= 0)
-                                {
-                                    playerCounts.erase(uuid);
-                                    result_lambda(jio);
-                                }
+                                (*sjio)[playerId] = *sjplayer;
+                                finishOne();
                             });
                         });
                     });
@@ -317,12 +1271,24 @@ void JsonApi::buildJsonState(vector<string> iolist, std::function<void(json_t *)
     if (playerCounts[uuid] == 0)
     {
         playerCounts.erase(uuid);
-        result_lambda(jio);
+        result_lambda(*sjio);
     }
 }
 
-void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *)> result_lambda)
+void JsonApi::buildJsonStates(const Params &jParam, std::function<void (Json)> result_lambda)
 {
+    /* E4.1n: jansson_from_params() -> Params::toJson(), which is Json(map).
+     * Two consequences, both declared:
+     *   - the key order does NOT move. Params IS a std::map, so the jansson
+     *     adapter already walked it alphabetically, and so does nlohmann.
+     *   - a pair whose VALUE is invalid UTF-8 stops DISAPPEARING. json_string()
+     *     answered NULL, json_object_set_new() answered -1, and neither return
+     *     code was ever tested (the adapter's own header says so): the client
+     *     silently received one pair fewer. It now arrives, with one U+FFFD per
+     *     invalid byte, written by the emitter's error handler.
+     * An empty Params answers {} and not null: Json(std::map) builds an OBJECT,
+     * measured, and core/JsonApiStateWireBytes_test pins it.
+     */
     Params res;
 
     if (jParam.Exists("id"))
@@ -362,7 +1328,7 @@ void JsonApi::buildJsonStates(const Params &jParam, std::function<void (json_t *
     result_lambda(res.toJson());
 }
 
-void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> result_lambda)
+void JsonApi::buildQuery(const Params &jParam, std::function<void (Json)> result_lambda)
 {
     Params res;
 
@@ -384,7 +1350,29 @@ void JsonApi::buildQuery(const Params &jParam, std::function<void (json_t *)> re
     result_lambda(res.toJson());
 }
 
-json_t *JsonApi::buildJsonGetParam(const Params &jParam)
+/* E4.1o. ⛔ THE ONE PLACE WHERE THE HAZARD OF E4.0 BECOMES REACHABLE.
+ *
+ * jParam["param"] is a CLIENT SUPPLIED STRING that this function uses as a
+ * KEY and re-emits. Over HTTP it can carry ARBITRARY BYTES: hef::HfURISyntax
+ * percent-decodes the query before HttpClient.cpp:328-337 splits it, so
+ * `?action=get_param&id=<io>&param=%ff%80x` puts FF 80 'x' in there.
+ *
+ * While this answered a json_t*, jansson refused the key (json_string() ->
+ * NULL, json_object_set_new() -> -1, neither tested) and the client got 200
+ * with a SILENTLY TRUNCATED {}. Now that it answers a Json, nlohmann takes
+ * those bytes into the tree without a word and dump() throws type_error.316 -
+ * std::terminate on a live connection, since nothing catches above
+ * processApi(). The only reason it does not is error_handler_t::replace on
+ * both emitters (JsonApiHandlerHttp.cpp:271, JsonApiHandlerWS.cpp:105).
+ * E4.1b installed it FOR THIS TICKET. Do not remove it, and do not add a
+ * try/catch here instead: the handler treats the cause.
+ *
+ * BEHAVIOUR CHANGE, ASSUMED (user decision of 2026-08-17, declared in
+ * RELEASE_NOTES.md): the pair is no longer DROPPED, it is KEPT with one
+ * U+FFFD per invalid byte. A client that used to lose the param silently now
+ * sees it, mangled and visible.
+ */
+Json JsonApi::buildJsonGetParam(const Params &jParam)
 {
     bool success = true;
     Params ret;
@@ -401,9 +1389,15 @@ json_t *JsonApi::buildJsonGetParam(const Params &jParam)
     return ret.toJson();
 }
 
-json_t *JsonApi::buildJsonSetParam(const Params &jParam)
+/* E4.1o. ⛔ READ THE ANSWER AS A DOCUMENT, NEVER AS A BOOLEAN.
+ * LuaScript/ScriptExec.cpp calls this one outside of any handler; `if (!ret)`
+ * on a Json compiles silently and throws type_error.302 on the event loop.
+ * The failure is in the document: {"error":"wrong io/param"}.
+ */
+Json JsonApi::buildJsonSetParam(const Params &jParam)
 {
     bool success = true;
+    bool refused = false;
     Params ret;
 
     IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
@@ -413,17 +1407,28 @@ json_t *JsonApi::buildJsonSetParam(const Params &jParam)
     {
         if (jParam["param"].empty() || jParam["value"].empty())
             success = false;
+        else if (isDerivedScenarioParam(jParam["param"]) ||
+                 !o->set_param(jParam["param"], jParam["value"]))
+        {
+            /* A refusal gets its own message: "wrong io/param" means the IO or
+             * the param was not FOUND, and a client retrying on that would
+             * look for the wrong cause. No EventIOChanged either - announcing
+             * a change that did not happen is what made this silent.
+             */
+            refused = true;
+            success = false;
+        }
         else
         {
-            o->set_param(jParam["param"], jParam["value"]);
-
             EventManager::create(CalaosEvent::EventIOChanged,
             { { "id", o->get_param("id") },
               { jParam["param"], jParam["value"] } });
         }
     }
 
-    if (!success)
+    if (refused)
+        ret = {{ "error", "param refused" }};
+    else if (!success)
         ret = {{ "error", "wrong io/param" }};
     else
         ret = {{ "success", "true" }};
@@ -431,9 +1436,10 @@ json_t *JsonApi::buildJsonSetParam(const Params &jParam)
     return ret.toJson();
 }
 
-json_t *JsonApi::buildJsonDelParam(const Params &jParam)
+Json JsonApi::buildJsonDelParam(const Params &jParam)
 {
     bool success = true;
+    bool refused = false;
     Params ret;
 
     IOBase *o = ListeRoom::Instance().get_io(jParam["id"]);
@@ -443,17 +1449,29 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     {
         if (jParam["param"].empty())
             success = false;
+        /* Through IOBase and not through the mutable Params it hands out:
+         * the immutability of "id" is a rule of the model, and reaching past
+         * the model is what made it unreachable from both transports. */
+        else if (isDerivedScenarioParam(jParam["param"]) ||
+                 !o->del_param(jParam["param"]))
+        {
+            //The two messages of buildJsonSetParam(), and for its reason:
+            //"wrong io/param" means NOT FOUND, and a client retrying on that
+            //would look for the wrong cause.
+            refused = true;
+            success = false;
+        }
         else
         {
-            o->get_params().Delete(jParam["param"]);
-
             EventManager::create(CalaosEvent::EventIOPropertyDelete,
             { { "id", o->get_param("id") },
               { "param", jParam["param"] } });
         }
     }
 
-    if (!success)
+    if (refused)
+        ret = {{ "error", "param refused" }};
+    else if (!success)
         ret = {{ "error", "wrong io/param" }};
     else
         ret = {{ "success", "true" }};
@@ -461,35 +1479,112 @@ json_t *JsonApi::buildJsonDelParam(const Params &jParam)
     return ret.toJson();
 }
 
-json_t *JsonApi::buildJsonGetIO(vector<string> iolist)
+Json JsonApi::buildJsonGetIO(vector<string> iolist)
 {
-    json_t *jret = json_object();
+    Json jret = Json::object();
 
     for (string ioid: iolist)
     {
         IOBase *io = ListeRoom::Instance().get_io(ioid);
         if (io)
         {
-            json_t *jio = json_object();
+            Json jio = Json::object();
             buildJsonIO(io, jio);
 
-            json_object_set_new(jret, ioid.c_str(), jio);
+            //An id the tree does not know is SKIPPED, not answered as null:
+            //the `if` above is the contract, pinned by E4.0b.
+            jret[ioid] = std::move(jio);
         }
     }
 
     return jret;
 }
 
-bool JsonApi::decodeSetState(Params &jParam)
+/* T3.25. THE API BOUNDARY, and it is the belt to from_string()'s braces.
+ *
+ * A set_state value reaches io->set_value(std::string) VERBATIM (:774 and
+ * :777 below). Every IO of the tree that understands a "<command> <argument>"
+ * form parses that argument as a NUMBER and throws the return code away:
+ * "impulse up " / "impulse down " (OutputShutter, OutputShutterSmart),
+ * "set ", "set off ", "up ", "down ", "impulse " (OutputLightDimmer,
+ * OutputLightRGB), "inc ", "dec " (Internal, OutputAnalog). A value that
+ * carries the command and then STOPS ON ITS SEPARATOR is one of those
+ * commands with its argument missing - and that is precisely the payload that
+ * made an OutputShutter arm an impulse on an indeterminate int (T3.25 §2).
+ *
+ * from_string() no longer leaves a destination unwritten, so such a request
+ * would now be executed with a 0 instead of with rubbish. That is defined, but
+ * it is still NOT WHAT THE CLIENT ASKED FOR, and it would stay defined only as
+ * long as every future caller keeps using from_string(). Refusing the shape
+ * here does not depend on that.
+ *
+ * ⚠️ THE COST, stated rather than discovered: the rule is grammar free, so it
+ * also refuses a TEXT value that ends in whitespace ("note " on an
+ * InternalString). That is a real, deliberate narrowing - pinned by
+ * core/SetStateGarbage_test::AValueEndingInWhitespaceIsRefusedForEveryIoType
+ * and written up in RELEASE_NOTES. The alternative, a list of the command
+ * prefixes that take an argument, was rejected: it would have had to be kept
+ * in step with every IO grammar and would protect nothing a future one adds.
+ *
+ * The refusal reuses set_state's own vocabulary, {"success":"false"}. No new
+ * error shape, per the T3.17 rule.
+ */
+static bool setStateValueLostItsArgument(const string &value)
+{
+    //T3.25 (review): the SET comes from Utils::BLANK_CHARS, shared with
+    //from_string_unless_blank(), so the two can never drift apart. The
+    //QUESTION stays this function's own: not "is it blank" but "does it END
+    //on a blank".
+    static const string blanks = Utils::BLANK_CHARS;
+    return !value.empty() && blanks.find(value[value.size() - 1]) != string::npos;
+}
+
+//A trailing tab and a trailing newline are different mistakes to whoever wrote
+//the client, and the vocabulary is closed to Utils::BLANK_CHARS.
+static const char *blankName(char c)
+{
+    switch (c)
+    {
+    case ' ': return "SP";
+    case '\t': return "TAB";
+    case '\n': return "LF";
+    case '\v': return "VT";
+    case '\f': return "FF";
+    case '\r': return "CR";
+    default: return "?";
+    }
+}
+
+bool JsonApi::decodeSetState(Params &jParam, const char *source)
 {
     bool success = true;
 
     IOBase *io = ListeRoom::Instance().get_io(jParam["id"]);
     if (!io)
         success = false;
+    else if (setStateValueLostItsArgument(jParam["value"]))
+    {
+        /* The SHAPE of the value, not its bytes: set_state writes any value of
+         * any io and this level prints on a box nobody configured. A refusal
+         * owes which io, which command and why - the length and the blank it
+         * stopped on say why, and the tag tells two refusals of one value from
+         * two of different ones. The io id stays in clear because get_io() has
+         * just matched it: a name of this install's configuration, not a string
+         * the client invented.
+         */
+        const string value = jParam["value"];
+        cWarningDom("network") << "set_state refused for io " << jParam["id"]
+                               << ": the value ends on its separator ("
+                               << value.size() << "B, ends on "
+                               << blankName(value[value.size() - 1]) << ") #"
+                               << Utils::logTag(value) << ", which is a command "
+                               << "with no argument";
+        success = false;
+    }
     else
     {
         success = false;
+        Device::writtenFromOutside(*io, source);
 
         if (io->get_type() == TBOOL)
         {
@@ -504,85 +1599,178 @@ bool JsonApi::decodeSetState(Params &jParam)
     return success;
 }
 
-void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(json_t *)>result_lambda)
+//The one answer get_playlist gives when it cannot produce a playlist: the
+//requested IO is not (or no longer) an audio player. Shared by the entry point
+//and by the async stages, so a player deleted mid-flight gives the client the
+//SAME answer as an unknown id - never a playlist silently missing its tail.
+static Json playlistNoPlayerAnswer()
 {
-    IOBase *io = ListeRoom::Instance().get_io(jParam["id"]);
+    return Json{{ "success", "false" }};
+}
+
+/* E4.1p. THE DOCUMENT IS NOW A VALUE, AND THAT IS THE WHOLE POINT.
+ *
+ * jansson gave this chain a refcounted pointer that every stage could share,
+ * at the price of three json_decref() on the guarded paths - one per stage,
+ * each of them the only thing standing between a client disconnection and a
+ * leaked partial answer. A Json OWNS its subtree, so those three releases have
+ * no successor: the closure that held the document dies with the callback and
+ * takes the document with it.
+ *
+ * ⛔ NOT a Json&. The ticket sheet is explicit and it is right: a reference
+ * would have to outlive an ASYNCHRONOUS round trip, and the only frame that
+ * could own it is the one that returns immediately after arming the callback.
+ * That is a use after free, not a slow path. The document therefore travels
+ * BY VALUE, moved from one stage into the next (see getNextPlaylistItem()).
+ */
+void JsonApi::decodeGetPlaylist(Params &jParam, std::function<void(const Json &)>result_lambda)
+{
+    const string playerId = jParam["id"];
+    IOBase *io = ListeRoom::Instance().get_io(playerId);
     AudioPlayer *player = dynamic_cast<AudioPlayer *>(io);
 
     if (!player)
     {
-        json_t *jret = json_object();
-        json_object_set_new(jret, "success", json_string("false"));
-        result_lambda(jret);
+        result_lambda(playlistNoPlayerAnswer());
         return;
     }
 
-    json_t *jplayer = json_object();
+    /* Destruction guard: this JsonApi dies with its client connection
+     * (HttpClient::~HttpClient() deletes the handler, base sub-object
+     * included) while player answers may still be in flight. Every async
+     * callback of the chain checks the token before touching this or calling
+     * result_lambda, which captures raw handler pointers. Same pattern as
+     * buildJsonState() (T2.15) and JsonApiHandlerHttp::handlerAlive.
+     */
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_playlist_current([=](AudioPlayerData data)
     {
-        json_object_set_new(jplayer,
-                            "current_track",
-                            json_string(Utils::to_string(data.ivalue).c_str()));
+        if (alive.expired()) return;
 
-        player->get_playlist_size([=](AudioPlayerData data1)
+        //Built HERE rather than before the call: with a value there is nothing
+        //to allocate up front and nothing to release on the guarded path.
+        Json jplayer = Json::object();
+        jplayer["current_track"] = Utils::to_string(data.ivalue);
+
+        //The player IO can be deleted through the API while a request is in
+        //flight: never keep the raw pointer across an async boundary, look it
+        //up again by id at each step instead.
+        AudioPlayer *p1 = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
+        if (!p1)
         {
-            json_object_set_new(jplayer,
-                                "count",
-                                json_string(Utils::to_string(data1.ivalue).c_str()));
+            result_lambda(playlistNoPlayerAnswer());
+            return;
+        }
+
+        /* Explicit capture list, and `mutable`: the document is MOVED into the
+         * closure instead of copied, and the closure has to be allowed to
+         * write to it. `this` is captured by name because the recursion below
+         * is a member call - it was captured implicitly by the old [=] and the
+         * apiAlive token above is what makes it safe, unchanged.
+         */
+        p1->get_playlist_size([this, alive, playerId, result_lambda,
+                               jplayer = std::move(jplayer)](AudioPlayerData data1) mutable
+        {
+            if (alive.expired()) return;
+
+            jplayer["count"] = Utils::to_string(data1.ivalue);
 
             int it_count = data1.ivalue;
             if (it_count <= 0)
             {
-                json_object_set_new(jplayer, "items", json_array());
+                jplayer["items"] = Json::array();
                 result_lambda(jplayer);
             }
             else
-                getNextPlaylistItem(player, jplayer, json_array(), 0, it_count, result_lambda);
+                //getNextPlaylistItem() looks the player up itself
+                getNextPlaylistItem(playerId, std::move(jplayer), Json::array(),
+                                    0, it_count, result_lambda);
         });
     });
 }
 
-void JsonApi::getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count, std::function<void(json_t *)>result_lambda)
+/* E4.1p. THE RECURSIVE, ASYNCHRONOUS STAGE - the one place of this epic where
+ * a document has to survive a network round trip AND a self call.
+ *
+ * ⛔ BY VALUE, AND MOVED. Both documents are taken by value, moved into the
+ * closure, and moved again into the next recursion. The move is what keeps
+ * this linear: taken by value and captured with [=], every stage would deep
+ * copy an array that grows with the playlist, i.e. O(N^2) node copies on a
+ * library playlist of a few thousand tracks - a real cost that jansson's
+ * refcount did not have.
+ *
+ * A Json& taken instead would be a use after free: the only frame that could
+ * own the referent is the caller's, and the caller returns as soon as
+ * get_playlist_item() has armed its callback. Nothing crashes on the
+ * SYNCHRONOUS unroll of a test fake, which is exactly why the deferred cases
+ * of tests/core/JsonApiAudioWireBytes_test.cpp drive the stages one at a time.
+ *
+ * The three json_decref() this function used to carry are gone with the
+ * pointer: the closure owns its two documents and destroys them when the
+ * player releases the callback, on the guarded path as on any other.
+ */
+void JsonApi::getNextPlaylistItem(const string &playerId, Json jplayer, Json jplaylist, int it_current, int it_count, std::function<void(const Json &)>result_lambda)
 {
-    player->get_playlist_item(it_current, [=](AudioPlayerData data)
+    //Entered either from decodeGetPlaylist() or from the recursion below, in
+    //both cases right after an alive check, so this is safe to touch.
+    AudioPlayer *player = dynamic_cast<AudioPlayer *>(ListeRoom::Instance().get_io(playerId));
+    if (!player)
     {
-        json_t *jtrack = json_object();
+        //The IO went away between two items. The client is still there and
+        //must get an answer, but not a truncated playlist.
+        result_lambda(playlistNoPlayerAnswer());
+        return;
+    }
+
+    //One check per stage: a chain of N callbacks needs N checks, not one at
+    //the top. Here N is the length of the playlist.
+    std::weak_ptr<bool> alive = apiAlive;
+
+    player->get_playlist_item(it_current,
+                              [this, alive, playerId, it_current, it_count, result_lambda,
+                               jplayer = std::move(jplayer),
+                               jplaylist = std::move(jplaylist)](AudioPlayerData data) mutable
+    {
+        if (alive.expired())
+            return;
+
+        Json jtrack = Json::object();
         Params &infos = data.params;
         for (int i = 0;i < infos.size();i++)
         {
             string inf_key, inf_value;
             infos.get_item(i, inf_key, inf_value);
 
-            json_object_set_new(jtrack,
-                                inf_key.c_str(),
-                                json_string(inf_value.c_str()));
+            jtrack[inf_key] = inf_value;
         }
 
-        json_array_append_new(jplaylist, jtrack);
+        jplaylist.push_back(std::move(jtrack));
 
         int idx = it_current + 1;
         if (idx >= it_count)
         {
             //all track are queried, send back data
-            json_object_set_new(jplayer,
-                                "items",
-                                jplaylist);
+            jplayer["items"] = std::move(jplaylist);
             result_lambda(jplayer);
         }
         else
         {
-            getNextPlaylistItem(player, jplayer, jplaylist, idx, it_count, result_lambda);
+            getNextPlaylistItem(playerId, std::move(jplayer), std::move(jplaylist),
+                                idx, it_count, result_lambda);
         }
     });
 }
 
-AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
+/* E4.1p. The resolution itself, unchanged, extracted so that the two readers
+ * below cannot drift apart. Its two messages are wire contract, spelling
+ * included ("unkown").
+ */
+AudioPlayer *JsonApi::audioPlayerById(const string &id, string &err)
 {
     AudioPlayer *player = nullptr;
     err.clear();
 
-    string id = jansson_string_get(jdata, "id");
     if (id == "")
     {
         err = "empty player id";
@@ -598,117 +1786,251 @@ AudioPlayer *JsonApi::getAudioPlayer(json_t *jdata, string &err)
     return player;
 }
 
-void JsonApi::audioGetDbStats(json_t *jdata, std::function<void(json_t *)>result_lambda)
+AudioPlayer *JsonApi::getAudioPlayer(const Json &jdata, string &err)
+{
+    return audioPlayerById(jsonStringGet(jdata, "id"), err);
+}
+
+/* T3.19. AudioPlayer::database is a RAW POINTER the base constructor leaves
+ * NULL (AudioPlayer.cpp:28), get_database() (AudioPlayer.h:105) hands it back
+ * unguarded, and Squeezebox.cpp:81 is the ONLY assignment in the entire tree.
+ * The sixteen audio_db actions - audioGetDbStats() and the fifteen
+ * audioDbGet* - all dereferenced it with no check, so `audio_db` on any other
+ * concrete player (RoonPlayer, for one) was a SIGSEGV of calaos_server
+ * reachable by any AUTHENTICATED client. Not a malformed request: an UI that
+ * offers music browsing without reading the published capability first took the
+ * whole server down.
+ *
+ * THE TEST IS THE POINTER, NOT canDatabase(). The capability is a per class
+ * constant (AudioPlayer.h:101 false, Squeezebox.h:204 true, RoonPlayer.h:177
+ * false) whose only reader in the tree is buildJsonAudio() (:406), where it is
+ * merely PUBLISHED; the precondition of the dereference is
+ * `database != nullptr`, and the two are only accidentally equal today. Pinned
+ * from both sides in JsonApiInputGuards_test.cpp by a player that announces a
+ * database it does not own and one that owns a database it does not announce.
+ *
+ * NO HANDLER IS EDITED. Filtering on canDatabase() in the transports was
+ * considered and measured: 32 dispatch branches across JsonApiHandlerHttp.cpp
+ * and JsonApiHandlerWS.cpp, a duplicated getAudioPlayer() in both, and a new
+ * ordering invented between three refusals E4.0e froze - to cover the same 16
+ * call sites this one check covers on both transports.
+ *
+ * THE ANSWER REUSES THE EXISTING VOCABULARY (rule of the T3.17 series): these
+ * very methods already answer {"error": <message>} for an unknown player id and
+ * for bad paging arguments, and both transports already wrap such a document
+ * for an unknown audio_action (JsonApiHandlerWS.cpp:461,
+ * JsonApiHandlerHttp.cpp:862). NOT an empty item list, which would be
+ * indistinguishable from a database that really holds nothing - a mutilated
+ * answer is worse than a plain refusal.
+ *
+ * CALL IT IMMEDIATELY BEFORE THE DEREFERENCE, never at the top of the method.
+ * The from/count gate refuses first today and must keep refusing first, so that
+ * the only requests whose answer changes are the ones that used to kill the
+ * process.
+ */
+bool JsonApi::audioDbUnavailable(AudioPlayer *player,
+                                 const std::function<void(const Json &)> &result_lambda)
+{
+    if (player->get_database())
+        return false;
+
+    //E4.1q. Same single member document as before, built directly instead of
+    //through a one-entry Params: same key, same words, same bytes. The sixteen
+    //methods of the family share this refusal and a byte case asserts they
+    //still do (JsonApiMusicDbWireBytes_test.cpp).
+    result_lambda(Json{{ "error", "no music database" }});
+    return true;
+}
+
+void JsonApi::audioGetDbStats(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
+    /* Destruction guard, shared by the five single-shot player-state methods
+     * below. This JsonApi dies with its client connection
+     * (HttpClient::~HttpClient() deletes the handler, base sub-object included,
+     * HttpClient.cpp:162) while a player answer is still in flight, and
+     * result_lambda is the handler's own lambda capturing raw handler pointers.
+     * Same pattern as buildJsonState() (T2.15) and the playlist chain (T3.17a).
+     *
+     * One check is enough here, unlike the playlist chain: these are single
+     * shot, one round trip and one answer, no recursion. And nothing is
+     * allocated before the check, so the guarded branch has nothing to release
+     * - the json objects of these methods are all built after it, from the
+     * answer the player just gave.
+     */
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getStats([=](AudioPlayerData adata)
     {
+        if (alive.expired()) return;
+
         adata.params.Add("audio_action", "get_stats");
         result_lambda(adata.params.toJson());
     });
 }
 
-void JsonApi::audioGetPlaylistSize(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetPlaylistSize(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_playlist_size([=](AudioPlayerData adata)
     {
+        if (alive.expired()) return;
+
+        //Kept verbatim: this Add() writes into a Params the answer below does
+        //NOT use, so audio_action never reaches the client. Dead since T3.17b
+        //and pinned as such by the goldens - removing it is not this ticket's.
         adata.params.Add("audio_action", "get_playlist_size");
-        Params p = {{"playlist_size", Utils::to_string(adata.ivalue)}};
-        result_lambda(p.toJson());
+        //⛔ Utils::to_string(int) - a STRING, never a JSON number. The oracle
+        //of the goldens is type strict: 3 is not "3".
+        result_lambda(Json{{ "playlist_size", Utils::to_string(adata.ivalue) }});
     });
 }
 
-void JsonApi::audioGetTime(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetTime(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_current_time([=](AudioPlayerData adata)
     {
+        if (alive.expired()) return;
+
+        //Same dead Add() as audioGetPlaylistSize(), kept verbatim.
         adata.params.Add("audio_action", "get_time");
-        Params p = {{"time_elapsed", Utils::to_string(adata.dvalue)}};
-        result_lambda(p.toJson());
+        /* ⛔ Utils::to_string(double) IS A BARE OSTRINGSTREAM AND STAYS ONE.
+         * 1234.56789 leaves as "1234.57" and 123456789.0 as "1.23457e+08" -
+         * six significant digits, scientific notation past them. It looks like
+         * a bug and it is the contract: pinned by E4.0f goldens and, at the
+         * byte level, by JsonApiAudioWireBytes_test. Handing the double to
+         * nlohmann instead would change BOTH the formatting and the TYPE.
+         */
+        result_lambda(Json{{ "time_elapsed", Utils::to_string(adata.dvalue) }});
     });
 }
 
-void JsonApi::audioGetPlaylistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetPlaylistItem(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string it = jansson_string_get(jdata, "item");
+    //jsonStringGet() and not jdata["item"].get<string>(): a member that is not
+    //a JSON STRING must read as ABSENT here, exactly as jansson_string_get()
+    //made it, so that {"item":2} is still refused instead of throwing.
+    string it = jsonStringGet(jdata, "item");
     if (it.empty() || !Utils::is_of_type<int>(it))
     {
-        Params p = {{"error", "wrong item" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong item" }});
         return;
     }
 
     int item;
     Utils::from_string(it, item);
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_playlist_item(item, [=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(data.params.toJson());
     });
 }
 
-void JsonApi::audioGetCoverInfo(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioGetCoverInfo(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_album_cover([=](AudioPlayerData data)
     {
-        Params p = {{ "cover", data.svalue }};
-        result_lambda(p.toJson());
+        if (alive.expired()) return;
+
+        /* BEHAVIOUR CHANGE, ASSUMED - same one E4.1o declared for get_param.
+         * A cover URL comes back from the player and ultimately from a
+         * filesystem, which guarantees nothing about UTF-8. jansson dropped
+         * the whole pair on an invalid byte and answered {}; the emitter's
+         * error_handler_t::replace (E4.1b) now keeps it with one U+FFFD per
+         * bad byte. Pinned by JsonApiAudioWireBytes_test.
+         */
+        result_lambda(Json{{ "cover", data.svalue }});
     });
 }
 
-json_t *JsonApi::processDbResult(const AudioPlayerData &data)
+/* E4.1q. TRANSCRIBED FROM ITS JANSSON BODY, NOT RETYPED - every oddity below is
+ * production behaviour of every SqueezeboxDB getter and is pinned by the T3.17c
+ * goldens and by JsonApiMusicDbWireBytes_test.cpp:
+ *
+ *   - the leading Params carrying the "count" marker is read for total_count
+ *     AND appended to the items array, so items[0] of a normal answer is
+ *     {"count":"2"} and not a row;
+ *   - a count of "0" CLEARS the array but STILL emits "total_count":"0";
+ *   - no count anywhere means NO total_count key at all - absent, never null;
+ *   - everything stays a STRING. A count that became a JSON number would break
+ *     the type-strict oracle of the goldens (3 != "3").
+ *
+ * TWO THINGS MOVE, both declared:
+ *   1. KEY ORDER. total_count is still assigned before items, but nlohmann
+ *      sorts, so "items" comes FIRST on the wire from now on. No golden sees it
+ *      - they compare parsed documents - which is exactly why the byte cases
+ *      exist.
+ *   2. INVALID UTF-8. jansson_from_params() dropped the whole pair in silence
+ *      (json_string() answered NULL, json_object_set_new() answered -1 and
+ *      nobody looked); Params::toJson() keeps the bytes and the emitter's
+ *      error_handler_t::replace turns each bad byte into U+FFFD. An ABSENT KEY
+ *      BECOMES PRESENT, and an embedded NUL no longer truncates. This is the
+ *      most exposed spot of the whole epic for that delta: album, artist,
+ *      genre and FOLDER names are file tags and filesystem paths.
+ */
+Json JsonApi::processDbResult(const AudioPlayerData &data)
 {
-    json_t *ret = json_object();
-    json_t *aret = json_array();
+    Json ret = Json::object();
+    //Json::array(), not a default constructed Json: a default constructed one
+    //is `null`, and an answer with no row at all would emit "items":null
+    //instead of "items":[] - a change no golden would catch.
+    Json aret = Json::array();
     string scount;
 
     const vector<Params> &vp = data.vparams;
@@ -716,38 +2038,36 @@ json_t *JsonApi::processDbResult(const AudioPlayerData &data)
     {
         if (p.Exists("count"))
             scount = p["count"];
-        json_array_append_new(aret, p.toJson());
+        aret.push_back(p.toJson());
     }
 
     if (scount == "0")
-        json_array_clear(aret);
+        aret.clear();
 
     if (!scount.empty())
-        json_object_set_new(ret, "total_count", json_string(scount.c_str()));
-    json_object_set_new(ret, "items", aret);
+        ret["total_count"] = scount;
+    ret["items"] = aret;
 
     return ret;
 }
 
-void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -755,32 +2075,71 @@ void JsonApi::audioDbGetAlbums(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    /* Destruction guard, shared by the fifteen audioDbGet* music-database
+     * methods below. This JsonApi dies with its client connection
+     * (HttpClient::~HttpClient() deletes the handler, base sub-object included,
+     * HttpClient.cpp:162) while a database answer is still in flight, and the
+     * callback then touches TWO freed objects.
+     *
+     * The FIRST is `result_lambda`. It is captured by value into the [=]
+     * lambda, and that std::function IS the handler's own lambda, holding the
+     * handler's `this`; calling it after the handler died sends to freed
+     * memory. This one is present in ALL FIFTEEN methods and is the one the
+     * ASan traces land on.
+     *
+     * The SECOND is `this`: fourteen of the fifteen call processDbResult(), a
+     * member of this very JsonApi, from inside the callback. This file emits 17
+     * -Wdeprecated implicit-capture warnings in all - 14 for this family and 3
+     * for the recursive playlist chain of T3.17a further up - and those 14
+     * point here.
+     *
+     * DO NOT USE THE WARNING AS THE CRITERION FOR "NEEDS A GUARD". It
+     * undercounts by construction: it only sees the second object. The
+     * fifteenth method, audioDbGetTrackInfos(), calls no member and raises no
+     * warning, yet it produces the same heap-use-after-free through the
+     * captured std::function alone - measured under ASan, see
+     * JsonApiMusicDb_test.cpp. All fifteen would need this guard even if
+     * processDbResult() did not exist.
+     *
+     * Same pattern as buildJsonState() (T2.15), the playlist chain (T3.17a) and
+     * the five single-shot player-state methods above (T3.17b).
+     *
+     * One check is enough here, as in T3.17b: these are single shot, one round
+     * trip and one answer, no recursion. And nothing is allocated before the
+     * check, so the guarded branch has nothing to release - processDbResult()
+     * builds its json AFTER it, from the answer the database just gave.
+     */
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getAlbums([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
 
-void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetAlbumArtistItem(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string artist_id = jansson_string_get(jdata, "artist_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string artist_id = jsonStringGet(jdata, "artist_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -788,32 +2147,37 @@ void JsonApi::audioDbGetAlbumArtistItem(json_t *jdata, std::function<void(json_t
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getArtistsAlbums([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, artist_id);
 }
 
-void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetYearAlbums(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string year = jansson_string_get(jdata, "year");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string year = jsonStringGet(jdata, "year");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -821,32 +2185,37 @@ void JsonApi::audioDbGetYearAlbums(json_t *jdata, std::function<void(json_t *)>r
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getYearsAlbums([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, year);
 }
 
-void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetGenreArtists(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string genre = jansson_string_get(jdata, "genre");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string genre = jsonStringGet(jdata, "genre");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -854,32 +2223,37 @@ void JsonApi::audioDbGetGenreArtists(json_t *jdata, std::function<void(json_t *)
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getGenresArtists([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, genre);
 }
 
-void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetAlbumTitles(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string album_id = jansson_string_get(jdata, "album_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string album_id = jsonStringGet(jdata, "album_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -887,32 +2261,37 @@ void JsonApi::audioDbGetAlbumTitles(json_t *jdata, std::function<void(json_t *)>
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getAlbumsTitles([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, album_id);
 }
 
-void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetPlaylistTitles(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string pl_id = jansson_string_get(jdata, "playlist_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string pl_id = jsonStringGet(jdata, "playlist_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -920,160 +2299,185 @@ void JsonApi::audioDbGetPlaylistTitles(json_t *jdata, std::function<void(json_t 
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getPlaylistsTracks([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, pl_id);
 }
 
-void JsonApi::audioDbGetArtists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetArtists(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getArtists([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
 
-void JsonApi::audioDbGetYears(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetYears(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getYears([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
 
-void JsonApi::audioDbGetGenres(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetGenres(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getGenres([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
 
-void JsonApi::audioDbGetPlaylists(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetPlaylists(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
     int from, count;
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getPlaylists([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
 
-void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetMusicFolder(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string folder_id = jansson_string_get(jdata, "folder_id");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string folder_id = jsonStringGet(jdata, "folder_id");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1081,32 +2485,37 @@ void JsonApi::audioDbGetMusicFolder(json_t *jdata, std::function<void(json_t *)>
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getMusicFolder([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, folder_id);
 }
 
-void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetSearch(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
-    string search = jansson_string_get(jdata, "search");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
+    string search = jsonStringGet(jdata, "search");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1114,31 +2523,36 @@ void JsonApi::audioDbGetSearch(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getSearch([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, search);
 }
 
-void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetRadios(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1146,31 +2560,36 @@ void JsonApi::audioDbGetRadios(json_t *jdata, std::function<void(json_t *)>resul
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
+
     player->get_database()->getRadios([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count);
 }
 
-void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetRadioItems(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string itfrom = jansson_string_get(jdata, "from");
-    string itcount = jansson_string_get(jdata, "count");
+    string itfrom = jsonStringGet(jdata, "from");
+    string itcount = jsonStringGet(jdata, "count");
     if (itfrom.empty() || !Utils::is_of_type<int>(itfrom) ||
         itcount.empty() || !Utils::is_of_type<int>(itcount))
     {
-        Params p = {{"error", "wrong from/count" }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", "wrong from/count" }});
         return;
     }
 
@@ -1178,37 +2597,67 @@ void JsonApi::audioDbGetRadioItems(json_t *jdata, std::function<void(json_t *)>r
     Utils::from_string(itfrom, from);
     Utils::from_string(itcount, count);
 
-    string radio_id = jansson_string_get(jdata, "radio_id");
-    string item_id = jansson_string_get(jdata, "item_id");
-    string search = jansson_string_get(jdata, "search");
+    string radio_id = jsonStringGet(jdata, "radio_id");
+    string item_id = jsonStringGet(jdata, "item_id");
+    string search = jsonStringGet(jdata, "search");
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getRadiosItems([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(processDbResult(data));
     }, from, count, radio_id, item_id, search);
 }
 
-void JsonApi::audioDbGetTrackInfos(json_t *jdata, std::function<void(json_t *)>result_lambda)
+void JsonApi::audioDbGetTrackInfos(const Json &jdata, std::function<void(const Json &)>result_lambda)
 {
     string err;
     AudioPlayer *player = getAudioPlayer(jdata, err);
 
     if (!err.empty())
     {
-        Params p = {{"error", err }};
-        result_lambda(p.toJson());
+        result_lambda(Json{{ "error", err }});
         return;
     }
 
-    string trackid = jansson_string_get(jdata, "track_id");
+    string trackid = jsonStringGet(jdata, "track_id");
+
+    if (audioDbUnavailable(player, result_lambda))
+        return;
+
+    std::weak_ptr<bool> alive = apiAlive;
 
     player->get_database()->getTrackInfos([=](AudioPlayerData data)
     {
+        if (alive.expired()) return;
+
         result_lambda(data.params.toJson());
     }, trackid);
 }
 
-json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
+/* E4.1o. ⭐ THE ORDER OF "ranges" IS SEMANTIC AND MUST NOT MOVE.
+ *
+ * The array is flattened over the seven days by the ladder below, so the
+ * POSITION of an entry IS its day - it is the only order of this series that
+ * carries meaning. A JSON array stays an array in nlohmann, so the ladder is
+ * transcribed as it was, day by day, and
+ * core/JsonApiParamsWireBytes_test.cpp asserts the resulting order ON THE RAW
+ * BYTES with a fixture whose three days differ.
+ *
+ * What DOES move, declared: "ranges" is inserted first and "months" second,
+ * and nlohmann sorts - so months now comes first on the wire. The nine E4.0c
+ * goldens cannot see it, they compare parsed documents.
+ *
+ * Everything stays a STRING: TimeRange::toParams() fills a Params, which is a
+ * map<string,string>. An hour that became a JSON number would break the
+ * type-strict oracle (3 != "3").
+ */
+Json JsonApi::buildJsonGetTimerange(const Params &jParam)
 {
     InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(jParam["id"]));
     if (!o)
@@ -1217,8 +2666,10 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
         return p.toJson();
     }
 
-    json_t *ret = json_object();
-    json_t *jarr = json_array();
+    //Json::array(), not a default constructed Json: a default constructed one
+    //is `null`, and an IO with no range at all would answer "ranges":null
+    //instead of "ranges":[] - a change no golden would catch.
+    Json jarr = Json::array();
 
     for (int day = 0;day < 7;day++)
     {
@@ -1231,23 +2682,41 @@ json_t *JsonApi::buildJsonGetTimerange(const Params &jParam)
         if (day == 5) h = o->getSaturday();
         if (day == 6) h = o->getSunday();
         for (uint i = 0;i < h.size();i++)
-            json_array_append_new(jarr, h[i].toParams(day).toJson());
+            jarr.push_back(h[i].toParams(day).toJson());
     }
-
-    json_object_set_new(ret, "ranges", jarr);
 
     stringstream ssmonth;
     ssmonth << o->months;
     string str = ssmonth.str();
     std::reverse(str.begin(), str.end());
-    json_object_set_new(ret, "months", json_string(str.c_str()));
+
+    Json ret = Json::object();
+    ret["ranges"] = jarr;
+    ret["months"] = str;
 
     return ret;
 }
 
-json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
+/* E4.1o. THE ONLY BUILDER OF THIS CHAIN THAT READS CLIENT JSON.
+ *
+ * The document is handed down by the dispatch, which parses it (that parse is
+ * E4.1s's to migrate, not this ticket's); what changed here is the type
+ * traversed. Two contracts had to be transcribed by hand rather than reached
+ * for:
+ *
+ *  - jansson_string_get() answers the DEFAULT on a member that is not a
+ *    string, and on a NULL/non object root. jsonStringGet() below does the
+ *    same. `jdata["id"]` would have thrown on a numeric id.
+ *  - jansson_decode_object()'s FLATTENING CONTRACT, see decodeJsonObject().
+ *    ⛔ Params::fromJson() is NOT a substitute: it assigns the json value
+ *    straight into a std::string and throws type_error.302 on anything that
+ *    is not a JSON string. A client sending {"day": 1} is served today and
+ *    would have terminated the process tomorrow. Same tripwire as ScriptWire,
+ *    ReolinkWire, WagoWire, OLAWire and the two KNX ends carry.
+ */
+Json JsonApi::buildJsonSetTimerange(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     InPlageHoraire *o = dynamic_cast<InPlageHoraire *>(ListeRoom::Instance().get_io(id));
     if (!o)
     {
@@ -1257,17 +2726,41 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
 
     o->clear();
 
-    size_t idx;
-    json_t *value;
+    /* json_array_foreach() ran json_array_size(NULL) == 0 and never entered
+     * the loop: an absent "ranges", or one that is not an array, must stay a
+     * no-op and NOT an error - the caller still gets success:true, and
+     * o->clear() above has already run. Frozen, not tidied.
+     */
+    Json jranges = Json::array();
+    if (jdata.is_object())
+    {
+        const Json::const_iterator it = jdata.find("ranges");
+        if (it != jdata.cend() && it->is_array())
+            jranges = *it;
+    }
 
-    json_array_foreach(json_object_get(jdata, "ranges"), idx, value)
+    for (const Json &value: jranges)
     {
         Params p;
-        jansson_decode_object(value, p);
+        decodeJsonObject(value, p);
 
         TimeRange tr(p);
 
-        cout << "Adding timerange: " << p.toString() << endl;
+        /* A bare cout answered to no level at all, so nothing an installer
+         * sets could quiet it. And Params keeps EVERY key of the object the
+         * client sent, not the six a range is made of, so whatever was put
+         * beside them went out too. Bounded because a bound is one or two
+         * digits: anything longer is not one, and a control byte in it would
+         * forge a second line.
+         */
+        cDebugDom("network") << "Adding timerange on io " << id
+                             << ": day " << logToken(p["day"], 8) << " "
+                             << logToken(p["start_hour"], 8) << ":"
+                             << logToken(p["start_min"], 8) << ":"
+                             << logToken(p["start_sec"], 8) << " -> "
+                             << logToken(p["end_hour"], 8) << ":"
+                             << logToken(p["end_min"], 8) << ":"
+                             << logToken(p["end_sec"], 8);
 
         if (p["day"] == "1") o->AddMonday(tr);
         if (p["day"] == "2") o->AddTuesday(tr);
@@ -1279,7 +2772,7 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     }
 
     //set months
-    string m = jansson_string_get(jdata, "months");
+    string m = jsonStringGet(jdata, "months");
     if (!m.empty())
     {
         //reverse to have a left to right months representation
@@ -1299,38 +2792,37 @@ json_t *JsonApi::buildJsonSetTimerange(json_t *jdata)
     EventManager::create(CalaosEvent::EventTimeRangeChanged,
                          { { "id", o->get_param("id") } });
 
-    if (o->getAutoScenarioPtr())
+    AutoScenario *as = autoScenarioOfTimeRange(o);
+    if (as)
     {
         EventManager::create(CalaosEvent::EventScenarioChanged,
-                             { { "id", o->getAutoScenarioPtr()->getIOScenario()->get_param("id") } });
+                             { { "id", as->getIOScenario()->get_param("id") } });
     }
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
 }
 
-json_t *JsonApi::buildAutoscenarioList(json_t *jdata)
+Json JsonApi::buildAutoscenarioList(const Json &jdata)
 {
     VAR_UNUSED(jdata);
-    json_t *jret = json_object();
-    json_t *jarr = json_array();
+    Json jret;
+    Json jarr = Json::array();
 
     for (auto it: ListeRoom::Instance().getAutoScenarios())
-    {
-        json_array_append_new(jarr, it->toJson());
-    }
+        jarr.push_back(it->toJson());
 
-    json_object_set_new(jret, "scenarios", jarr);
+    jret["scenarios"] = jarr;
     return jret;
 }
 
-json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
+Json JsonApi::buildAutoscenarioGet(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
@@ -1341,84 +2833,91 @@ json_t *JsonApi::buildAutoscenarioGet(json_t *jdata)
     return sc->toJson();
 }
 
-json_t *JsonApi::buildAutoscenarioCreate(json_t *jdata)
+Json JsonApi::buildAutoscenarioCreate(const Json &jdata)
 {
-    Params params;
-    params.Add("auto_scenario", Calaos::get_new_scenario_id());
-    params.Add("name", jansson_string_get(jdata, "name", _("New unnamed scenario")));
-    params.Add("visible", jansson_string_get(jdata, "visible", "false"));
-    params.Add("cycle", jansson_string_get(jdata, "cycle", "false"));
-    params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
+    ScenarioPayload payload;
+    string err;
+    if (!parseScenarioPayload(jdata, payload, err))
+        return Params({{ "error", err }}).toJson();
 
-    Room *room = ListeRoom::Instance().searchRoomByNameAndType(
-                     jansson_string_get(jdata, "room_name"),
-                     jansson_string_get(jdata, "room_type"));
-    if (!room)
+    /* The name goes to io.xml inside the Params createIO() hands whole to the
+     * IO constructor: set_param() is never called, so the guard at the model
+     * boundary cannot reach this one and it needs its own. Same answer as
+     * `modify`, which refuses through that guard - the two verbs used to
+     * disagree on the same name, one refusing and the other writing a version
+     * of it cut at the zero byte.
+     */
+    if (!XmlUtils::isWritableAsAttribute(payload.name))
+        return Params({{ "error", "invalid payload: name refused" }}).toJson();
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
+    Params params;
+    params.Add(AutoScenarioDef::KEY_UID, AutoScenarioDef::newUid());
+    params.Add("name", payload.name);
+    params.Add("visible", payload.visible? "true": "false");
+    params.Add("cycle", payload.cycle? "true": "false");
+    params.Add("disabled", payload.enabled? "false": "true");
+    params.Add("type", "scenario");
+
+    IOBase *in = ListeRoom::Instance().createIO(params, payload.room);
+    Scenario *scenario = dynamic_cast<Scenario *>(in);
+    if (!scenario || !scenario->getAutoScenario())
     {
-        cWarningDom("network") << "Wrong room: " << jansson_string_get(jdata, "room_name")
-                               << " - " << jansson_string_get(jdata, "room_type");
-        room = ListeRoom::Instance().get_room(0);
+        //createIO() returns null on an IO factory miss, and the dynamic_cast
+        //rejects anything else than a Scenario: answer an error instead of
+        //crashing on the null pointer
+        cErrorDom("network") << "Scenario creation failed: "
+                             << (in? "created IO is not a scenario": "IO factory returned null");
+        if (in)
+            ListeRoom::Instance().deleteIO(in);
+
+        Params perr = {{ "error", "scenario creation failed" }};
+        return perr.toJson();
     }
 
-    //create scenario object
-    params.Add("type", "scenario");
-    IOBase *in = ListeRoom::Instance().createIO(params, room);
-    Scenario *scenario = dynamic_cast<Scenario *>(in);
-    scenario->getAutoScenario()->checkScenarioRules();
+    //The definition IS the scenario: it is written whole, then projected into
+    //rules once. There is no step by step authoring path any more.
+    AutoScenarioDef *def = scenario->getDefinition();
+    def->steps = payload.steps;
+    def->finalStep = payload.finalStep;
 
-    size_t idx;
-    json_t *value;
-
-    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    if (!scenario->getAutoScenario()->rebuildRules())
     {
-        int index_act;
+        //The internal IOs of the scenario could not be created: roll the
+        //half-created scenario back and answer an error
+        cErrorDom("network") << "Scenario creation failed: unable to create the scenario rules";
+        scenario->getAutoScenario()->deleteAll();
+        ListeRoom::Instance().deleteIO(scenario);
 
-        if (jansson_string_get(value, "step_type") == "standard")
-        {
-            double pause;
-            from_string(jansson_string_get(value, "step_pause"), pause);
-            scenario->getAutoScenario()->addStep(pause);
-            index_act = idx;
-        }
-        else
-        {
-            index_act = AutoScenario::END_STEP;
-        }
-
-        size_t idx_act;
-        json_t *value_act;
-
-        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
-        {
-
-            string id_out = jansson_string_get(value_act, "id");
-            IOBase *out = ListeRoom::Instance().get_io(id_out);
-            if (out)
-                scenario->getAutoScenario()->addStepAction(index_act, out,
-                                                           jansson_string_get(value_act, "action"));
-        }
+        Params perr = {{ "error", "scenario creation failed" }};
+        return perr.toJson();
     }
 
     EventManager::create(CalaosEvent::EventScenarioAdded,
                          { { "id", scenario->get_param("id") } });
 
     //Resave config, auto scenarios have probably created/deleted ios and rules
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "id", scenario->get_param("id") }};
     return p.toJson();
 }
 
-json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
+Json JsonApi::buildAutoscenarioDelete(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
         return p.toJson();
     }
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
     sc->getAutoScenario()->deleteAll();
 
@@ -1429,16 +2928,16 @@ json_t *JsonApi::buildAutoscenarioDelete(json_t *jdata)
                          { { "id", id } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
 }
 
-json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
+Json JsonApi::buildAutoscenarioModify(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *scenario = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!scenario || !scenario->getAutoScenario())
     {
@@ -1446,119 +2945,95 @@ json_t *JsonApi::buildAutoscenarioModify(json_t *jdata)
         return p.toJson();
     }
 
-    scenario->getAutoScenario()->deleteRules();
+    /* VALIDATE, THEN MUTATE. Everything below this line changes the
+     * configuration; nothing above it does. The other order destroys the rules
+     * and only then discovers a malformed payload, with the scenario gone.
+     */
+    ScenarioPayload payload;
+    string err;
+    if (!parseScenarioPayload(jdata, payload, err))
+        return Params({{ "error", err }}).toJson();
 
-    Params params;
-    params.Add("auto_scenario", Calaos::get_new_scenario_id());
-    params.Add("name", jansson_string_get(jdata, "name", _("New unnamed scenario")));
-    params.Add("visible", jansson_string_get(jdata, "visible", "false"));
-    params.Add("cycle", jansson_string_get(jdata, "cycle", "false"));
-    params.Add("disabled", jansson_string_get(jdata, "disabled", "true"));
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
-    Room *room = ListeRoom::Instance().searchRoomByNameAndType(
-                     jansson_string_get(jdata, "room_name"),
-                     jansson_string_get(jdata, "room_type"));
+    AutoScenario *as = scenario->getAutoScenario();
 
-    size_t idx;
-    json_t *value;
-
-    json_array_foreach(json_object_get(jdata, "steps"), idx, value)
+    if (payload.name != scenario->get_param("name"))
     {
-        int index_act;
-
-        if (jansson_string_get(value, "step_type") == "standard")
-        {
-            double pause;
-            from_string(jansson_string_get(value, "step_pause"), pause);
-            scenario->getAutoScenario()->addStep(pause);
-            index_act = idx;
-        }
-        else
-        {
-            index_act = AutoScenario::END_STEP;
-        }
-
-        size_t idx_act;
-        json_t *value_act;
-
-        json_array_foreach(json_object_get(value, "actions"), idx_act, value_act)
-        {
-
-            string id_out = jansson_string_get(value_act, "id");
-            IOBase *out = ListeRoom::Instance().get_io(id_out);
-            cDebugDom("network") << "scenario: " << scenario << " index_act: " << index_act << " out: " << out << " action: " << jansson_string_get(value_act, "action");
-            if (out)
-                scenario->getAutoScenario()->addStepAction(index_act, out,
-                                                           jansson_string_get(value_act, "action"));
-        }
-    }
-
-    //Check for changes
-    if (params["name"] != scenario->get_param("name"))
-    {
-        scenario->set_param("name", params["name"]);
+        /* Still nothing has been mutated at this point, so a refused name can
+         * leave by the same door as a malformed payload. Below it cannot.
+         */
+        if (!scenario->set_param("name", payload.name))
+            return Params({{ "error", "invalid payload: name refused" }}).toJson();
 
         EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", scenario->get_param("id") },
-                               { "name", params["name"] }});
+                               { "name", payload.name }});
     }
 
-    if (params["visible"] != scenario->get_param("visible"))
+    const string visible = payload.visible? "true": "false";
+    if (visible != scenario->get_param("visible"))
     {
-        scenario->set_param("visible", params["visible"]);
+        scenario->set_param("visible", visible);
 
         EventManager::create(CalaosEvent::EventIOChanged,
                              { { "id", scenario->get_param("id") },
-                               { "visible", params["visible"] }});
+                               { "visible", visible }});
     }
 
     Room *old_room = ListeRoom::Instance().getRoomByIO(scenario);
-    if (room != old_room)
+    if (payload.room != old_room)
     {
-        if (room)
-        {
+        //getRoomByIO() answers null for an IO no room holds; the target room
+        //is guaranteed non null by the validation above.
+        if (old_room)
             old_room->RemoveIOFromRoom(scenario);
-            room->AddIO(scenario);
+        payload.room->AddIO(scenario);
 
-            EventManager::create(CalaosEvent::EventRoomChanged,
-                                 { { "io_id_added", scenario->get_param("id") },
-                                   { "room_name", room->get_name() },
-                                   { "room_type", room->get_type() }});
-        }
+        EventManager::create(CalaosEvent::EventRoomChanged,
+                             { { "io_id_added", scenario->get_param("id") },
+                               { "room_name", payload.room->get_name() },
+                               { "room_type", payload.room->get_type() }});
     }
 
-    if (params["cycle"] != scenario->get_param("cycle"))
+    //Both before the rebuild: `cycle` decides how the last step chains back.
+    as->setCycling(payload.cycle);
+    as->setDisabled(!payload.enabled);
+
+    /* deleteRules() is the authoring call that takes the rules back from a
+     * configuration that predates the definition - the generator stands down
+     * over rules it did not write until something claims them explicitly.
+     */
+    as->deleteRules();
+
+    AutoScenarioDef *def = scenario->getDefinition();
+    def->steps = payload.steps;
+    def->finalStep = payload.finalStep;
+
+    if (!as->rebuildRules())
     {
-        if (params["cycle"] == "true")
-            scenario->getAutoScenario()->setCycling(true);
-        else
-            scenario->getAutoScenario()->setCycling(false);
+        //One of the internal scenario IOs disappeared or was replaced: the
+        //rules cannot be rebuilt, answer an error instead of crashing
+        cErrorDom("network") << "Scenario modification failed: unable to rebuild the scenario rules";
+        Params perr = {{ "error", "scenario modification failed" }};
+        return perr.toJson();
     }
-
-    if (params["disabled"] != scenario->get_param("disabled"))
-    {
-        if (params["disabled"] == "true")
-            scenario->getAutoScenario()->setDisabled(true);
-        else
-            scenario->getAutoScenario()->setDisabled(false);
-    }
-
-    scenario->getAutoScenario()->checkScenarioRules();
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
                          { { "id", scenario->get_param("id") } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
 }
 
-json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
+Json JsonApi::buildAutoscenarioAddSchedule(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
@@ -1566,28 +3041,44 @@ json_t *JsonApi::buildAutoscenarioAddSchedule(json_t *jdata)
         return p.toJson();
     }
 
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
+
     sc->getAutoScenario()->addSchedule();
+
+    //addSchedule() leaves the time range null when the IO could not be built
+    //(a factory miss, or an IO of another type squatting the derived id).
+    InPlageHoraire *range = sc->getAutoScenario()->getIOTimeRange();
+    if (!range)
+    {
+        cErrorDom("network") << "Scenario schedule creation failed for " << id;
+        Params perr = {{ "error", "scenario schedule creation failed" }};
+        return perr.toJson();
+    }
 
     EventManager::create(CalaosEvent::EventScenarioChanged,
                          { { "id", sc->get_param("id") } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
 
-    Params p = {{ "id", sc->getAutoScenario()->getIOTimeRange()->get_param("id") }};
+    Params p = {{ "id", range->get_param("id") }};
     return p.toJson();
 }
 
-json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
+Json JsonApi::buildAutoscenarioDelSchedule(const Json &jdata)
 {
-    string id = jansson_string_get(jdata, "id");
+    string id = jsonStringGet(jdata, "id");
     Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
     if (!sc || !sc->getAutoScenario())
     {
         Params p = {{ "error", "wrong input" }};
         return p.toJson();
     }
+
+    if (!scenarioFilesLoaded())
+        return configNotLoadedError();
 
     sc->getAutoScenario()->deleteSchedule();
 
@@ -1595,8 +3086,40 @@ json_t *JsonApi::buildAutoscenarioDelSchedule(json_t *jdata)
                          { { "id", sc->get_param("id") } });
 
     //Resave config
-    Config::Instance().SaveConfigIO();
-    Config::Instance().SaveConfigRule();
+    if (!saveConfigFiles())
+        return configNotWrittenError();
+
+    Params p = {{ "success", "true" }};
+    return p.toJson();
+}
+
+Json JsonApi::buildAutoscenarioReenable(const Json &jdata)
+{
+    string id = jsonStringGet(jdata, "id");
+    Scenario *sc = dynamic_cast<Scenario *>(ListeRoom::Instance().get_io(id));
+    if (!sc || !sc->getAutoScenario())
+    {
+        Params p = {{ "error", "wrong input" }};
+        return p.toJson();
+    }
+
+    /* The refusal is the point of this command: tryReenable() answers false
+     * while the scenario still references IOs that do not resolve, and fills
+     * the message with their ids. Answering success and letting the next
+     * detection pass disable the scenario again would reproduce, one level up,
+     * the silent no-op the arbitration removes.
+     */
+    string err;
+    if (!sc->getAutoScenario()->tryReenable(err))
+    {
+        Params perr = {{ "error", err }};
+        return perr.toJson();
+    }
+
+    //The flag lives in io.xml (a param of the Scenario IO), so only that one
+    //has to be rewritten: no rule was touched.
+    if (notWritten(Config::Instance().SaveConfigIO()))
+        return configNotWrittenError();
 
     Params p = {{ "success", "true" }};
     return p.toJson();
@@ -1607,8 +3130,50 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
     int page = 0;
     int perPage = 100;
 
-    Utils::from_string(jParam["page"], page);
-    Utils::from_string(jParam["per_page"], perPage);
+    /* T3.25. NOT from_string(): since T3.25 a blank value writes T{} instead of
+     * leaving the destination alone, and an ABSENT per_page (Params::operator[]
+     * returns "") would therefore have become 0 - which the guard 60 lines below
+     * refuses outright. A request that answers a full page of 100 events today
+     * would have started answering {"error":"per_page is out of range"}.
+     *
+     * ⛔ AND NOT from_string_or_keep() EITHER - this is the one site in src/
+     * where the difference matters. Since the T3.25 review, _or_keep() also
+     * keeps the default on an OVERFLOW, and T3.19's documented behaviour
+     * requires the opposite here: per_page:"99999999999" must be ANSWERED with
+     * the saturated 2147483647 echoed back (JsonApiInputGuards_test
+     * AHugePerPageSaturatesToIntMaxAndIsHarmless, JsonApiSession_test
+     * EventLogSaturatesAVeryLargePerPage). _unless_blank() keeps T3.19 EXACTLY,
+     * all three halves of it: blank keeps the 100, "abc" reads as 0 and is
+     * refused, "1,5" still reads as 1, "99999999999" still saturates.
+     */
+    Utils::from_string_unless_blank(jParam["page"], page);
+    Utils::from_string_unless_blank(jParam["per_page"], perPage);
+
+    /* T3.17f. Both callbacks below are armed here and run MUCH later: HistLogger
+     * queues the query for its sqlite worker thread and wakes the loop back up
+     * through a uvw::AsyncHandle it owns (HistLogger.cpp:128-161). The client
+     * can disconnect in that window, and ~HttpClient() (HttpClient.cpp:162)
+     * then deletes the handler, this JsonApi sub-object included.
+     *
+     * Neither body odr-uses `this`, so `[=]` captures no `this` and the
+     * -Wdeprecated warning the T3.17 series long used as its danger detector is
+     * SILENT here. That criterion is retired (T3.17.md, "Correction du critere
+     * de diagnostic de la serie"): the freed object travels inside `callback`,
+     * a std::function captured by value which IS the handler's own lambda and
+     * holds the handler's `this` - JsonApiHandlerWS::processEventLog() and
+     * JsonApiHandlerHttp::processEventLog(). One guard here therefore covers
+     * both transports, and neither handler needs editing: they are one object
+     * with one owner and one destruction.
+     *
+     * One check per stage, first statement of each body, and nothing is emitted
+     * when it fires: the client is already gone, so there is no one left to
+     * answer and touching any member would be the use-after-free itself.
+     * Nothing to free either - this is the only method of the file that builds
+     * its answer with nlohmann rather than raw json_t*, and it is built after
+     * this point, so a bare return leaks nothing (T3.17a needed json_decref,
+     * T3.17b/c did not).
+     */
+    std::weak_ptr<bool> alive = apiAlive;
 
     if (jParam["uuid"] != "")
     {
@@ -1616,6 +3181,8 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
         HistLogger::Instance().getEvent(jParam["uuid"],
                 [=](bool success, string errorMsg, const HistEvent &event)
         {
+            if (alive.expired()) return;
+
             if (!success)
             {
                 Json err = {{ "error", errorMsg }};
@@ -1630,9 +3197,71 @@ void JsonApi::buildJsonEventLog(const Params &jParam, std::function<void(Json &)
         return;
     }
 
+    /* T3.19. `perPage` comes out of Utils::from_string() (StringUtils.h:104-111)
+     * whose return code is ignored, and since C++11 a FAILED extraction WRITES
+     * ZERO into its destination: "abc", "true", "1,5" - and "0" itself - all
+     * reached HistLogger as zero. HistLogger::getEvents() does not clamp either,
+     * and HistLogger.cpp:268 then computes `rowcount / ac->per_page` INSIDE the
+     * sqlite worker thread: integer division by zero, SIGFPE, process dead. The
+     * try of :257 catches nothing, a signal is not an exception. Reachable by
+     * any AUTHENTICATED client on both transports with per_page=0.
+     * COUNTER-INTUITIVE, and why it went unseen: a HUGE per_page saturates to
+     * INT_MAX and is harmless; an ABSURD one is fatal.
+     *
+     * A NEGATIVE per_page is refused by the same test rather than left to
+     * HistLogger's page check: sqlite reads a negative LIMIT as "no limit", so
+     * on a table small enough for the page check to pass the query would return
+     * EVERY row while the document claimed per_page:-5 - a payload lying about
+     * itself. That window is WIDER than it looks: with per_page:-5 the integer
+     * arithmetic of HistLogger.cpp:268-273 lets the page check pass for every
+     * rowcount up to 9 EXCEPT 5 - the single refusal sat in the middle of the
+     * window, and it named the wrong parameter ("page is out of range").
+     *
+     * THE TEST IS ON THE VALUE, NOT ON from_string()'s RETURN CODE, on purpose.
+     * Every per_page that gets an answer today keeps exactly that answer (an
+     * empty or absent one keeps the default 100, a partial parse like "1,5"
+     * keeps its 1), and the premise E4.0e pinned in
+     * FromStringWritesZeroOnFailureWhichIsWhyEventLogCanDivideByZero stays true
+     * word for word - from_string() still writes 0 on failure, and that is
+     * still exactly why this guard has to exist.
+     *
+     * AFTER the uuid branch above, never before it: that branch returns without
+     * ever calling getEvents(), so per_page is meaningless there and refusing it
+     * would take away an answer that works today.
+     *
+     * The document is the {"error": <message>} shape this method's two callbacks
+     * already produce, and the message is worded after HistLogger's own "page is
+     * out of range" (:276) - no new error shape, per the T3.17 rule.
+     *
+     * NO `page` GUARD IS ADDED HERE, AND THAT IS DELIBERATE, NOT AN OVERSIGHT.
+     * The ticket asked to clamp per_page "and check page"; page needs no check
+     * because HistLogger already owns one that cannot be bypassed.
+     * HistLogger.cpp:270-277 refuses `page < 0` and `page > total_page` BEFORE
+     * `start` (:269, `page * per_page`) is ever used in a query, so the only
+     * page values that reach the LIMIT clause are already in range and
+     * `start` cannot overflow. Duplicating that check here would add a second
+     * owner for one refusal and invent an ordering between the two.
+     * The resulting behaviour is pinned from the outside, so it cannot drift
+     * silently: ANonNumericPageIsStillReadAsPageZero (a failed from_string()
+     * writes 0, which is also the default, so a garbage page is
+     * indistinguishable from page 0) and
+     * APageOutOfRangeIsStillHistLoggersOwnRefusal (the refusal stays
+     * HistLogger's, asynchronous, worded by HistLogger). DO NOT add a page
+     * check here "just in case", and do not remove HistLogger's - it is the
+     * one doing the work.
+     */
+    if (perPage <= 0)
+    {
+        Json err = {{ "error", "per_page is out of range" }};
+        callback(err);
+        return;
+    }
+
     HistLogger::Instance().getEvents(page, perPage,
             [=](bool success, string errorMsg, const vector<HistEvent> &events, int total_page, int total_count)
     {
+        if (alive.expired()) return;
+
         Json jevents = Json::array();
 
         if (!success)
@@ -1665,26 +3294,55 @@ bool JsonApi::registerPushToken(const Params &jParam)
         jParam["hardware"] != "ios")
         return false;
 
+    const bool keyTaken = !PushKeyNeedsSecureTransport || secureTransport();
+    const string pushKey = keyTaken ? pushKeyFromString(jParam["push_key"]) : string();
+
     HistLogger::Instance().registerPushToken(jParam["token"],
-            jParam["hardware"] == "ios"? HistLogger::PUSH_HW_IOS: HistLogger::PUSH_HW_ANDROID);
+                                             jParam["hardware"] == "ios" ? HistLogger::PUSH_HW_IOS : HistLogger::PUSH_HW_ANDROID,
+                                             pushFormatFromString(jParam["push_format"]),
+                                             printableText(jParam["device_name"], MaxDeviceName), pushKey);
 
     return true;
 }
 
-bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, string newpass)
+string JsonApi::pushKeyFromString(const string &value)
 {
-    //get actual user/pass
-    string user = Utils::get_config_option("calaos_user");
-    string pass = Utils::get_config_option("calaos_password");
+    const bool valid = value.size() == 64 && std::all_of(value.begin(), value.end(), [](char c)
+                                                         {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                       });
+    if (valid || value.empty())
+        return valid ? value : string();
 
-    if (Utils::get_config_option("cn_user") != "" &&
-        Utils::get_config_option("cn_pass") != "")
+    //Once and without the value: it may be a key with a typo
+    static bool warned = false;
+    if (!warned)
+        cWarningDom("network") << "register_push: push_key is not 64 lowercase hex characters, ignored";
+    warned = true;
+    return string();
+}
+
+int JsonApi::pushFormatFromString(const string &value)
+{
+    //Absent for the store apps 3.1.x, which only display notification messages.
+    if (value == "data")
+        return HistLogger::PUSH_FORMAT_DATA;
+
+    if (value != "" && value != "notification")
     {
-        user = Utils::get_config_option("cn_user");
-        pass = Utils::get_config_option("cn_pass");
+        //Once: every app of a household re-registers at each start.
+        static bool warned = false;
+        if (!warned)
+            cWarningDom("network") << "register_push: unknown push_format, using the notification format";
+        warned = true;
     }
 
-    if (user != olduser || pass != oldpass)
+    return HistLogger::PUSH_FORMAT_NOTIFICATION;
+}
+
+bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, string newpass)
+{
+    if (!checkCredentials(olduser, oldpass))
         return false; //wrong old user/pass
 
     //change user/pass
@@ -1698,11 +3356,14 @@ bool JsonApi::changeCredentials(string olduser, string oldpass, string newuser, 
     return true;
 }
 
-json_t *JsonApi::buildJsonStatusInfo(IOBase *io)
+Json JsonApi::buildJsonStatusInfo(IOBase *io)
 {
-    if (!io || !io->hasStatusInfo()) return nullptr;
+    //A NULL Json, deliberately, not an empty object: buildJsonIO() tests it to
+    //decide whether the "status_info" key exists at all, and Json::object() is
+    //NOT null - it would put "status_info":{} on every IO of every payload.
+    if (!io || !io->hasStatusInfo()) return Json();
 
-    json_t *jret = json_object();
+    Json jret = Json::object();
 
     Params p = io->getStatusInfo();
 
@@ -1711,7 +3372,7 @@ json_t *JsonApi::buildJsonStatusInfo(IOBase *io)
         string key, value;
         p.get_item(i, key, value);
 
-        json_object_set_new(jret, key.c_str(), json_string(value.c_str()));
+        jret[key] = value;
     }
 
     return jret;

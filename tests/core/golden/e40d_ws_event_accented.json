@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data": {
+      "room_name": "Salle à manger",
+      "room_type": "séjour/salon"
+    },
+    "event_raw": "room_changed room_name:Salle%20%C3%A0%20manger room_type:s%C3%A9jour%2Fsalon",
+    "type": "7",
+    "type_str": "room_changed"
+  },
+  "msg": "event"
+}

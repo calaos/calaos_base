@@ -38,7 +38,13 @@ RemoteUIOutputRelay::RemoteUIOutputRelay(Params &p):
     ioDoc->paramAddInt("relay_num", _("Relay number on the device (1, 2, ...)"), 1, 99, true);
 
     remote_ui_id = get_param("remote_ui_id");
-    Utils::from_string(get_param("relay_num"), relay_num);
+    /* T3.25 (review). _or_keep, and there is NO Exists() guard here: get_param()
+     * answers "" for an ABSENT relay_num, so a plain from_string() writes 0 -
+     * a relay number the device does not have (the ioDoc says 1..99) and which
+     * is silently sent on the wire by set_value_real() below. The in-class
+     * default of 1 is the documented one and must survive a missing or blank
+     * parameter. */
+    Utils::from_string_or_keep(get_param("relay_num"), relay_num);
 
     cInfoDom(TAG) << "RemoteUIOutputRelay(" << get_param("id") << "): relay " << relay_num
                   << " on device " << remote_ui_id;

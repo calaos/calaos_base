@@ -30,47 +30,63 @@
 #include "Calaos.h"
 #include "ExternProc.h"
 #include "IOBase.h"
+#include "ReolinkEventRegistry.h"
 #include "Timer.h"
 
 class ReolinkCtrl : public sigc::trackable
 {
 public:
-    typedef sigc::slot<void, string, string, string> EventReceivedSignal;
+    using RegistrationId = ReolinkEventRegistry::RegistrationId;
+    using EventReceivedSignal = ReolinkEventRegistry::EventCallback;
 
 private:
     ReolinkCtrl();
-    ~ReolinkCtrl();
+    ~ReolinkCtrl() = delete;
 
     ExternProcServer *process;
     string exe;
 
-    unordered_map<string, vector<EventReceivedSignal>> eventCallbacks;
+    // Callback bookkeeping + camera registrations (recovery after crash)
+    ReolinkEventRegistry registry;
+
+    // Cameras whose registration has been sent to the external process
     unordered_map<string, string> registeredCameras;
 
     bool connected = false;
 
-    // Store all camera registrations for recovery after crash
-    struct CameraRegistration {
-        string hostname;
-        string username;
-        string password;
-        string event_type;
-    };
-    unordered_map<string, CameraRegistration> allRegistrations;
+    //T3.31 - one registration, not four loose strings: there is no order
+    //left to get wrong between here and the wire.
+    //Whether a hostname is one this controller registered. What a sidecar
+    //echoes back is not, on its own, a value this end can vouch for.
+    bool isRegisteredHostname(const string &hostname) const;
 
-    string generateCameraKey(const string &hostname, const string &event_type);
-    void doRegisterCamera(const string &hostname, const string &username, const string &password, const string &event_type);
+    void doRegisterCamera(const ReolinkEventRegistry::CameraRegistration &reg);
     void registerAllCameras();
 
 public:
-    void registerCamera(const string hostname, const string username, const string password, const string event_type, EventReceivedSignal callback);
+    // Returns an id that MUST be passed to unregisterCamera() before the
+    // callback's owner is destroyed, otherwise the stored callback dangles.
+    //T3.31 - four DISTINCT types, never four bare strings. A caller that
+    //hands hostname/username/password/event_type in the wrong order no
+    //longer compiles; before, it produced a perfectly well formed message
+    //that sent the password in clear in the username field.
+    RegistrationId registerCamera(ReolinkTypes::Hostname hostname,
+                                  ReolinkTypes::Username username,
+                                  ReolinkTypes::Password password,
+                                  ReolinkTypes::EventType event_type,
+                                  EventReceivedSignal callback);
+    void unregisterCamera(RegistrationId id);
 
     bool isConnected() const { return connected; }
 
+    //Never destroyed: the first Reolink switch builds it after ListeRoom, so
+    //a static would die before ~ListeRoom() destroys the switches that
+    //unregister from it. Building it earlier would spawn its sidecar on
+    //every server.
     static ReolinkCtrl &Instance()
     {
-        static ReolinkCtrl instance;
-        return instance;
+        static ReolinkCtrl *instance = new ReolinkCtrl();
+        return *instance;
     }
 };
 

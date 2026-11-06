@@ -22,53 +22,15 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebInputAnalog.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
-#include "AnalogIO.h"
 
 using namespace Calaos;
 
 REGISTER_IO(WebInputAnalog)
 
 WebInputAnalog::WebInputAnalog(Params &p):
-    InputAnalog(p)
+    WebInputBase(p, "WebInputAnalog", _("Analog input read from a web document"))
 {
-    ioDoc->friendlyNameSet("WebInputAnalog");
-    ioDoc->descriptionSet(_("Analog input read from a web document"));
-    docBase.initDoc(ioDoc);
-
-    cInfoDom("input") << "WebInputAnalog::WebInputAnalog()";
-    Calaos::StartReadRules::Instance().addIO();
-
-    if (!get_param("path").empty())
-    {
-        // Add input to WebCtrl instance
-        WebCtrl::Instance(p).Add(get_param("path"), frequency, [=]()
-        {
-            readValue();
-            Calaos::StartReadRules::Instance().ioRead();
-        });
-    }
-}
-
-WebInputAnalog::~WebInputAnalog()
-{
-    WebCtrl::Instance(get_params()).Del(get_param("path"));
-}
-
-void WebInputAnalog::readValue()
-{
-    if (!get_param("path").empty())
-    {
-        // Read the value
-        double v = WebCtrl::Instance(get_params()).getValueDouble(get_param("path"));
-        if (v != value)
-        {
-            value = AnalogIO::convertValue(get_params(), v);
-            emitChange();
-        }
-    }
+    webRegisterPolling();
 }

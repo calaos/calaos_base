@@ -27,14 +27,24 @@ Registrar::Registrar(string type, function<IOBase *(Params &)> classFunc)
     IOFactory::Instance().RegisterClass(type, classFunc);
 }
 
-void IOFactory::readParams(TiXmlElement *node, Params &p)
+void IOFactory::readParams(pugi::xml_node node, Params &p)
 {
-    TiXmlAttribute *attr = node->ToElement()->FirstAttribute();
-
-    for (; attr; attr = attr->Next())
+    for (pugi::xml_attribute attr: node.attributes())
     {
-        p.Add(attr->Name(), attr->ValueStr());
+        p.Add(attr.name(), attr.value());
     }
+}
+
+string IOFactory::registryKey(const Params &params)
+{
+    string type = params.Exists("impl") ? DEVICE_PREFIX + params["impl"] : params["type"];
+    std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+    return type;
+}
+
+bool IOFactory::canCreate(const Params &params) const
+{
+    return ioFunctionRegistry.find(registryKey(params)) != ioFunctionRegistry.end();
 }
 
 IOBase *IOFactory::CreateIO(std::string type, Params &params)
@@ -55,23 +65,25 @@ IOBase *IOFactory::CreateIO(std::string type, Params &params)
     return obj;
 }
 
-IOBase *IOFactory::CreateIO(TiXmlElement *node)
+IOBase *IOFactory::CreateIO(pugi::xml_node node)
 {
     Params p;
     readParams(node, p);
 
-    IOBase *io = CreateIO(p["type"], p);
+    //Owning while we configure it, so a throw out of LoadFromXml() cannot
+    //leak the IO; released to the caller, which owns it (see the header).
+    //Through registryKey() and not through p["type"]: the model's structural
+    //guard asks the same function, so the two cannot drift apart.
+    std::unique_ptr<IOBase> io(CreateIO(registryKey(p), p));
     if (io)
         io->LoadFromXml(node);
 
-    return io;
+    return io.release();
 }
 
 void IOFactory::genDocIO(string docPath)
 {
-    Params p;
-
-    json_t *j = json_object();
+    Json j = Json::object();
 
     string mdPath = docPath + "/io_doc.md";
     string jsonPath = docPath + "/io_doc.json";
@@ -79,21 +91,63 @@ void IOFactory::genDocIO(string docPath)
     ofstream mdFile(mdPath, ofstream::out);
     ofstream jsonFile(jsonPath, ofstream::out);
 
+    //The doc IOs below are throwaways sharing id="doc": keep them out of
+    //ListeRoom's live io_table (they used to be inserted there, shadowing
+    //or colliding with real IOs, and were never deleted).
+    IOBase::ScopedDocGen docScope;
+
+    //Devices are not IO types: an installer that lists the top level keys as
+    //the creatable types must not offer them. They are published apart, under
+    //"devices", by impl.
+    Json devices = Json::object();
+    string devicesMd;
+    const string devicePrefix = DEVICE_PREFIX;
+
     map<string, function<IOBase *(Params &)>> list(ioFunctionRegistry.begin(), ioFunctionRegistry.end());
     for ( auto it = list.begin(); it != list.end(); ++it )
     {
+        //fresh Params each iteration: params must not accumulate from one
+        //IO type to the next
+        Params p;
         p.Add("type", origNameMap[it->first]);
         p.Add("id", "doc");
-        auto io =  CreateIO(it->first, p);
+        //These throwaways belong to nobody else: hold them and let the scope
+        //destroy them (the `delete` here was the last manual one of the IO
+        //creation path, and it was skipped by the `continue` above).
+        std::unique_ptr<IOBase> io(CreateIO(it->first, p));
+        if (!io) continue;
         IODoc *doc = io->getDoc();
-        if (doc && !doc->isAlias(it->first.c_str()))
+        if (!doc || doc->isAlias(it->first.c_str()))
+            continue;
+
+        if (it->first.compare(0, devicePrefix.size(), devicePrefix) == 0)
         {
-            json_object_set_new(j, origNameMap[it->first].c_str(), doc->genDocJson());
-            mdFile << doc->genDocMd(origNameMap[it->first]);
+            const string impl = origNameMap[it->first].substr(devicePrefix.size());
+            devices[impl] = doc->genDocJson();
+            devicesMd += doc->genDocMd(impl);
+            continue;
         }
+
+        j[origNameMap[it->first]] = doc->genDocJson();
+        mdFile << doc->genDocMd(origNameMap[it->first]);
     }
 
-    jsonFile << json_dumps(j, JSON_PRESERVE_ORDER | JSON_INDENT(4));
+    if (!devices.empty())
+        j["devices"] = devices;
+    mdFile << devicesMd;
+
+    /* E4.1k: JSON_PRESERVE_ORDER disappears with the old dump and is NOT
+     * replaced by nlohmann::ordered_json (user decision, E4.1.md Q3): the keys of this
+     * generated file come out alphabetically now. At the top level that
+     * changes nothing (it was already filled from a std::map); inside one IO
+     * type the five sections move from the editorial order to
+     * actions/alias/conditions/description/parameters.
+     * JSON_INDENT(4) becomes dump(4, ' '). ensure_ascii = true is the epic
+     * invariant; it is a no-op on this artefact today, whose every byte is
+     * already ASCII, and it keeps it that way if an accented description ever
+     * appears. error_handler_t::replace turns invalid UTF-8 into U+FFFD
+     * instead of throwing type_error.316 out of dump(). */
+    jsonFile << j.dump(4, ' ', true, Json::error_handler_t::replace);
     jsonFile.close();
     mdFile.close();
 }

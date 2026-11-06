@@ -27,6 +27,8 @@ from __future__ import annotations
 
 from typing import Iterator
 
+from calaos_mcp import safety
+
 
 def iter_rooms(home: dict) -> Iterator[dict]:
     """Yield each room object from a get_home response."""
@@ -59,3 +61,48 @@ def is_writable(io: dict) -> bool:
     if isinstance(rw, bool):
         return rw
     return str(rw).lower() == "true"
+
+
+# impl -> the link roles the device drives itself. A second writer makes the
+# regulation fight (spec section 8.3), so MCP never offers these IOs.
+_PROTECTED_ROLES = {"thermostat": ("output_heat", "output_cool")}
+
+
+def protected_outputs(home: dict) -> dict[str, tuple[str, str]]:
+    """Map the id of each protected output to (device id, link role).
+
+    Read from the 'device' object of get_home, so it follows the installation
+    and not a list of ids kept here.
+    """
+    protected: dict[str, tuple[str, str]] = {}
+    for io, _ in iter_ios(home):
+        device = io.get("device")
+        if not isinstance(device, dict):
+            continue
+        ios = device.get("ios")
+        if not isinstance(ios, dict):
+            continue
+        # IOFactory lowercases impl to build the device; get_home publishes it as
+        # written in io.xml, so an exact comparison would be bypassed by "Thermostat".
+        impl = str(device.get("impl", "")).strip().lower()
+        for role in _PROTECTED_ROLES.get(impl, ()):
+            target = ios.get(role)
+            if isinstance(target, str) and target:
+                protected[target] = (io.get("id", ""), role)
+    return protected
+
+
+def iter_visible_ios(home: dict) -> Iterator[tuple[dict, str]]:
+    """iter_ios without the protected outputs: what the assistant may list."""
+    protected = protected_outputs(home)
+    for io, room_name in iter_ios(home):
+        if io.get("id") not in protected:
+            yield io, room_name
+
+
+def device_view(io: dict) -> dict | None:
+    """The 'device' object of an IO, sanitised for the model, None for a plain IO."""
+    device = io.get("device")
+    if not isinstance(device, dict):
+        return None
+    return safety.safe_tree(device)

@@ -38,8 +38,16 @@ protected:
 
     void readConfig();
 
-    void WagoReadCallback(bool status, UWord address, int count, vector<UWord> &values);
-    void WagoWriteCallback(bool status, UWord address, UWord value);
+    /* T3.46 - two Wago reply callbacks used to be declared here:
+     *   void WagoReadCallback(bool, UWord address, int count, vector<UWord> &);
+     *   void WagoWriteCallback(bool, UWord address, UWord value);
+     * They were DEFINED NOWHERE in the tree - measured, zero occurrences of
+     * OutputAnalog::WagoReadCallback or ::WagoWriteCallback outside comments.
+     * WOAnalog declares and defines its own. Deleting them is what settles
+     * the question T3.46.md section 6.3.3 raised: OutputAnalog is a GENERIC
+     * base outside the Wago tree and must not learn WagoTypes:: to satisfy a
+     * declaration nothing implements.
+     */
 
     void emitChange();
     virtual void set_value_real(double val) = 0;

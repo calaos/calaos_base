@@ -24,8 +24,13 @@
 #include "Timer.h"
 
 #include <cstdlib>
+#include <iomanip>
+#include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <openssl/evp.h>
+#include <openssl/rand.h>
 
 namespace Calaos
 {
@@ -35,30 +40,44 @@ namespace {
 constexpr const char *MCP_TOKEN_KEY = "mcp_token";
 constexpr const char *MCP_SERVICE_TOKEN_KEY = "mcp_service_token";
 constexpr const char *MCP_LISTEN_PORT_KEY = "port_api";
+//Domain separation: the derived credential must not be usable as, nor reveal,
+//the service token it comes from.
+constexpr const char *MCP_PROXY_CREDENTIAL_LABEL = "calaos-mcp-proxy-v1|";
 constexpr unsigned short DEFAULT_JSONAPI_PORT = 5454;
 
-// Generate a 64-hex-char token (256 bits) by concatenating two random
-// UUIDs and stripping the dashes. Utils::createRandomUuid relies on
-// gettimeofday + rand which is not cryptographically strong but is
-// the same source already used elsewhere in calaos_server. For a
-// stronger source we would have to plumb a /dev/urandom reader; this
-// is good enough for an MVP token that is rotatable.
+// Generate a 64-hex-char token (256 bits) from a cryptographically secure
+// random source (OpenSSL RAND_bytes), matching the token format/length
+// already documented in AGENTS.md and used elsewhere in calaos_server
+// (RemoteUIProvisioningHandler::generateAuthToken, HMACAuthenticator::
+// generateNonce). Deliberately does NOT use Utils::createRandomUuid, which
+// seeds rand() from the clock on every call (weak, and can even collide
+// within the same microsecond).
 std::string generateToken()
 {
-    auto strip = [](std::string s)
+    constexpr size_t TOKEN_BYTES = 32; // 256 bits -> 64 hex chars
+
+    unsigned char buffer[TOKEN_BYTES];
+    if (RAND_bytes(buffer, sizeof(buffer)) != 1)
     {
-        s.erase(std::remove(s.begin(), s.end(), '-'), s.end());
-        return s;
-    };
-    return strip(Utils::createRandomUuid()) + strip(Utils::createRandomUuid());
+        cErrorDom("mcp") << "generateToken: RAND_bytes failed to generate cryptographically secure random data";
+        return "";
+    }
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < sizeof(buffer); ++i)
+        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(buffer[i]);
+
+    return oss.str();
 }
 
 unsigned short jsonApiPort()
 {
     unsigned short port = DEFAULT_JSONAPI_PORT;
     std::string opt = Utils::get_config_option(MCP_LISTEN_PORT_KEY);
+    //T3.25: _keep. The .empty() test does not cover a BLANK option ("  "),
+    //which would now write port 0 over the default.
     if (!opt.empty())
-        from_string(opt, port);
+        from_string_or_keep(opt, port);
     return port;
 }
 
@@ -93,18 +112,77 @@ void McpServerManager::ensureTokens()
     mcpToken = Utils::get_config_option(MCP_TOKEN_KEY, true);
     if (mcpToken.empty())
     {
-        mcpToken = generateToken();
-        Utils::set_config_option(MCP_TOKEN_KEY, mcpToken);
-        cInfoDom("mcp") << "generated new mcp_token, persisted to local_config.xml";
+        std::string generated = generateToken();
+        if (generated.empty())
+        {
+            cErrorDom("mcp") << "failed to generate mcp_token (CSPRNG unavailable), MCP proxy will reject all requests";
+        }
+        else
+        {
+            mcpToken = generated;
+            Utils::set_config_option(MCP_TOKEN_KEY, mcpToken);
+            cInfoDom("mcp") << "generated new mcp_token, persisted to local_config.xml";
+        }
     }
 
     serviceToken = Utils::get_config_option(MCP_SERVICE_TOKEN_KEY, true);
     if (serviceToken.empty())
     {
-        serviceToken = generateToken();
-        Utils::set_config_option(MCP_SERVICE_TOKEN_KEY, serviceToken);
-        cInfoDom("mcp") << "generated new mcp_service_token, persisted to local_config.xml";
+        std::string generated = generateToken();
+        if (generated.empty())
+        {
+            cErrorDom("mcp") << "failed to generate mcp_service_token (CSPRNG unavailable), MCP sidecar will not be able to authenticate";
+        }
+        else
+        {
+            serviceToken = generated;
+            Utils::set_config_option(MCP_SERVICE_TOKEN_KEY, serviceToken);
+            cInfoDom("mcp") << "generated new mcp_service_token, persisted to local_config.xml";
+        }
     }
+}
+
+bool McpServerManager::regenerateBearerToken()
+{
+    const std::string generated = generateToken();
+    //LCOV_EXCL_START a CSPRNG or a local_config.xml write that fails
+    if (generated.empty() || !Utils::set_config_option(MCP_TOKEN_KEY, generated))
+    {
+        cErrorDom("mcp") << "failed to regenerate mcp_token, the current one stays";
+        return false;
+    }
+    //LCOV_EXCL_STOP
+
+    mcpToken = generated;
+    cInfoDom("mcp") << "mcp_token regenerated";
+
+    //The sidecar reads the token at start; its exit handler respawns it
+    if (processExe && processExe->referenced() && processExe->pid() > 0)
+    {
+        cInfoDom("mcp") << "restarting the MCP sidecar for the new token";
+        processExe->kill(SIGTERM);
+    }
+
+    return true;
+}
+
+std::string McpServerManager::proxyCredential() const
+{
+    if (serviceToken.empty())
+        return std::string();
+
+    const std::string material = std::string(MCP_PROXY_CREDENTIAL_LABEL) + serviceToken;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+    if (EVP_Digest(material.data(), material.size(), digest, &len,
+                   EVP_sha256(), nullptr) != 1)
+        return std::string();
+
+    std::ostringstream oss;
+    oss << std::hex << std::setfill('0');
+    for (unsigned int i = 0; i < len; i++)
+        oss << std::setw(2) << static_cast<int>(digest[i]);
+    return oss.str();
 }
 
 void McpServerManager::start()
@@ -131,7 +209,9 @@ void McpServerManager::stop()
     shuttingDown = true;
     started = false;
 
-    if (processExe && processExe->referenced())
+    //pid > 0 guard: a handle whose spawn failed keeps pid 0, and killing
+    //pid 0 would SIGTERM our whole process group (see ~ExternProcServer)
+    if (processExe && processExe->referenced() && processExe->pid() > 0)
     {
         cInfoDom("mcp") << "stopping MCP sidecar";
         processExe->kill(SIGTERM);
@@ -170,12 +250,12 @@ void McpServerManager::spawnSidecar()
     pipeStdout->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         stdoutBuf.append(ev.data.get(), ev.length);
-        flushStreamBuffer(stdoutBuf, false);
+        flushStreamBuffer(stdoutBuf, stdoutLevel);
     });
     pipeStderr->on<uvw::DataEvent>([this](uvw::DataEvent &ev, auto &)
     {
         stderrBuf.append(ev.data.get(), ev.length);
-        flushStreamBuffer(stderrBuf, true);
+        flushStreamBuffer(stderrBuf, stderrLevel);
     });
     auto cleanup_pipe = [](const auto &, auto &cl) { cl.close(); };
     pipeStdout->once<uvw::EndEvent>(cleanup_pipe);
@@ -258,10 +338,13 @@ void McpServerManager::scheduleRestart()
     restartAttempts++;
 
     cWarningDom("mcp") << "scheduling sidecar restart in " << delay << "s";
+    //T3.40: McpServerManager is a function-local static (Instance(), :80-84)
+    //and nothing deletes it, so this `this` cannot dangle. Left unguarded on
+    //that measured ground.
     Timer::singleShot(delay, [this]() { spawnSidecar(); });
 }
 
-void McpServerManager::flushStreamBuffer(std::string &buf, bool toStderr)
+void McpServerManager::flushStreamBuffer(std::string &buf, McpLogLevel::Classifier &levels)
 {
     auto pos = buf.find_first_of('\n');
     while (pos != std::string::npos)
@@ -290,10 +373,13 @@ void McpServerManager::flushStreamBuffer(std::string &buf, bool toStderr)
                 break;
             }
         }
-        if (toStderr)
-            cErrorDom("mcp") << line;
-        else
-            cInfoDom("mcp") << line;
+        switch (levels.classify(line))
+        {
+        case McpLogLevel::Level::Error:   cErrorDom("mcp") << line; break;
+        case McpLogLevel::Level::Warning: cWarningDom("mcp") << line; break;
+        case McpLogLevel::Level::Info:    cInfoDom("mcp") << line; break;
+        case McpLogLevel::Level::Debug:   cDebugDom("mcp") << line; break;
+        }
         pos = buf.find_first_of('\n');
     }
 }

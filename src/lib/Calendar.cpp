@@ -59,7 +59,7 @@ int TimeZone::loadCurrentTimeZone()
     if (fichier)
     {
         std::string ligne;
-        while (std::getline(fichier, ligne) && ligne == "\n")
+        while (std::getline(fichier, ligne) && ligne.empty())
             ;
 
         for (unsigned int i = 0; i < timeZone.size(); i++)
@@ -128,7 +128,7 @@ void Calendar::initDate()
 const string Calendar::getDayFromDate()
 {
     updateDay();
-    if(dayId<0 || dayId>7)
+    if(dayId<0 || dayId>6)
         return days[0];
     return days[dayId];
 }
@@ -270,7 +270,7 @@ void Calendar::monthDown()
 {
     month--;
     if (month == 0)
-        month = 11;
+        month = 12;
     setMonth(month);
 }
 
@@ -315,7 +315,7 @@ void Calendar::dayDown()
     day--;
     if (day == 0)
         day = getNbDaysInMonth();
-    setYear(year);
+    setDay(day);
 }
 
 void Calendar::setDay(int d)

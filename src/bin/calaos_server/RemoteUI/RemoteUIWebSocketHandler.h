@@ -35,9 +35,49 @@ class RemoteUI;
 
 class RemoteUIWebSocketHandler: public JsonApiHandlerWS
 {
-private:
+    /* PROTECTED, NOT PRIVATE, AND IT IS A TEST SEAM - E4.1n.
+     *
+     * The whole point of this class for the E4.1 epic is sendInitialIOStates()
+     * (:223), and nothing in the suite could drive it: the only way to set
+     * authenticated_remote_ui is authenticateConnection(), which needs a real
+     * HMAC handshake. Widening this block lets a test subclass attach a
+     * config-loaded RemoteUI directly and put the RemoteUI wire under a byte
+     * oracle - the wire that goes to a PHYSICAL DEVICE with its own client,
+     * which will not be updated at the same time as the server.
+     *
+     * No behaviour changes with this line, and nothing outside the class reads
+     * any of these members: they stay invisible to every caller.
+     */
+protected:
     RemoteUI *authenticated_remote_ui;
     AuthFailureReason last_auth_failure;
+
+    /* Alive token for asynchronous callbacks kept outside of this object
+     * (post-auth timer, buildJsonState completion): they capture a weak_ptr
+     * on it and bail out when the handler has been destroyed in the
+     * meantime (device dropping the connection right after authenticating).
+     * Same pattern as JsonApiHandlerHttp::handlerAlive.
+     */
+    std::shared_ptr<bool> handlerAlive { std::make_shared<bool>(true) };
+
+    //Only the IO events of what the panel may read reach it.
+    bool forwardsEvent(const CalaosEvent &event) override;
+    bool forwardsAdminEvents() const override { return false; }
+    bool survivesCredentialChange() const override { return true; }
+
+    const char *setStateSource() const override { return "set_state from a RemoteUI panel"; }
+
+private:
+    //False until the first use after the connection, and again after an IO
+    //is added or deleted: either can change what a device widget expands to.
+    bool scopeFresh = false;
+    void refreshScope();
+    void ensureScope();
+
+    bool panelMayWrite(const Json &message);
+    void refuse(const string &msg_type, const Json &message);
+    //data.id when it is a string, empty otherwise.
+    static string setStateId(const Json &message);
 
 public:
     RemoteUIWebSocketHandler(HttpClient *client);
@@ -61,6 +101,22 @@ public:
     // Send RemoteUI-specific messages
     void sendInitialIOStates();
     void sendConfigUpdate();
+
+    /* Non-throwing parse of a client-supplied grid dimension.
+     * std::stoi would throw out of timer callbacks into the event loop on
+     * malformed values; this returns fallback instead when the value is not
+     * a plain integer in [1, 1000].
+     * Header-inline so it can be unit-tested without linking server objects.
+     */
+    static int parseGridDimension(const std::string &value, int fallback)
+    {
+        int v = 0;
+        if (!Utils::from_string(value, v))
+            return fallback;
+        if (v < 1 || v > 1000)
+            return fallback;
+        return v;
+    }
 
     // Expose sendJson for RemoteUIManager to send notifications
     using JsonApiHandlerWS::sendJson;

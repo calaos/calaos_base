@@ -1,0 +1,643 @@
+name: Build and Test
+
+on:
+  push:
+    # Publish pushes a tag on a commit whose branch run already passed; a second
+    # full run on the tag proves nothing and nothing reads its artefacts.
+    # tags-ignore alone would also stop every branch push: branches is required.
+    branches: [ '**' ]
+    tags-ignore: [ '**' ]
+  pull_request:
+  # The io-doc artefact expires (90 days): a quiet period must not turn the
+  # installer's iodoc-sync job red. The monthly run on master publishes it again;
+  # workflow_dispatch does the same by hand. No run here starts a Docker or deb
+  # publication: publish.yml is run by hand and requires this workflow green.
+  schedule:
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
+
+# A newer push to a pull request makes the older run worthless. Anything else
+# gets a group of its own: even with cancel-in-progress off, a shared group
+# would drop a queued master run, and Publish needs a green run on that commit.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    container:
+      image: debian:12
+      # The cleanup step below runs inside the container, where an action such as
+      # jlumbroso/free-disk-space would only see the container's filesystem. Bind
+      # mounting the large preinstalled toolchains lets it empty them on the host.
+      volumes:
+        - /usr/local/lib/android:/usr/local/lib/android
+        - /usr/share/dotnet:/usr/share/dotnet
+        - /opt/ghc:/opt/ghc
+        - /usr/local/.ghcup:/usr/local/.ghcup
+        - /usr/share/swift:/usr/share/swift
+
+    steps:
+      # The ~250 test programs of make check overflow the runner disk at link
+      # time ("No space left on device"). None of these toolchains is used here.
+      - name: Free host disk space
+        run: |
+          df -h /
+          for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                   /usr/local/.ghcup /usr/share/swift; do
+            find "$d" -mindepth 1 -delete 2>/dev/null || true
+          done
+          df -h /
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+              build-essential pkg-config \
+              autoconf automake libtool autopoint gettext \
+              libsigc++-2.0-dev libcurl4-openssl-dev \
+              libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
+              libpugixml-dev libjpeg62-turbo-dev \
+              libgtest-dev \
+              python3 python3-pip \
+              locales \
+              git \
+              ccache
+
+      # The monthly run keeps the shims off PATH: a fully cold build still runs
+      # once a month, and the honesty probe SKIPs there. Not CCACHE_DISABLE=1:
+      # the shim would still be in use, disable=true is not the audited
+      # configuration, and the probe would fail.
+      - name: Enable ccache
+        if: github.event_name != 'schedule'
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo /usr/lib/ccache >> "$GITHUB_PATH"
+
+      # Pull requests start from master's cache and never write one: see the
+      # save step at the end of the job.
+      - name: Restore the ccache directory
+        if: github.event_name != 'schedule'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-bt-${{ runner.os }}-${{ hashFiles('configure.ac') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-bt-${{ runner.os }}-${{ hashFiles('configure.ac') }}-
+
+      # On every run: the restored ccache.conf is whatever the saving run left,
+      # and the probe in make check accepts only the audited configuration.
+      # ccache -z is safe here, the directory belongs to this job alone.
+      - name: Configure ccache
+        if: github.event_name != 'schedule'
+        env:
+          CALAOS_CCACHE_SIZE: 1G
+        run: |
+          scripts/ccache-setup.sh
+          ccache -z
+
+      # tests/python/ declares 42 cases and this job used to execute none of
+      # them: with no interpreter, AM_PATH_PYTHON sets PYTHON=: and
+      # run-python-tests.sh skipped before it could even count. The set comes
+      # from src/bin/calaos_mcp/pyproject.toml and from nowhere else -- same
+      # single source of truth, same single resolver pass, as the Dockerfiles.
+      - name: Install the python test dependency set
+        run: |
+          scripts/pyproject-requirements.py --extra test \
+              src/bin/calaos_mcp/pyproject.toml > /tmp/requirements.txt
+          cat /tmp/requirements.txt
+          pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
+
+      - name: Build
+        run: |
+          ./autogen.sh
+          ./configure
+          make -j$(nproc)
+          # TESTS= builds check_PROGRAMS in parallel without running them; the
+          # serial make check below then only runs the suite. Not "all check"
+          # in one call: -j runs both recursions at once and they race on src/.
+          make -j"$(nproc)" check TESTS=
+          df -h /
+
+      # Before make check, so the counters are the build's alone.
+      - name: ccache statistics
+        if: always() && github.event_name != 'schedule'
+        run: ccache -s
+
+      - name: Run tests (make check)
+        # Strict: on this job "the python suites could not run" is a build
+        # error, not a skip. Without it the job goes back to reporting 0 of 42
+        # cases executed behind a green tick the day an install step breaks --
+        # which is exactly how it stayed unnoticed for so long.
+        env:
+          CALAOS_PYTHON_TESTS_REQUIRED: "1"
+          # Same reasoning one layer down: the step above installs the declared
+          # set, so "the set is not there" means the install silently stopped
+          # working. Unset, check-pydeps-conformance.sh skips instead of
+          # failing, so a developer whose image is behind is warned, not blocked.
+          CALAOS_PYDEPS_STRICT: "1"
+          # A SKIP from the honesty probe means the build ran without the cache
+          # this job set up. The probe makes its own hits, so a cold cache passes.
+          CALAOS_CCACHE_PROBE_STRICT: ${{ github.event_name != 'schedule' && '1' || '0' }}
+        run: |
+          make check
+          # A PASS on the monthly run would mean a cache was in use after all.
+          if [ "${{ github.event_name }}" = schedule ]; then
+            grep '^SONDE-CCACHE: SKIP' tests/check-ccache-honesty.sh.log
+          fi
+
+      # The installer (calaos_installer, pr_ci.yml) compares its copies of these
+      # files with this artefact, so "the server is not what the installer
+      # ships" fails there. Only on a green make check: it follows that step.
+      - name: Generate the IO documentation and the device templates
+        run: |
+          sed -i 's/^# *\(fr_FR.UTF-8 UTF-8\)/\1/' /etc/locale.gen
+          locale-gen
+          # The French texts come from the installed .mo files.
+          make -C po install
+          scripts/create_iodoc "$PWD/iodoc"
+          python3 - iodoc <<'PY'
+          import json, sys
+          root = sys.argv[1]
+          docs = {}
+          tpls = {}
+          for lang in ("en", "fr"):
+              with open(f"{root}/{lang}/io_doc.json") as f:
+                  docs[lang] = json.load(f)
+              with open(f"{root}/{lang}/device_templates.json") as f:
+                  templates = json.load(f)
+              assert docs[lang].get("devices"), f"{lang}/io_doc.json: no devices"
+              assert len(templates["templates"]) == 6, f"{lang}/device_templates.json"
+              tpls[lang] = templates["templates"]
+              assert (open(f"{root}/{lang}/io_doc.md").read()), f"{lang}/io_doc.md is empty"
+          # A missing locale or .mo gives English silently: the fr file would be a copy of en.
+          assert docs["fr"] != docs["en"], "fr/io_doc.json is not translated"
+          assert tpls["fr"] != tpls["en"], "fr/device_templates.json is not translated"
+          # One template left in English would not show in the comparison above.
+          for en_t, fr_t in zip(tpls["en"], tpls["fr"]):
+              assert en_t["name"] != fr_t["name"], f"template {en_t['id']} is not translated"
+              assert en_t["description"] != fr_t["description"], f"template {en_t['id']} is not translated"
+          # The devices were left in English once while the rest of io_doc.json was
+          # translated, which the comparison above does not show.
+          for impl, en_d in docs["en"]["devices"].items():
+              fr_d = docs["fr"]["devices"][impl]
+              assert en_d["description"] != fr_d["description"], f"device {impl} is not translated"
+              for key, name in (("parameters", "name"), ("link_roles", "role")):
+                  for en_e, fr_e in zip(en_d[key], fr_d[key]):
+                      assert en_e["description"] != fr_e["description"], f"device {impl}: {en_e[name]} is not translated"
+          print("io_doc.json:", len(docs["en"]), "keys; device templates:", len(templates["templates"]))
+          PY
+
+      # Never from a pull request: the installer trusts this artefact, and a run
+      # of a fork's pull request carries the fork's branch name. push, schedule and
+      # workflow_dispatch only run from this repository.
+      - name: Upload the IO documentation
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: io-doc
+          path: iodoc
+          if-no-files-found: error
+          retention-days: 90
+
+      # if: always(), not if: failure(). The accounting line lives in
+      # tests/run-python-tests.sh.log, which the failure-only dump below never
+      # prints on a green build, so "42 cases executed" and "0 cases executed"
+      # looked identical from the job log.
+      - name: Python suite accounting
+        if: always()
+        run: |
+          if [ -f tests/run-python-tests.sh.log ]; then
+            grep -E '^(run-python-tests|SKIP|FAIL):' tests/run-python-tests.sh.log \
+              || cat tests/run-python-tests.sh.log
+          else
+            echo "no tests/run-python-tests.sh.log: make check did not reach the suite"
+          fi
+
+      - name: Show test logs on failure
+        if: failure()
+        run: |
+          echo "### tests/test-suite.log ###"
+          cat tests/test-suite.log 2>/dev/null || echo "(no test-suite.log found)"
+          echo
+          echo "### individual test .log files ###"
+          for f in tests/*.log; do
+            [ -f "$f" ] || continue
+            echo "--- $f ---"
+            cat "$f"
+            echo
+          done
+
+      # Master only: a pull request's entry could serve nothing but that pull
+      # request, and every entry counts against the repository's 10 GB budget.
+      # always(): a run that fails in make check still compiled everything.
+      - name: Save the ccache directory
+        if: always() && github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && github.event_name != 'schedule'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-bt-${{ runner.os }}-${{ hashFiles('configure.ac') }}-${{ github.sha }}
+
+  coverage:
+    name: Diff coverage
+    runs-on: ubuntu-latest
+    container:
+      image: debian:12
+      # The cleanup step below runs inside the container, where an action such as
+      # jlumbroso/free-disk-space would only see the container's filesystem. Bind
+      # mounting the large preinstalled toolchains lets it empty them on the host.
+      volumes:
+        - /usr/local/lib/android:/usr/local/lib/android
+        - /usr/share/dotnet:/usr/share/dotnet
+        - /opt/ghc:/opt/ghc
+        - /usr/local/.ghcup:/usr/local/.ghcup
+        - /usr/share/swift:/usr/share/swift
+    # Blocking on pull requests only, through the "Diff coverage gate" step.
+    # Skipped on push, where there is no diff to judge and the 40 min run only
+    # delayed the result; schedule and workflow_dispatch still give a report,
+    # and a broken measurement there must not turn master red.
+    if: github.event_name != 'push'
+    continue-on-error: ${{ github.event_name != 'pull_request' }}
+
+    steps:
+      # The ~250 test programs of make check overflow the runner disk at link
+      # time ("No space left on device"). None of these toolchains is used here.
+      - name: Free host disk space
+        run: |
+          df -h /
+          for d in /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                   /usr/local/.ghcup /usr/share/swift; do
+            find "$d" -mindepth 1 -delete 2>/dev/null || true
+          done
+          df -h /
+
+      # git before checkout, for the same reason as in format-check: without it
+      # the action downloads a tarball and the gate has no history to diff.
+      - name: Install git
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Trust the workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install build dependencies
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+              build-essential pkg-config \
+              autoconf automake libtool autopoint gettext \
+              libsigc++-2.0-dev libcurl4-openssl-dev \
+              libluajit2-5.1-dev libsqlite3-dev libssl-dev libuv1-dev \
+              libpugixml-dev libjpeg62-turbo-dev \
+              libgtest-dev \
+              lcov python3
+
+      # No ccache here: with --coverage each compile also writes a .gcno, which
+      # the honesty probe never audits, and the diff coverage gate reads them.
+      - name: Build with gcov instrumentation
+        run: |
+          ./autogen.sh
+          # --coverage on both compile and link flags; -O0 keeps the line
+          # mapping honest, -fprofile-update=atomic avoids counter races in
+          # the threaded parts of the suite. The two -Wl options make
+          # __gcov_dump callable from the _exit() shim below.
+          ./configure \
+            CFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
+            CXXFLAGS="-g -O0 --coverage -fprofile-update=atomic" \
+            LDFLAGS="--coverage -Wl,-u,__gcov_dump -Wl,--export-dynamic-symbol=__gcov_dump"
+          make -j$(nproc)
+          # Test binaries are built here, before the counters are zeroed, so
+          # the coverage data still comes from the make check step only.
+          make -j"$(nproc)" check TESTS=
+          df -h /
+          gcc -shared -fPIC -O1 -o "$PWD/gcov-exit-shim.so" scripts/gcov-exit-shim.c -ldl
+
+      - name: Capture baseline (zero) counters
+        run: |
+          lcov --directory . --zerocounters
+          # Baseline over the whole tree so files that no test ever touches
+          # still appear (at 0%) instead of silently vanishing from the report.
+          # --ignore-errors is limited to the categories lcov 1.16 (the version
+          # in debian:12) knows about; the lcov 2.x names are rejected outright.
+          lcov --directory . --capture --initial \
+               --output-file coverage-base.info \
+               --ignore-errors gcov,source,graph
+
+      - name: Run tests (make check)
+        # Forked children and mains that leave through _exit() skip the
+        # atexit dump; the shim writes the counters first. Preloaded here, in
+        # the container, so the path is the one the processes can load.
+        run: |
+          status=0
+          LD_PRELOAD="$PWD/gcov-exit-shim.so" make check || status=$?
+          failed=$(find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + \
+                   | sed -e 's#^tests/##' -e 's#\.trs$##' | sort)
+          echo "failing tests: ${failed:-none}"
+          if [ -n "$failed" ]; then
+            echo "unexpected test failures: $failed"
+            exit 1
+          fi
+          if [ "$status" -ne 0 ] && [ -z "$failed" ]; then
+            echo "make check failed (status $status) without a failing test"
+            exit 1
+          fi
+
+      # The make check output names a failing program only; its own log says why
+      - name: Show test logs on failure
+        if: failure()
+        run: |
+          find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + | while read -r trs; do
+            echo "--- $trs ---"
+            cat "$trs"
+            echo "--- ${trs%.trs}.log ---"
+            cat "${trs%.trs}.log" 2>/dev/null || echo "(no log)"
+            echo
+          done
+
+      - name: Generate lcov report
+        run: |
+          lcov --directory . --capture --output-file coverage-run.info \
+               --ignore-errors gcov,source,graph
+          lcov --add-tracefile coverage-base.info \
+               --add-tracefile coverage-run.info \
+               --output-file coverage-all.info
+
+          # Keep only our own code: system headers, the test sources
+          # themselves and the bundled third-party trees would drown the
+          # signal we actually care about.
+          # The vendored trees come from the gate script, the one list both use;
+          # set -f keeps the shell from expanding the patterns meant for lcov.
+          set -f
+          lcov --remove coverage-all.info '/usr/*' '*/tests/*' \
+               $(python3 scripts/check-diff-coverage.py --print-lcov-remove) \
+               --output-file coverage.info
+          set +f
+
+          genhtml coverage.info --output-directory coverage-html \
+                  --legend --title "calaos_base coverage" \
+                  --ignore-errors source
+
+      - name: Coverage summary
+        run: lcov --summary coverage.info
+
+      # Every executable line this PR adds under src/ must have run in
+      # make check. Exclusions are LCOV_EXCL_* markers with a reason, and the
+      # step prints how many the PR adds. Run it locally the same way:
+      #   scripts/check-diff-coverage.py --info coverage.info --base origin/master
+      - name: Diff coverage gate
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 scripts/check-diff-coverage.py --info coverage.info \
+              --base "origin/${{ github.base_ref }}"
+
+      - name: Diff coverage report (push)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: |
+          python3 scripts/check-diff-coverage.py --info coverage.info --report-only \
+              --base "${{ github.event.before }}" || true
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: |
+            coverage.info
+            coverage-html
+          if-no-files-found: warn
+          retention-days: 14
+
+  format-check:
+    name: Format check (changed lines)
+    runs-on: ubuntu-latest
+    container: debian:12
+    if: github.event_name == 'pull_request'
+
+    steps:
+      # git must be installed *before* actions/checkout: the action only
+      # creates a real git repository when git >= 2.18 is on the PATH, and the
+      # debian:12 image ships none. Without this step checkout silently falls
+      # back to downloading a REST tarball, leaves no .git directory, and the
+      # git diff below dies with "not a git repository".
+      - name: Install git and clang-format
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clang-format git
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: clang-format-diff on changed lines only
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+          # Only the lines this PR actually touches are checked, not whole
+          # files. This matters because several legacy files carry
+          # pre-existing formatting debt; the goal is to enforce style on
+          # new/modified code without forcing unrelated reformatting of
+          # everything else in a file a PR happens to touch.
+          #
+          # Diff against the PR's base branch only (three-dot: changes on
+          # this branch since it diverged from base), not the whole tree.
+          # Bundled third-party sources under src/lib are excluded: they
+          # keep their own upstream formatting and are not ours to reformat.
+          diff=$(git diff -U0 --no-color "origin/${{ github.base_ref }}...HEAD" -- '*.cpp' '*.h' \
+            ':(exclude)src/lib/libquickmail' \
+            ':(exclude)src/lib/uvw' \
+            ':(exclude)src/lib/llhttp' \
+            ':(exclude)src/lib/exprtk' \
+            ':(exclude)src/lib/sole' \
+            ':(exclude)src/lib/sqlite_modern_cpp' \
+            ':(exclude)src/lib/uri_parser' \
+            ':(exclude)src/lib/cpptui' \
+            ':(exclude)src/lib/pugixml' \
+            ':(exclude)src/lib/json.hpp')
+
+          if [ -z "$diff" ]; then
+            echo "No non-vendored .cpp/.h changes in this PR; skipping format check."
+            exit 0
+          fi
+
+          # -p1 strips the a/ b/ prefixes git diff puts on paths, so
+          # clang-format-diff resolves them relative to $GITHUB_WORKSPACE.
+          # No -style is passed: clang-format-diff simply omits the flag
+          # when passing it through to clang-format, whose own default is
+          # "file" style discovery, i.e. it walks up from each changed
+          # file's directory to find our .clang-format at the repo root.
+          format_diff=$(echo "$diff" | clang-format-diff-14 -p1)
+
+          if [ -n "$format_diff" ]; then
+            echo "Formatting issues found in changed lines:"
+            echo "$format_diff"
+            echo
+            echo "Only the lines this PR changed are checked (pre-existing"
+            echo "formatting debt elsewhere in a file is not your problem)."
+            echo "Fix the lines above, e.g. by running clang-format on them,"
+            echo "and push again."
+            exit 1
+          fi
+
+          echo "No formatting issues in changed lines."
+
+  # T3.23 — the only CI job that sees the MCP sidecar at all.
+  #
+  # The build-and-test job installs no Python dependencies, so HAVE_PYTHON_MCP
+  # is "no" there and the sidecar is skipped entirely. That is how the pip
+  # Dependabot PRs went green while saying nothing: a ✅ on a pyproject.toml
+  # bump carried no information about whether the sidecar could still start.
+  #
+  # This job installs exactly what src/bin/calaos_mcp/pyproject.toml declares —
+  # the same file, and the same single-resolver-pass install, the Dockerfile
+  # uses — and then imports the API the sidecar actually needs. It is
+  # deliberately not `import mcp`: that passes across major versions whose API
+  # the sidecar cannot use (mcp 2 removed mcp.server.fastmcp).
+  mcp-sidecar-deps:
+    name: MCP sidecar dependency set
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-pip
+
+      - name: Install the declared dependency set
+        run: |
+          scripts/pyproject-requirements.py src/bin/calaos_mcp/pyproject.toml \
+              > /tmp/requirements.txt
+          cat /tmp/requirements.txt
+          pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
+
+      - name: Import the API the sidecar uses
+        run: |
+          PYTHONPATH=src/bin/calaos_mcp/python python3 - <<'PY'
+          from mcp.server.mcpserver import MCPServer
+          from mcp.server.mcpserver.exceptions import ToolError
+          from mcp.server.transport_security import TransportSecuritySettings
+          from fastapi import FastAPI, Request, Response
+          from fastapi.responses import JSONResponse
+          from starlette.middleware.base import BaseHTTPMiddleware
+          from starlette.routing import Route
+          import uvicorn, websockets
+
+          # server.py reaches MCPServer through two calls no import
+          # statement would reveal: streamable_http_app(transport_security=)
+          # (:186) and session_manager (:193). Both moved in mcp 2 — replay
+          # the sequence here rather than discover it in a published image.
+          import calaos_mcp.server  # noqa: F401
+          m = MCPServer("ci-probe")
+          app = m.streamable_http_app(
+              transport_security=TransportSecuritySettings(
+                  enable_dns_rebinding_protection=False))
+          assert app.routes, "streamable_http_app() exposed no route"
+          assert m.session_manager is not None, "MCPServer.session_manager is gone"
+          print("sidecar API present")
+          PY
+
+      - name: Report installed versions
+        run: |
+          pip show mcp fastapi starlette uvicorn websockets pydantic \
+              | grep -E '^(Name|Version):'
+
+  # A workflow_run gate breaks by never firing: GitHub matches the quoted
+  # workflow by its name:, and an unmatched name is not an error. Nothing else
+  # in the tree would notice that publication had simply stopped.
+  workflow-gating:
+    name: Workflow gating check
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-yaml
+
+      - name: Publishing stays manual and gated on green CI
+        run: python3 .github/check-workflow-gating.py
+
+  dependabot-config:
+    name: Dependabot manifest coverage
+    runs-on: ubuntu-latest
+    container: debian:12
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-yaml
+
+      - name: Every watched directory must hold a manifest
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys, yaml
+
+          # A dependabot entry pointing at a directory with no manifest is
+          # accepted by GitHub and simply watches nothing -- there is no error,
+          # no PR, and no way to tell that apart from "no update available".
+          # Renaming or moving a manifest is therefore silent, and this repo has
+          # already shipped a manifest that no build path read.
+          MANIFESTS = {
+              "npm": ("package.json",),
+              "pip": ("pyproject.toml", "requirements.txt", "setup.py",
+                      "setup.cfg", "Pipfile"),
+              "docker": ("Dockerfile",),
+              "github-actions": (".github/workflows",),
+          }
+
+          root = pathlib.Path(".")
+          cfg = yaml.safe_load((root / ".github/dependabot.yml").read_text())
+          errors = []
+
+          if cfg.get("version") != 2:
+              errors.append(f"version is {cfg.get('version')!r}, expected 2")
+
+          updates = cfg.get("updates") or []
+          if not updates:
+              errors.append("no update entry at all")
+
+          for entry in updates:
+              eco = entry.get("package-ecosystem")
+              names = MANIFESTS.get(eco)
+              if names is None:
+                  errors.append(f"{eco!r}: unknown ecosystem, extend MANIFESTS")
+                  continue
+              dirs = entry.get("directories") or [entry.get("directory", "/")]
+              for d in dirs:
+                  if "*" in d:
+                      continue
+                  path = root / d.lstrip("/")
+                  if not path.is_dir():
+                      errors.append(f"{eco} {d}: directory does not exist")
+                  elif not any((path / n).exists() for n in names):
+                      errors.append(
+                          f"{eco} {d}: none of {', '.join(names)} found")
+                  else:
+                      print(f"ok  {eco:15} {d}")
+
+          for e in errors:
+              print(f"FAIL {e}", file=sys.stderr)
+          sys.exit(1 if errors else 0)
+          PY

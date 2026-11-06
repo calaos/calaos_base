@@ -39,8 +39,8 @@ public:
 
     bool Execute();
 
-    bool LoadFromXml(TiXmlElement *node);
-    bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(pugi::xml_node node) override;
+    bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

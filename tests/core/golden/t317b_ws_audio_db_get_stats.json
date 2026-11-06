@@ -1,0 +1,10 @@
+{
+  "data": {
+    "albums": "12",
+    "artists": "7",
+    "audio_action": "get_stats",
+    "songs": "134"
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}

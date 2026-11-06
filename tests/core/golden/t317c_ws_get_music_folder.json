@@ -1,0 +1,20 @@
+{
+  "data": {
+    "items": [
+      {
+        "count": "2"
+      },
+      {
+        "id": "folder_1",
+        "name": "folder number 1"
+      },
+      {
+        "id": "folder_2",
+        "name": "folder number 2"
+      }
+    ],
+    "total_count": "2"
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}

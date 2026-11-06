@@ -2,58 +2,8571 @@
 TESTS =
 check_PROGRAMS =
 
+#Shell tests. They need no gtest, only the built calaos_config, so they live
+#outside of the HAVE_GTEST conditional. They locate the tree through those two
+#variables, and fall back on their own path when run by hand.
+AM_TESTS_ENVIRONMENT = \
+              abs_top_srcdir='$(abs_top_srcdir)'; export abs_top_srcdir;     \
+              abs_top_builddir='$(abs_top_builddir)'; export abs_top_builddir; \
+              PYTHON='$(PYTHON)'; export PYTHON;                              \
+              CALAOS_IODOC_PATH='$(abs_top_builddir)/src/bin/calaos_mcp/io_doc.json'; export CALAOS_IODOC_PATH;
+
+#check-config-options.sh: every config key used by the sources must be in the
+#ConfigOptions registry, no registry entry may be orphaned, no obsolete key may
+#come back.
+#check-config-docs.sh: docs/16_config_options.md must still match
+#"calaos_config options --markdown".
+TESTS += check-config-options.sh check-config-docs.sh
+dist_check_SCRIPTS = check-config-options.sh check-config-docs.sh
+
+#check-potfiles-devices.sh: the IO sources that mark strings with _() must be in
+#po/POTFILES.in, or their IODoc texts are never translated.
+TESTS += check-potfiles-devices.sh
+dist_check_SCRIPTS += check-potfiles-devices.sh
+
+#check-gentemplates.sh: calaos_server --gentemplates writes the device
+#templates, and reports a path it cannot write to.
+TESTS += check-gentemplates.sh
+dist_check_SCRIPTS += check-gentemplates.sh
+
+#check-iodoc-generation.sh: scripts/create_iodoc (the CI artefact) works with a
+#HOME that cannot be written, and the MCP Makefile installs a prebuilt io_doc.json.
+TESTS += check-iodoc-generation.sh
+dist_check_SCRIPTS += check-iodoc-generation.sh
+
+#check-calaos-picture.sh: one download per run, no URL in the journal, and the
+#exit status that tells the server whether the picture was resized.
+TESTS += check-calaos-picture.sh
+dist_check_SCRIPTS += check-calaos-picture.sh
+
+# T2.14: python suites (tests/python/, from T1.8 + T1.16) wired into make
+# check through a wrapper. PYTHON comes from AM_PATH_PYTHON via
+# AM_TESTS_ENVIRONMENT above.
+# F-PYTEST-1: the wrapper delegates to python-suite-runner.py, which counts the
+# declared cases, counts the executed ones, publishes both, and exits 77 (a
+# SKIP that shows in the "# SKIP:" column) rather than 0 when they disagree.
+TESTS += run-python-tests.sh
+dist_check_SCRIPTS += run-python-tests.sh
+
+# F-PYTEST-1: meta-oracle over the entry just above. run-python-tests.sh used
+# to exit 0 -- automake PASS -- while three of the six suites in tests/python/
+# had not been executed at all; the only trace was one line in a .log. This
+# guard asserts the launcher publishes how many declared cases it really ran
+# and that its exit code agrees (all -> 0, some missing -> 77 = a SKIP that
+# shows up in the "# SKIP:" column, never a silent PASS). It needs no gtest and
+# no built binary, so it lives outside the HAVE_GTEST conditional.
+TESTS += check-python-tests-reporting.sh
+dist_check_SCRIPTS += check-python-tests-reporting.sh
+EXTRA_DIST = \
+              python-suite-runner.py         \
+              python/conftest.py             \
+              python/test_auth.py            \
+              python/test_extern_proc.py     \
+              python/test_logger.py          \
+              python/test_mcp_devices.py     \
+              python/test_mcp_logging.py     \
+              python/test_mcp_server.py      \
+              python/test_reolink.py         \
+              python/test_t116_mcp_client.py \
+              python/test_t116_mcp_config_io.py \
+              python/test_t116_roon.py
+
+# T3.45: dist-path integrity. Every file named by EXTRA_DIST and friends must
+# exist, or `make dist` dies with "No rule to make target" and no release
+# tarball can be built. src/lib/calaos-python/Makefile.am shipped such a path
+# from 2025-02-16 to 2026-08-25 undetected, because CI runs neither dist nor
+# distcheck. This is the sub-second static stand-in for that check; the real
+# `make distcheck` remains a manual/release-time gate (docs/refactoring/T3.45.md).
+TESTS += check-extra-dist.sh
+dist_check_SCRIPTS += check-extra-dist.sh
+EXTRA_DIST += check-extra-dist.py
+
+# T3.48: the other direction of the same question. check-extra-dist.sh above
+# asks "does every declared dist path exist?"; this asks "does every file that
+# exists get declared?". `make dist` answered "tarball built" while leaving 417
+# tracked files out of it -- 126 C/C++ sources and headers, every vendored
+# library's licence, and exprtk.hpp, without which the unpacked archive does
+# not compile. It reuses check-extra-dist.py's Makefile.am parser rather than
+# growing a second one. docs/refactoring/T3.48.md.
+TESTS += check-dist-coverage.sh
+dist_check_SCRIPTS += check-dist-coverage.sh
+EXTRA_DIST += check-dist-coverage.py
+
+# T3.48: the Autobahn websocket fuzzing harness. Driven by hand, not by
+# `make check`, but it is part of the test suite a tarball consumer gets.
+EXTRA_DIST += \
+              websockets/fuzzingclient.json      \
+              websockets/run_testsuite_client.sh \
+              websockets/run_testsuite_server.sh
+
 if HAVE_GTEST
 AM_CPPFLAGS = \
               -I$(top_srcdir)/src \
               -DETC_DIR=\"$(sysconfdir)/calaos/\"                   \
               -DLIBMBUS                                             \
               -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
-              -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
               -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
               -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
-              -DTIXML_USE_STL                                       \
               -I$(top_srcdir)/src/bin/calaos_server/Audio           \
               -I$(top_srcdir)/src/bin/calaos_server/IO/Gpio         \
               -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
-              -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
               -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
               -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
               -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
-              -I$(top_srcdir)/src/bin/calaos_server/IO/X10          \
-              -I$(top_srcdir)/src/bin/calaos_server/IO/Zibase       \
               -I$(top_srcdir)/src/bin/calaos_server/IO              \
               -I$(top_srcdir)/src/bin/calaos_server/IPCam           \
               -I$(top_srcdir)/src/bin/calaos_server/Rules           \
               -I$(top_srcdir)/src/bin/calaos_server/Scenario        \
               -I$(top_srcdir)/src/bin/calaos_server/TCPProcessor    \
               -I$(top_srcdir)/src/bin/calaos_server                 \
+              -I$(top_srcdir)/src/bin/tools/config_tui              \
               -I$(top_srcdir)/src/lib                               \
               -I$(top_srcdir)/src/lib/LuaScript                     \
-              -I$(top_srcdir)/src/lib/TinyXML                       \
-              -I$(top_srcdir)/src/lib/cJSON                         \
               -I$(top_srcdir)/src/lib/llhttp/include                \
               -I$(top_srcdir)/src/lib/libquickmail                  \
               -I$(top_srcdir)/src/lib/uri_parser                    \
               @CALAOS_COMMON_CFLAGS@
-AM_LDFLAGS = -lgtest -lgtest_main
 
 TESTS += ColorValue_test
 check_PROGRAMS += ColorValue_test
 ColorValue_test_SOURCES = ColorValue_test.cpp
 ColorValue_test_LDADD = @CALAOS_SERVER_LIBS@ \
-                  $(top_builddir)/src/lib/libcalaos_common.la
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
 
 TESTS += ExpressionEvaluator_test
 check_PROGRAMS += ExpressionEvaluator_test
 ExpressionEvaluator_test_SOURCES = ExpressionEvaluator_test.cpp
 ExpressionEvaluator_test_LDADD = @CALAOS_SERVER_LIBS@ \
-                  $(top_builddir)/src/lib/libcalaos_common.la
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
 
 TESTS += FileUtils_test
 check_PROGRAMS += FileUtils_test
 FileUtils_test_SOURCES = FileUtils_test.cpp
 FileUtils_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += ConfigOptions_test
+check_PROGRAMS += ConfigOptions_test
+ConfigOptions_test_SOURCES = ConfigOptions_test.cpp
+ConfigOptions_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += Utils_config_test
+check_PROGRAMS += Utils_config_test
+Utils_config_test_SOURCES = Utils_config_test.cpp
+Utils_config_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+#Core tests (tests/core/). They exercise the server core itself: Config,
+#IOFactory, IOBase, Room, ListeRoom, Rule, ListeRule, Condition* and Action*.
+#
+#Linking: calaos_server is a program, not a library, so there is no .la to link
+#against. Its objects are reused as they are. That was preferred over the two
+#alternatives because it needs no change at all outside of this file (the
+#ticket owns tests/ only) and it does not compile the same 30 sources a second
+#time. It also keeps the IOFactory self registrations working: REGISTER_IO()
+#creates a static object in the .cpp of each IO, so an IO type only exists in
+#a test binary when its object file is listed here. The list below is exactly
+#the transitive closure needed by CalaosConfig.o, and it deliberately contains
+#a single family of IOs, the internal ones (IO/IntValue.o gives InternalBool,
+#InternalInt and InternalString): no hardware driver, no subprocess.
+#
+#src/ is built before tests/ (top level SUBDIRS = src data tests) so these
+#objects always exist by the time a test is linked. They are not repeated in
+#_DEPENDENCIES on purpose: they are built by another Makefile and make has no
+#rule for them here.
+CALAOS_SERVER_BUILDDIR = $(top_builddir)/src/bin/calaos_server
+
+CORE_SERVER_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Calaos.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/CalaosConfig.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/CameraTokens.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/DataLogger.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/EventManager.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/HistLogger.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IOBase.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IOChangeHub.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApi.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiAdmin.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/AdminConfig.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/AdminState.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/AdminEvents.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/DaemonClient.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/OriginPolicy.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/ListeRoom.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/ListeRule.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/NotifManager.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/Room.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/Rule.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioPlayer.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/IPCam.$(OBJEXT)                \
+$(CALAOS_SERVER_BUILDDIR)/IPCam/JpegThumbnail.$(OBJEXT)        \
+$(CALAOS_SERVER_BUILDDIR)/IPCam/PictureResizer.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Device.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/IODoc.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/IOFactory.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InPlageHoraire.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTimer.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/IntValue.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Scenario.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptExec.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/Action.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ActionMail.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ActionPush.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ActionScript.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ActionStd.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ActionTouchscreen.$(OBJEXT)    \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/Condition.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ConditionOutput.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ConditionScript.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ConditionStart.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/ConditionStd.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Rules/RulesFactory.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Scenario/AutoScenario.$(OBJEXT)     \
+                  $(CALAOS_SERVER_BUILDDIR)/Scenario/AutoScenarioDef.$(OBJEXT)
+
+#The server headers pulled in by the core fixture need the libuv/curl/openssl
+#include paths, which the common flags above do not carry.
+CORE_TEST_CPPFLAGS = $(AM_CPPFLAGS)                    \
+                  -I$(top_srcdir)/src/bin/calaos_server/LuaScript \
+                  -I$(top_srcdir)/src/lib/sole                    \
+                  -I$(top_srcdir)/src/lib/sqlite_modern_cpp/hdr   \
+                  @CALAOS_SERVER_CFLAGS@
+
+CORE_TEST_LDADD = $(CORE_SERVER_OBJECTS) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  @JPEG_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+#T3.36: every test binary that links server objects must also DEPEND on them.
+#The historical override "<name>_DEPENDENCIES = ...libcalaos_common.la" was
+#written to stop automake from turning those objects into prerequisites; the
+#side effect was that make never relinked a test after the code under test was
+#rebuilt, so `make check` could re-run a stale binary against mutated sources
+#and report PASS (and, after a rebase, report a segfault that no source
+#explained). Listing the objects here restores the timestamp comparison
+#without giving tests/ any way to build them: the pattern rule below shadows
+#make's built-in .cpp.o rule, so an object that is genuinely missing surfaces
+#as a link error naming the file instead of being recompiled with the wrong
+#flags. src/ is built before tests/ (top level SUBDIRS = src data tests), so
+#in practice they always exist and are always up to date by then.
+CORE_TEST_DEPS = $(CORE_SERVER_OBJECTS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
+$(CALAOS_SERVER_BUILDDIR)/%.$(OBJEXT):
+	@:
+
+TESTS += core/CoreSmoke_test
+check_PROGRAMS += core/CoreSmoke_test
+core_CoreSmoke_test_SOURCES = core/CoreSmoke_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_CoreSmoke_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_CoreSmoke_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_CoreSmoke_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+
+#ConfigModel lives with the TUI but does not include cpptui.hpp, so it is
+#compiled straight into the test and runs without any terminal
+TESTS += ConfigModel_test
+check_PROGRAMS += ConfigModel_test
+ConfigModel_test_SOURCES = ConfigModel_test.cpp \
+                  $(top_srcdir)/src/bin/tools/config_tui/ConfigModel.cpp \
+                  $(top_srcdir)/src/bin/tools/config_tui/ConfigModel.h
+#Per target flags on purpose: they prefix the object name, so this build of
+#ConfigModel.cpp cannot collide with the one of calaos_config
+ConfigModel_test_CPPFLAGS = $(AM_CPPFLAGS)
+ConfigModel_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+# T1.12
+TESTS += Utils_rand_test
+check_PROGRAMS += Utils_rand_test
+Utils_rand_test_SOURCES = Utils_rand_test.cpp
+Utils_rand_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += ScopedConnection_test
+check_PROGRAMS += ScopedConnection_test
+ScopedConnection_test_SOURCES = ScopedConnection_test.cpp
+ScopedConnection_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += TcpSocket_test
+check_PROGRAMS += TcpSocket_test
+TcpSocket_test_SOURCES = TcpSocket_test.cpp
+#Needs std::thread (accept() runs on a background thread while the test
+#connects from the main thread over loopback).
+TcpSocket_test_CPPFLAGS = $(AM_CPPFLAGS) @PTHREAD_CFLAGS@
+TcpSocket_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main \
+                  @PTHREAD_LIBS@ -lpthread
+# T1.13
+#LAN (PingInputSwitch, WOLOutputBool) and Hue (HueOutputLightRGB) IOs. Same
+#core objects as the smoke test, plus the four object files of those IOs and
+#of their two base classes. Those are the only hardware IOs linked into a
+#test: they need nothing more than libuv (the ping subprocess is spawned by
+#the IO itself, and no libuv loop runs here), no curl/mbus/lua extra.
+TESTS += core/LanHue_test
+check_PROGRAMS += core/LanHue_test
+core_LanHue_test_SOURCES = core/LanHue_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_LanHue_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/LAN \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+core_LanHue_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/PingInputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/WOLOutputBool.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_LanHue_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/PingInputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/LAN/WOLOutputBool.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 
 endif
 
+
+# T1.1
+#Rule/IO lifecycle tests. Own HAVE_GTEST block so that this stays a pure
+#append at the end of the file (several tickets add their block here).
+if HAVE_GTEST
+TESTS += core/RuleLifecycle_test
+check_PROGRAMS += core/RuleLifecycle_test
+core_RuleLifecycle_test_SOURCES = core/RuleLifecycle_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleLifecycle_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleLifecycle_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleLifecycle_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+
+# T1.15
+#Lua sandbox and execution watchdog. ScriptManager.cpp/ScriptBindings.cpp are
+#only built into calaos_script (a program, like calaos_server), so their objects
+#are reused directly the same way the core tests reuse the server ones. Own
+#HAVE_GTEST block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += LuaSandbox_test
+check_PROGRAMS += LuaSandbox_test
+LuaSandbox_test_SOURCES = LuaSandbox_test.cpp
+LuaSandbox_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+LuaSandbox_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT)   \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)             \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+LuaSandbox_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T1.3
+#ListeRoom robustness tests: default name, EventIOAdded only on success, and
+#duplicate id handling in io_table. Own HAVE_GTEST block, same reasoning as
+#T1.1: keeps this a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomRobustness_test
+check_PROGRAMS += core/ListeRoomRobustness_test
+core_ListeRoomRobustness_test_SOURCES = core/ListeRoomRobustness_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ListeRoomRobustness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomRobustness_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ListeRoomRobustness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T1.2
+#ConditionStd/ConditionOutput semantics: multi-input conjunction and
+#ConditionStd/ConditionOutput eval() parity. Own HAVE_GTEST block, same
+#reason as T1.1's above.
+if HAVE_GTEST
+TESTS += core/ConditionEval_test
+check_PROGRAMS += core/ConditionEval_test
+core_ConditionEval_test_SOURCES = core/ConditionEval_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ConditionEval_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ConditionEval_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ConditionEval_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+# T1.4
+#Hardening of the json api: security helpers and login throttle. Own HAVE_GTEST
+#block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiHardening_test
+check_PROGRAMS += core/JsonApiHardening_test
+core_JsonApiHardening_test_SOURCES = core/JsonApiHardening_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiHardening_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_JsonApiHardening_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiHardening_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+# T1.5
+#WebSocket frame parsing: 64 bits payload length and frame size cap.
+#WebSocketFrame lives in src/lib and parses a byte buffer, so it needs
+#nothing more than libcalaos_common (no event loop, no server object).
+if HAVE_GTEST
+TESTS += WebSocketFrame_test
+check_PROGRAMS += WebSocketFrame_test
+WebSocketFrame_test_SOURCES = WebSocketFrame_test.cpp
+WebSocketFrame_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T1.9
+#ExternProc framing parser: 5 byte header guard (no OOB read on short
+#buffers), big endian length decoding, payload length cap with recovery.
+#ExternProcMessage is built into the calaos_server program, so its object is
+#reused directly, the same way LuaSandbox_test does above. Own HAVE_GTEST
+#block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ExternProcFraming_test
+check_PROGRAMS += ExternProcFraming_test
+ExternProcFraming_test_SOURCES = ExternProcFraming_test.cpp
+ExternProcFraming_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+ExternProcFraming_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+ExternProcFraming_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+# T1.6
+#RemoteUI HMAC constant-time comparison and dedup'd auth helpers. The helpers
+#(constantTimeHexEquals, hexDecode, findHeader) are header-inline in
+#HMACAuthenticator.h, so only openssl (via @CALAOS_SERVER_LIBS@) is needed at
+#link time, no server objects. CORE_TEST_CPPFLAGS brings the libuv/openssl
+#include paths pulled transitively by the RemoteUI headers. Own HAVE_GTEST
+#block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += RemoteUIHmac_test
+check_PROGRAMS += RemoteUIHmac_test
+RemoteUIHmac_test_SOURCES = RemoteUIHmac_test.cpp
+RemoteUIHmac_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+RemoteUIHmac_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T1.11
+#IOBase/IOFactory id integrity: "id" immutable via set_param/del_param,
+#REGISTER_IO collision keeps the first registration, genDoc does not pollute
+#the live io_table, battery status contract. Own HAVE_GTEST block so that
+#this stays a pure append at the end of the file (same reasoning as T1.1).
+if HAVE_GTEST
+TESTS += core/IOIdIntegrity_test
+check_PROGRAMS += core/IOIdIntegrity_test
+core_IOIdIntegrity_test_SOURCES = core/IOIdIntegrity_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IOIdIntegrity_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_IOIdIntegrity_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IOIdIntegrity_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T1.10
+#RemoteUI WebSocket/OTA lifecycle helpers: non-throwing grid dimension
+#parsing (parseGridDimension) and 64-bit clamped OTA rescan interval
+#(computeRescanIntervalMs). Both helpers are header-inline in the RemoteUI
+#headers, so only the libs are needed at link time, no server objects (same
+#setup as RemoteUIHmac_test above). Own HAVE_GTEST block so that this stays
+#a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += RemoteUIOtaLifecycle_test
+check_PROGRAMS += RemoteUIOtaLifecycle_test
+RemoteUIOtaLifecycle_test_SOURCES = RemoteUIOtaLifecycle_test.cpp
+RemoteUIOtaLifecycle_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+RemoteUIOtaLifecycle_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T1.19 (trimmed by T2.12)
+# IO controller regression: WebCtrl::getValueText empty-path guard.
+# Links WebCtrl from the server build plus the core closure. Own
+# HAVE_GTEST block so that this stays a pure append at the end of the
+# file (same reasoning as T1.1).
+if HAVE_GTEST
+TESTS += IOControllers_test
+check_PROGRAMS += IOControllers_test
+IOControllers_test_SOURCES = IOControllers_test.cpp
+IOControllers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+IOControllers_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+IOControllers_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+# T1.14
+#Reolink event registry: register/unregister bookkeeping + reentrant-safe
+#dispatch (UAF regression: ReolinkInputSwitch callbacks stored in the
+#ReolinkCtrl singleton had no unregister path). The registry is a pure-std
+#header (no process, no event loop), listed in _SOURCES so it also lands in
+#the dist tarball. Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += ReolinkRegistry_test
+check_PROGRAMS += ReolinkRegistry_test
+ReolinkRegistry_test_SOURCES = ReolinkRegistry_test.cpp \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Reolink/ReolinkEventRegistry.h
+ReolinkRegistry_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+ReolinkRegistry_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T1.17
+#Extern-proc driver mains: OWFS scan filter boundary-hex regression
+#(OWFSUtils.h) and Wago subprocess respawn backoff bounds (WagoMap.h static
+#helper). Header-only logic under test, so no driver objects are linked.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ExternProcDrivers_test
+check_PROGRAMS += ExternProcDrivers_test
+ExternProcDrivers_test_SOURCES = ExternProcDrivers_test.cpp
+ExternProcDrivers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+ExternProcDrivers_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T2.3
+#WebSocket Sec-WebSocket-Accept regression after swapping the bundled CSHA1
+#for OpenSSL EVP_Digest in WebSocket.cpp: RFC 6455 known-answer vector
+#(base64(SHA1(key+GUID))) via the same EVP + Utils::Base64_encode pipeline.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WebSocketAccept_test
+check_PROGRAMS += WebSocketAccept_test
+WebSocketAccept_test_SOURCES = WebSocketAccept_test.cpp
+WebSocketAccept_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+WebSocketAccept_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T2.6
+#Common-lib correctness regressions: ThreadedQueue::tryPop drains the queue,
+#ColorValue::setString rejects malformed strings without throwing, Calendar
+#month/day roll-over (monthDown Jan->Dec, dayDown commits the day), and
+#Params::Parse is safe on high (non-ASCII) bytes. Everything under test lives
+#in libcalaos_common, so nothing more is linked. Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += CommonLib_test
+check_PROGRAMS += CommonLib_test
+CommonLib_test_SOURCES = CommonLib_test.cpp
+CommonLib_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T2.1
+#Timer lifetime: singleShot rewritten as a true one-shot with deferred
+#handle destruction, weak alive-tag making delete-from-inside-the-callback
+#and destruction-with-pending-callback safe. Pure src/lib code, so only
+#libcalaos_common is linked and the test runs the default uvw loop itself
+#(every wait is wall-clock bounded, no fixture needed). Own HAVE_GTEST
+#block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/Timer_test
+check_PROGRAMS += core/Timer_test
+core_Timer_test_SOURCES = core/Timer_test.cpp
+core_Timer_test_CPPFLAGS = $(AM_CPPFLAGS)
+core_Timer_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T2.10
+#UrlDownloader lifecycle: cancel() really interrupts the transfer, no callback
+#fires after cancel/destroy (alive-token), autodelete objects free themselves
+#safely on cancel, the accumulated response body is bounded, and no temp
+#file/fd leaks across lifecycles. Behavioral only (local HTTP peer over
+#loopback, no subprocess assertions) so the planned libcurl backend swap
+#(T2.5) must keep it green. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloader_test
+check_PROGRAMS += UrlDownloader_test
+UrlDownloader_test_SOURCES = UrlDownloader_test.cpp
+UrlDownloader_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloader_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T2.4
+#CalaosConfig robustness: corrupt io.xml/rules.xml no longer exit(-1) the
+#daemon (backup restore fallback), atomic tmp+rename saves, state cache
+#deserialization guarded against malformed JSON, and the ~Config() shutdown
+#flush of pending states. Reuses the T0.3 core fixture (config/cache dirs,
+#singleton cleanup) and the CORE_SERVER_OBJECTS closure that already carries
+#CalaosConfig.o. Own HAVE_GTEST block so this stays a pure append at the end
+#of the file.
+if HAVE_GTEST
+TESTS += core/CalaosConfigRobustness_test
+check_PROGRAMS += core/CalaosConfigRobustness_test
+core_CalaosConfigRobustness_test_SOURCES = core/CalaosConfigRobustness_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_CalaosConfigRobustness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_CalaosConfigRobustness_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_CalaosConfigRobustness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T2.11
+#Transport hardening: WebSocketFrame condemns an invalid header (oversized or
+#fragmented control frame, RSV bits) at the header without buffering the
+#payload of a refused frame; TransportLimits::parseLimit clamps broken config
+#overrides back to the built-in defaults; effectiveClientIp identifies a
+#client by the last entry of the last X-Forwarded-For line (trusted haproxy
+#hop, T1.8 rule) with TCP-peer fallback. Only libcalaos_common code and
+#header-inline helpers of HttpClient.h are exercised, so nothing of the
+#calaos_server binary is linked. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += TransportHardening_test
+check_PROGRAMS += TransportHardening_test
+TransportHardening_test_SOURCES = TransportHardening_test.cpp
+TransportHardening_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.42
+#/mcp client identity. The sidecar reaches us over a Unix socket, so it has no
+#peer to test and cannot tell a proxy-written X-Forwarded-For from one a LAN
+#client wrote itself; McpRequestFilter is where that decision is taken, on the
+#C++ side where the TCP peer is known. Covers the rewriting of one head and the
+#request-by-request framing of the tunnel that makes it hold for every request
+#of a connection, not just the first. Header-inline, so nothing of the
+#calaos_server binary is linked. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += McpRequestFilter_test
+check_PROGRAMS += McpRequestFilter_test
+McpRequestFilter_test_SOURCES = McpRequestFilter_test.cpp
+McpRequestFilter_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+#The sidecar's stderr carries every Python log level, so its lines are filed by
+#the level they name rather than by stream. Header-inline: nothing of the
+#calaos_server binary is linked.
+if HAVE_GTEST
+TESTS += McpLogLevel_test
+check_PROGRAMS += McpLogLevel_test
+McpLogLevel_test_SOURCES = McpLogLevel_test.cpp
+McpLogLevel_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.4
+#base64 hardening: the vendored decoder (base64.cpp) now strictly validates
+#RFC 4648 input — out-of-alphabet chars (whitespace, NUL, high bytes),
+#misplaced/broken '=' padding, impossible 4k+1 lengths and non-canonical
+#trailing bits are rejected (std::nullopt via base64_decode_checked) instead
+#of silently truncating; the legacy base64_decode()/Utils::Base64_* entry
+#points keep their signatures and map rejection to "". Also covers the
+#Utils::Base64_encode(void*, int) negative-size OOB guard and RFC 4648 §10
+#round-trip vectors. Only libcalaos_common code is exercised. Own HAVE_GTEST
+#block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += Base64_test
+check_PROGRAMS += Base64_test
+Base64_test_SOURCES = Base64_test.cpp
+Base64_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.3
+#IPCam cleanup + Synology snapshot fix. IPCam::maskUrlCredentials (defined in
+#IPCam.cpp, whose object is already part of CORE_SERVER_OBJECTS) masks camera
+#credentials before URLs reach the logs; SynoSurveillanceStation::
+#snapshotPayload is a header-inline pure helper guaranteeing the snapshot
+#completion callback fires exactly once (the old inline check was missing a
+#return and fired it twice on an error/JSON body). Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += IPCamUrl_test
+check_PROGRAMS += IPCamUrl_test
+IPCamUrl_test_SOURCES = IPCamUrl_test.cpp
+IPCamUrl_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+IPCamUrl_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+IPCamUrl_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.5
+#Squeezebox protocol helpers: CLI chunk reassembly (the buffered-fragment
+#path used to discard the chunk carrying the terminating newline, and an
+#all-newline chunk read msg[-1] in the trailing trim) and cover-art URL
+#building (the ?playerid= current-song fallback branch was unreachable).
+#Both helpers are static header-inline in Squeezebox.h, so nothing of the
+#calaos_server binary is linked. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += Squeezebox_test
+check_PROGRAMS += Squeezebox_test
+Squeezebox_test_SOURCES = Squeezebox_test.cpp
+Squeezebox_test_CPPFLAGS = $(AM_CPPFLAGS)
+Squeezebox_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.2e
+#Wago thin IO subclasses: the WIDigitalBP/Long/Triple and WOVolet(Smart)
+#skeletons are factored into WIDigitalBase<>/WOVoletBase<> (WagoIOBase.h);
+#the numeric config values (modbus address, port) now go through
+#WagoConfigParse, a bounded non-throwing parse following the
+#GpioCtrl::parseDebounceTime pattern (T2.13). Only the header-inline
+#WagoConfigParse helpers are exercised here (std + libcalaos_common),
+#nothing of the calaos_server binary is linked. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WagoConfigParse_test
+check_PROGRAMS += WagoConfigParse_test
+WagoConfigParse_test_SOURCES = WagoConfigParse_test.cpp
+WagoConfigParse_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.2d
+#Thin Web IO subclasses: the seven Web types (WebInput{Analog,String,Temp},
+#WebOutput{Analog,Light,LightRGB,String}) share their constructor skeleton
+#through the WebIOBase/WebInputBase mixins of WebDocBase.h. The test pins
+#what must not change: IOFactory registration under the XML type names,
+#instantiation from an io.xml document, the per-type WebDocBase ioDoc
+#parameters (--gendoc content), the synchronous first read from a local
+#file:// url and the create/delete cycle. Links the Web IO objects plus
+#their base classes on top of the core closure. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WebIO_test
+check_PROGRAMS += core/WebIO_test
+core_WebIO_test_SOURCES = core/WebIO_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WebIO_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WebIO_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputString.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WebIO_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebOutputString.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+# T3.2c
+#Mqtt thin IO subclasses: MqttOutputLightRGB color+state feedback fix. The
+#on/off + last-known-color decision is the header-inline static
+#MqttOutputLightRGB::stateFromColor() (pure ColorValue logic), so no Mqtt
+#object nor extern process is linked, only libcalaos_common for ColorValue
+#(same approach as ExternProcDrivers_test). Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += MqttIO_test
+check_PROGRAMS += MqttIO_test
+MqttIO_test_SOURCES = MqttIO_test.cpp
+MqttIO_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MqttIO_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.1
+#AVReceiver correctness: Onkyo eISCP reassembly no longer inserts with an
+#iterator of another vector (UB), zone-2/3 input-source and Pioneer zone-3
+#volume land on their own signals, Onkyo hex volumes with letters are parsed,
+#Denon/Marantz/Onkyo setVolume commands are really zero-padded, and
+#AVRManager::Delete(NULL) is a no-op. The AVR driver objects of calaos_server
+#are reused as they are (same approach and reasoning as CORE_SERVER_OBJECTS),
+#no loop is ever run and sendRequest() is overridden, so no network I/O.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+AVR_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVReceiver.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVROnkyo.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRPioneer.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRYamaha.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRose.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRoseNotifServer.$(OBJEXT)
+
+TESTS += AVReceiver_test
+check_PROGRAMS += AVReceiver_test
+AVReceiver_test_SOURCES = AVReceiver_test.cpp
+AVReceiver_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+AVReceiver_test_LDADD = $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+AVReceiver_test_DEPENDENCIES = $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.2a
+#Thin KNX IO subclasses collapsed into KNXIo<Base> (IO/KNX/KNXIo.cpp). The
+#eleven registered XML type names are the ABI to existing io.xml configs:
+#each must stay registered in IOFactory and instanciable through the real
+#ListeRoom::createIO() path. Same linking approach as core/LanHue_test: the
+#core objects plus the KNX objects and the base classes of the eleven thin
+#subclasses. No libuv loop runs here; the calaos_knx helper spawned by
+#KNXCtrl does not exist next to the test binary, so uv_spawn fails cleanly.
+if HAVE_GTEST
+TESTS += core/KnxIo_test
+check_PROGRAMS += core/KnxIo_test
+core_KnxIo_test_SOURCES = core/KnxIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_KnxIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX
+core_KnxIo_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT)
+core_KnxIo_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T2.15
+#Async audio-player chain of JsonApi::buildJsonState(): destruction of the
+#JsonApi (client disconnect) or of the AudioPlayer IO while squeezebox answers
+#are in flight must not be a use-after-free, the answer must still go out when
+#a player dies mid-chain, and the per-player json object must not leak a
+#reference (json_object_set vs _new). A FakeAudioPlayer subclass queues the
+#callbacks so the tests deliver every answer by hand: no loop, no network.
+#Links the plain core objects only (JsonApi.o and Audio/AudioPlayer.o are
+#already in CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiAudioState_test
+check_PROGRAMS += core/JsonApiAudioState_test
+core_JsonApiAudioState_test_SOURCES = core/JsonApiAudioState_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiAudioState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_JsonApiAudioState_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiAudioState_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T2.19
+#TLS insecure by DEFAULT for user-configured URLs (user decision, supersedes
+#the T2.17 default on those paths): UrlDownloader::insecureParamEnabled maps
+#a device `insecure` param to the effective policy (absent/empty/anything ->
+#insecure, exact "false" -> verified) and setInsecureFromParam applies it.
+#Pins the grandfathering contract (configs without any insecure param behave
+#exactly like pre-T2.17) and that a plain downloader stays verified for the
+#hardcoded calaos.fr services. Only libcalaos_common code is exercised. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += TlsInsecureDefault_test
+check_PROGRAMS += TlsInsecureDefault_test
+TlsInsecureDefault_test_SOURCES = TlsInsecureDefault_test.cpp
+TlsInsecureDefault_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T2.18
+#Null-guard audit of the createIO()/IOFactory::CreateIO() call sites: a
+#factory miss (unknown type, squatted internal id, missing room) must end in
+#a logged error and an {"error"} API answer, never in a null dereference.
+#Links the plain core objects only (JsonApi.o, Scenario.o and AutoScenario.o
+#are already in CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioNullGuard_test
+check_PROGRAMS += core/ScenarioNullGuard_test
+core_ScenarioNullGuard_test_SOURCES = core/ScenarioNullGuard_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioNullGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ScenarioNullGuard_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ScenarioNullGuard_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.2a
+#By-id resolution accessors of ListeRoom (findIO/hasIO/findIOAs<T>/
+#findIOByIndex/findRoomOfIO), first step of the E4.2 ownership series. Pins the
+#accessor contract (unknown id, empty id, duplicate id, out of range -> nullptr,
+#and a miss never inserts into io_table) plus the three invariants the next
+#steps must not break: the room-by-room IO iteration order, the
+#getCameraList()/getAudioList() signatures and contents, and the
+#delete_io(io, del) ownership-transfer semantics.
+#Links the plain core objects only (ListeRoom.o is already in
+#CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomIdResolution_test
+check_PROGRAMS += core/ListeRoomIdResolution_test
+core_ListeRoomIdResolution_test_SOURCES = core/ListeRoomIdResolution_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ListeRoomIdResolution_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomIdResolution_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ListeRoomIdResolution_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.4a
+#pugixml availability smoke test. Build contract, not calaos behaviour: it
+#proves the header is reachable, the library links, and -- the point of the
+#whole E4.4 series -- that XPath 1.0 is compiled in. select_node()/
+#select_nodes()/xpath_query do not exist in a PUGIXML_NO_XPATH build, so
+#PugiXml_test.cpp cannot compile against one.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += PugiXml_test
+check_PROGRAMS += PugiXml_test
+PugiXml_test_SOURCES = PugiXml_test.cpp
+PugiXml_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# E4.3a
+#First tests for src/lib/TimeRange.h and for the evaluation of
+#IO/InPlageHoraire.cpp (both had zero test reference). Everything is asserted
+#on observable behaviour - the schedules are built through the public
+#AddMonday()/... API and read back through get_value_bool() - so the suite
+#survives the tinyxml -> pugixml port of InPlageHoraire (E4.4d) untouched.
+#Also covers the Calendar corners tests/CommonLib_test.cpp does not (leap year,
+#day clamping, hour/minute/second wrap).
+#Lives in tests/ but links like a core test: InPlageHoraire needs IOBase,
+#ListeRoom, ListeRule and the config singleton. InPlageHoraire.o is already
+#part of CORE_SERVER_OBJECTS. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += TimeRangeCalendar_test
+check_PROGRAMS += TimeRangeCalendar_test
+TimeRangeCalendar_test_SOURCES = TimeRangeCalendar_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+TimeRangeCalendar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+TimeRangeCalendar_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+TimeRangeCalendar_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.3b
+#The config round trip referee: config -> save -> reload -> the in-memory model
+#must be identical (rooms, IO ids, IO parameters, InPlageHoraire schedules,
+#rules with their inputs/operators/values), with accented UTF-8, XML entities,
+#numeric character references and empty values in the payload. The comparison
+#is SEMANTIC on purpose, never byte for byte: E4.4d (pugixml) will legitimately
+#reformat io.xml/rules.xml and this suite is what says the content survived.
+#Links the plain core objects only (InPlageHoraire.o is already in
+#CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/ConfigRoundTrip_test
+check_PROGRAMS += core/ConfigRoundTrip_test
+core_ConfigRoundTrip_test_SOURCES = core/ConfigRoundTrip_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ConfigRoundTrip_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ConfigRoundTrip_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ConfigRoundTrip_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.2b
+#Explicit and unique ownership of the IOs (step 2/6 of the E4.2 series): a Room
+#owns its IOs through unique_ptr, ListeRoom's io_table/cameraCache/audioCache
+#are non-owning indexes, and there is no manual delete left on the IO path.
+#Pins the two ownership TRANSFERS out of a room (delete_io(io, del=false) and
+#RemoveIOFromRoom(), which must be release() and not a destructive erase), that
+#removing an IO twice is a no-op rather than a double free, and that destroying
+#a Room - registered in ListeRoom or not - destroys every IO it owns and leaks
+#none. Also covers the E4.2a createIO() carry-over (no half-added IO).
+#Links the plain core objects only (ListeRoom.o and Room.o are already in
+#CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomOwnership_test
+check_PROGRAMS += core/ListeRoomOwnership_test
+core_ListeRoomOwnership_test_SOURCES = core/ListeRoomOwnership_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ListeRoomOwnership_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomOwnership_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ListeRoomOwnership_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.4b
+#WebCtrl::getValueXml() after the TinyXPath -> pugixml XPath 1.0 port. This is
+#the only untrusted XML parse in calaos (the document comes from a
+#user-configured URL) and the only site where the XPath expression is itself
+#user config, so the suite pins both halves: the expression shapes real configs
+#use keep returning what TinyXPath returned, and hostile/malformed input plus an
+#invalid expression fail clean (empty string, no escaped xpath_exception, no
+#abort). Links WebCtrl.o from the server build plus the core closure, exactly
+#like IOControllers_test above. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += WebCtrlXPath_test
+check_PROGRAMS += WebCtrlXPath_test
+WebCtrlXPath_test_SOURCES = WebCtrlXPath_test.cpp
+WebCtrlXPath_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+WebCtrlXPath_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+WebCtrlXPath_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Conditions/Actions reference their IOs BY ID (step 3/6 of the E4.2 series):
+#nothing in Rules/ stores an IOBase* any more, everything resolves through the
+#E4.2a accessors at the point of use. Pins the model (a reference follows the
+#id, not the object), the missing-IO contract (condition false, action skipped,
+#both logged, save keeps the id, load-time rejection unchanged), the in_event
+#unregistration now driven by registration instead of a gui_type whitelist, the
+#dispatch order, and prints the cost of the model on a 200-rule config.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RuleIoReference_test
+check_PROGRAMS += core/RuleIoReference_test
+core_RuleIoReference_test_SOURCES = core/RuleIoReference_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleIoReference_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleIoReference_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleIoReference_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.15
+#RemoteUI <calaos:device_info> round trip: the element used to be written on
+#the ROOM node and read back inside <calaos:remote_ui>, so it never made it
+#home. Pins the round trip (save -> reload -> identical), the placement in the
+#file, the one shot migration of the orphans the broken writer left under the
+#room, the fact that a device cannot adopt the orphan of its neighbour, and
+#that an empty device_info still writes nothing.
+#Links the transitive closure of IO/RemoteUI/RemoteUI.o on top of the core
+#objects: RemoteUI calls RemoteUIManager, which drags the WebSocket/OTA/HTTP
+#side of the server with it. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += core/RemoteUIDeviceInfo_test
+check_PROGRAMS += core/RemoteUIDeviceInfo_test
+core_RemoteUIDeviceInfo_test_SOURCES = core/RemoteUIDeviceInfo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RemoteUIDeviceInfo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_RemoteUIDeviceInfo_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RemoteUIDeviceInfo_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.2d
+#Explicit and unique ownership of the rules (step 4/6 of the E4.2 series, the
+#rule-side counterpart of E4.2b): a Rule owns its Conditions/Actions through
+#unique_ptr, ListeRule owns its Rules, rules_scenarios is a non-owning index,
+#and there is no manual delete left on the rule path. Pins that every accessor
+#hands out a NON-OWNING pointer (there is no hand-back path here, unlike
+#delete_io(io, del=false) in E4.2b), that a removal destroys exactly once and
+#never twice, that ListeRule only destroys what it owns, and - the invariant of
+#the series - that a removal leaves the ORDER of the remaining rules and of the
+#remaining conditions/actions untouched, since that order is the evaluation
+#order. Links the plain core objects only (Rule.o and ListeRule.o are already
+#in CORE_SERVER_OBJECTS). Own HAVE_GTEST block so this stays a pure append at
+#the end of the file.
+if HAVE_GTEST
+TESTS += core/RuleOwnership_test
+check_PROGRAMS += core/RuleOwnership_test
+core_RuleOwnership_test_SOURCES = core/RuleOwnership_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleOwnership_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleOwnership_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleOwnership_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.2e
+#A rule whose dependency is missing is DISABLED (user decision). Pins the
+#danger this ticket exists for - an amputated conjunction is a MORE permissive
+#rule - and the four halves of the new contract: the "IO not found" cause is
+#told apart from a malformed node (only the first disables), the rule stays
+#loaded, visible and COMPLETE while being excluded from every execution path
+#(trigger collection, CheckConditions, CheckConditionsAsync, ExecuteActions),
+#the save keeps the unresolvable reference and its parameters across a
+#save/reload/save cycle, and the diagnosis is reachable without the log
+#(ListeRule::getDisabledRules() + the configuration alert). Links the plain
+#core objects only. Own HAVE_GTEST block so this stays a pure append at the end
+#of the file.
+if HAVE_GTEST
+TESTS += core/RuleDisabledMissingIo_test
+check_PROGRAMS += core/RuleDisabledMissingIo_test
+core_RuleDisabledMissingIo_test_SOURCES = core/RuleDisabledMissingIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RuleDisabledMissingIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RuleDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RuleDisabledMissingIo_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.14
+#Objects used after their own static destructor ran. StaticLogShutdown_helper
+#is a repro program, not a test: it reproduces the pattern (a translation unit
+#static of the PROGRAM whose destructor logs, linked against
+#libcalaos_common), which cannot be observed from inside a gtest binary since
+#the interesting moment is after main() returned. It is listed in
+#check_PROGRAMS so that "make check" builds it, and NOT in TESTS.
+#StaticLogShutdown_test runs it and inspects its output; it needs no calaos
+#library of its own, which also keeps its own statics out of the picture. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += StaticLogShutdown_test
+check_PROGRAMS += StaticLogShutdown_test StaticLogShutdown_helper
+StaticLogShutdown_test_SOURCES = StaticLogShutdown_test.cpp
+StaticLogShutdown_test_LDADD = -lgtest -lgtest_main
+
+StaticLogShutdown_helper_SOURCES = StaticLogShutdown_helper.cpp
+StaticLogShutdown_helper_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.0a
+#Foundation of the JSON API characterization net (series E4.0, before the
+#jansson -> nlohmann migration of E4.1). Ships the harness the five following
+#sub-tickets build on - the semantic oracle (parse both sides with nlohmann,
+#compare with operator==, never compare serialized strings), the golden file
+#format and its code-generated update mode, the in-process WS session, the
+#single-shot HTTP request over a real HttpClient on an unconnected socket, the
+#reference house, and the uvw loop pump events need - plus the sample of cases
+#that proves the whole chain against the production code.
+#Links the same closure as core/RemoteUIDeviceInfo_test: JsonApiHandlerHttp.o
+#needs the REAL HttpClient::buildHttpResponse() (stubbing it would characterize
+#the stub, and that formatting is precisely what E4.0e must pin), and HttpClient
+#drags the HttpServer/WebSocket/RemoteUI side of the server with it.
+#IPCam/StandardMjpeg.o and Audio/RoonPlayer.o are added so the reference house
+#can hold a REAL camera and a REAL audio player: buildJsonCameras() and
+#buildJsonAudio() filter by dynamic_cast, and on an empty house they answer []
+#and stay uncharacterized. Both were picked by measuring their closure with
+#nm -Cu: each needs only its base class (IPCam.o, Audio/AudioPlayer.o), which
+#CORE_SERVER_OBJECTS already provides, so the cost is ZERO extra objects.
+#Squeezebox was rejected: it drags SqueezeboxDB, UrlDownloader and the nine AVR
+#objects, and links uv_tcp_connect/uv_write - real network in a unit test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiCharacterization_test
+check_PROGRAMS += core/JsonApiCharacterization_test
+core_JsonApiCharacterization_test_SOURCES = core/JsonApiCharacterization_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiCharacterization_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiCharacterization_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiCharacterization_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/ws_get_home.json \
+                  core/golden/http_get_home.json
+endif
+
+# T3.17a
+#Characterization + lifetime net for the RECURSIVE playlist chain of JsonApi
+#(decodeGetPlaylist / getNextPlaylistItem). get_playlist is the one common
+#operation of the E4.0 plan that no E4.0 sub-ticket ever covers (E4.0.md:38 vs
+#the coverage lists of E4.0a..f), so T3.17a brings its own net before adding the
+#apiAlive guard to that chain. The cases pin the WHOLE answer - every requested
+#index and every item, in order - because the failure mode of a badly placed
+#guard on a recursion is a silently truncated playlist, not a crash.
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiPlaylist_test
+check_PROGRAMS += core/JsonApiPlaylist_test
+core_JsonApiPlaylist_test_SOURCES = core/JsonApiPlaylist_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiPlaylist_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiPlaylist_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiPlaylist_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317a_ws_get_playlist.json \
+                  core/golden/t317a_http_get_playlist.json \
+                  core/golden/t317a_ws_get_playlist_empty.json \
+                  core/golden/t317a_ws_get_playlist_unknown_player.json \
+                  core/golden/t317a_http_get_playlist_unknown_player.json
+endif
+
+# E4.0b
+#Characterization of the model and the state commands of the JSON API - the
+#nine every client calls, on BOTH transports: get_home, get_io, get_state,
+#get_states, query, get_param, set_param, del_param, set_state. Second
+#sub-ticket of the E4.0 series, it builds on the harness E4.0a delivered
+#(core/JsonApiCharacterization.{h,cpp}) and only enriches its reference house.
+#Same link closure as core/JsonApiCharacterization_test, and for the same
+#measured reasons: JsonApiHandlerHttp.o needs the REAL
+#HttpClient::buildHttpResponse(), and the reference house carries two real
+#cameras (IPCam/StandardMjpeg.o) and one real audio player
+#(Audio/RoonPlayer.o) so buildJsonCameras()/buildJsonAudio() are characterized
+#on non-empty arrays and get_state exercises its asynchronous player chain.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiHome_test
+check_PROGRAMS += core/JsonApiHome_test
+core_JsonApiHome_test_SOURCES = core/JsonApiHome_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiHome_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiHome_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiHome_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40b_ws_get_io.json \
+                  core/golden/e40b_http_get_io.json \
+                  core/golden/e40b_ws_get_state.json \
+                  core/golden/e40b_http_get_state.json
+endif
+
+# T3.17d
+#Characterization + lifetime net for the ONE-SHOT CAMERA SNAPSHOT: the
+#get_picture branch of JsonApiHandlerHttp::processCamera(). It is the only site
+#of the T3.17 series that lives in a handler instead of JsonApi.cpp, so it is
+#the only one not covered transitively by the apiAlive token of the base class.
+#Not covered by E4.0 either: E4.0 excludes get_camera_pic and get_cover because
+#they spawn calaos_picture, and get_picture - a different action entirely, which
+#spawns nothing - is in no sub-ticket coverage list.
+#The answer here is image/jpeg, not JSON, so the cases pin the exact bytes of
+#the body; the two error branches are JSON and go through the semantic oracle.
+#Reuses the E4.0a harness verbatim, hence the same link closure and the same
+#-DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test (no golden of its own:
+#a jpeg body is not a golden document).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiCameraSnapshot_test
+check_PROGRAMS += core/JsonApiCameraSnapshot_test
+core_JsonApiCameraSnapshot_test_SOURCES = core/JsonApiCameraSnapshot_test.cpp \
+                  core/JpegTestFrames.h \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiCameraSnapshot_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiCameraSnapshot_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiCameraSnapshot_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.17b
+#Characterization + lifetime net for the five SINGLE SHOT player-state methods
+#of JsonApi (audioGetDbStats, audioGetPlaylistSize, audioGetTime,
+#audioGetPlaylistItem, audioGetCoverInfo), before the apiAlive guard is added to
+#them. E4.0f was supposed to cover this surface but is neither delivered nor
+#started, so T3.17b brings its own net - same rule as T3.17a.
+#The failure mode of a badly placed guard on a single shot is a response that
+#never leaves, so every case pins the exact answer document of one method on one
+#transport, and the deferred cases check that a live client still gets its
+#answer after the round trip.
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiPlayerState_test
+check_PROGRAMS += core/JsonApiPlayerState_test
+core_JsonApiPlayerState_test_SOURCES = core/JsonApiPlayerState_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiPlayerState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiPlayerState_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiPlayerState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317b_ws_audio_get_playlist_size.json \
+                  core/golden/t317b_http_audio_get_playlist_size.json \
+                  core/golden/t317b_ws_audio_get_time.json \
+                  core/golden/t317b_http_audio_get_time.json \
+                  core/golden/t317b_ws_audio_get_playlist_item.json \
+                  core/golden/t317b_http_audio_get_playlist_item.json \
+                  core/golden/t317b_ws_audio_get_cover_url.json \
+                  core/golden/t317b_http_audio_get_cover_url.json \
+                  core/golden/t317b_ws_audio_db_get_stats.json \
+                  core/golden/t317b_http_audio_db_get_stats.json \
+                  core/golden/t317b_ws_audio_unknown_player.json \
+                  core/golden/t317b_http_audio_unknown_player.json \
+                  core/golden/t317b_ws_audio_empty_player_id.json \
+                  core/golden/t317b_ws_audio_db_get_stats_unknown_player.json \
+                  core/golden/t317b_ws_audio_get_playlist_item_missing_item.json
+endif
+
+# E4.0c
+#Characterization of the time range and auto scenario commands of the JSON API:
+#get_timerange, set_timerange and the seven autoscenario sub-commands. Third
+#sub-ticket of the E4.0 series, built on the E4.0a harness
+#(core/JsonApiCharacterization.{h,cpp}). It brings its OWN small house
+#(InPlageHoraire + scenarios created through the API) and does not touch the
+#shared reference house, whose deliberate sparseness E4.0b's counter-mutation
+#showed to be load bearing.
+#Same link closure as core/JsonApiHome_test, and for the same measured reason:
+#JsonApiHandlerHttp.o needs the REAL HttpClient::buildHttpResponse(). The
+#camera/audio objects are part of that closure through the shared harness
+#object, which instantiates them for the reference house.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiScenario_test
+check_PROGRAMS += core/JsonApiScenario_test
+core_JsonApiScenario_test_SOURCES = core/JsonApiScenario_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiScenario_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiScenario_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiScenario_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution.
+#The two last ones are the UNHEALTHY scenarios T3.18.md asks for (a broken one
+#and a repaired one waiting for a manual re-enable). T3.18 regenerates all five
+#scenario goldens with CALAOS_GOLDEN_UPDATE=1 when it adds broken /
+#disabled_missing_io / missing_ios to Scenario::toJson().
+EXTRA_DIST += core/golden/e40c_ws_get_timerange.json \
+                  core/golden/e40c_http_get_timerange.json \
+                  core/golden/e40c_ws_autoscenario_list.json \
+                  core/golden/e40c_ws_autoscenario_get.json \
+                  core/golden/e40c_http_autoscenario_get.json \
+                  core/golden/e40c_ws_autoscenario_get_scheduled.json \
+                  core/golden/e40c_ws_autoscenario_get_hot_deleted.json \
+                  core/golden/e40c_ws_autoscenario_get_broken.json \
+                  core/golden/e40c_ws_autoscenario_get_repaired.json
+endif
+
+
+# T3.17e
+#Websocket TRANSPORT audit: the alive token JsonApiHandlerWS does NOT declare.
+#Builds a real WebSocket (which derives from HttpClient, WebSocket.h:35) on an
+#unconnected uvw handle, owning its JsonApiHandlerWS through HttpClient::jsonApi
+#exactly like WebSocket.cpp:279, and destroys the TRANSPORT while an answer is in
+#flight - the path no existing test covers, since WsTestSession of the E4.0a
+#harness builds its handler on a null HttpClient and deletes the handler itself.
+#Same link closure and same -DCALAOS_GOLDEN_DIR as core/JsonApiPlaylist_test (the
+#harness .cpp needs it even when a case compares no golden).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiWsTransport_test
+check_PROGRAMS += core/JsonApiWsTransport_test
+core_JsonApiWsTransport_test_SOURCES = core/JsonApiWsTransport_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiWsTransport_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiWsTransport_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiWsTransport_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.0d
+#Characterization of the REAL TIME EVENTS of the JSON API - the surface with
+#zero tests before this file: the 23 strings of CalaosEvent::typeToString(),
+#the enum numbering that travels on the wire as "type", the WS "event"
+#envelope with its nested data.data, the !loggedin gating, the asynchronous
+#delivery through the EventManager idler, and the HTTP equivalent poll_listen
+#with its three sub-actions. Fourth sub-ticket of the E4.0 series, built on the
+#E4.0a harness (core/JsonApiCharacterization.{h,cpp}).
+#Same link closure as core/JsonApiHome_test, and for the same measured reasons:
+#JsonApiHandlerHttp.o needs the REAL HttpClient::buildHttpResponse(), and the
+#reference house of the harness carries two real cameras (IPCam/StandardMjpeg.o)
+#and one real audio player (Audio/RoonPlayer.o). PollListenner.o is what makes
+#poll_listen testable in process.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiEvents_test
+check_PROGRAMS += core/JsonApiEvents_test
+core_JsonApiEvents_test_SOURCES = core/JsonApiEvents_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiEvents_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiEvents_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40d_ws_event_envelope.json \
+                  core/golden/e40d_ws_event_accented.json \
+                  core/golden/e40d_ws_event_catalog.json \
+                  core/golden/e40d_ws_clear_state_backlog.json \
+                  core/golden/e40d_ws_io_added.json \
+                  core/golden/e40d_ws_io_deleted.json \
+                  core/golden/e40d_ws_io_changed_bool.json \
+                  core/golden/e40d_ws_io_changed_int.json \
+                  core/golden/e40d_ws_io_changed_string.json \
+                  core/golden/e40d_ws_io_changed_setparam.json \
+                  core/golden/e40d_ws_io_prop_deleted.json \
+                  core/golden/e40d_ws_room_changed.json \
+                  core/golden/e40d_ws_timerange_changed.json \
+                  core/golden/e40d_ws_touchscreen_camera.json \
+                  core/golden/e40d_http_poll_get.json
+endif
+
+# T3.17c
+#Characterization + lifetime net for the FIFTEEN audioDbGet* music-database
+#methods of JsonApi, before the apiAlive guard is added to them. E4.0f was
+#supposed to cover three of them and to leave the twelve others out by design
+#(E4.0.md:342-350); it is neither delivered nor started, so T3.17c brings its
+#own net for all fifteen - same rule as T3.17a and T3.17b.
+#The failure mode of a badly placed guard on a single shot is a response that
+#never leaves, so every case pins the exact answer document of one method on one
+#transport (thirty goldens for the thirty call sites of the two handlers), the
+#three shapes of processDbResult(), the synchronous error gates, and the
+#deferred path where a live client still gets its answer after the round trip.
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Audio/AudioDB.$(OBJEXT) is needed for the same reason as in T3.17b: the fake
+#music database is a concrete AudioDB subclass, and the reference house's
+#RoonPlayer carries no database at all.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiMusicDb_test
+check_PROGRAMS += core/JsonApiMusicDb_test
+core_JsonApiMusicDb_test_SOURCES = core/JsonApiMusicDb_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiMusicDb_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiMusicDb_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiMusicDb_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317c_ws_get_albums.json \
+                  core/golden/t317c_http_get_albums.json \
+                  core/golden/t317c_ws_get_artist_album.json \
+                  core/golden/t317c_http_get_artist_album.json \
+                  core/golden/t317c_ws_get_year_albums.json \
+                  core/golden/t317c_http_get_year_albums.json \
+                  core/golden/t317c_ws_get_genre_artists.json \
+                  core/golden/t317c_http_get_genre_artists.json \
+                  core/golden/t317c_ws_get_album_titles.json \
+                  core/golden/t317c_http_get_album_titles.json \
+                  core/golden/t317c_ws_get_playlist_titles.json \
+                  core/golden/t317c_http_get_playlist_titles.json \
+                  core/golden/t317c_ws_get_artists.json \
+                  core/golden/t317c_http_get_artists.json \
+                  core/golden/t317c_ws_get_years.json \
+                  core/golden/t317c_http_get_years.json \
+                  core/golden/t317c_ws_get_genres.json \
+                  core/golden/t317c_http_get_genres.json \
+                  core/golden/t317c_ws_get_playlists.json \
+                  core/golden/t317c_http_get_playlists.json \
+                  core/golden/t317c_ws_get_music_folder.json \
+                  core/golden/t317c_http_get_music_folder.json \
+                  core/golden/t317c_ws_get_search.json \
+                  core/golden/t317c_http_get_search.json \
+                  core/golden/t317c_ws_get_radios.json \
+                  core/golden/t317c_http_get_radios.json \
+                  core/golden/t317c_ws_get_radio_items.json \
+                  core/golden/t317c_http_get_radio_items.json \
+                  core/golden/t317c_ws_get_track_infos.json \
+                  core/golden/t317c_http_get_track_infos.json \
+                  core/golden/t317c_ws_zero_count.json \
+                  core/golden/t317c_ws_no_count.json \
+                  core/golden/t317c_ws_unknown_player.json \
+                  core/golden/t317c_http_unknown_player.json \
+                  core/golden/t317c_ws_empty_player_id.json \
+                  core/golden/t317c_ws_wrong_from_count.json \
+                  core/golden/t317c_ws_track_infos_no_track_id.json \
+                  core/golden/t317c_ws_unknown_audio_action.json \
+                  core/golden/t317c_http_unknown_audio_action.json
+endif
+
+#E4.0e: session, envelopes and error paths of the JSON API - login,
+#login_service, settings/change_cred, register_push, get_mcp_info, eventlog,
+#config/get, plus every error path of both transports (the seven scope
+#refusals, "unknown action", "unkown audio_action", the silences, the HTTP 400
+#and 404, and the migration traps: invalid UTF-8, empty strings, very large
+#integers, absent members, unexpected types).
+#Reuses the E4.0a harness verbatim (semantic JSON oracle, goldens, in-process WS
+#session and single-shot HTTP request over a real HttpClient), hence the same
+#link closure and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiSession_test
+check_PROGRAMS += core/JsonApiSession_test
+core_JsonApiSession_test_SOURCES = core/JsonApiSession_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiSession_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiSession_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiSession_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40e_http_audio_db_unknown_action.json \
+                  core/golden/e40e_http_camera_unknown_id.json \
+                  core/golden/e40e_http_config_unknown_type.json \
+                  core/golden/e40e_http_get_camera_pic_invalid_width.json \
+                  core/golden/e40e_http_get_camera_pic_unknown_id.json \
+                  core/golden/e40e_http_get_cover_unknown_id.json \
+                  core/golden/e40e_http_get_mcp_info.json \
+                  core/golden/e40e_http_get_param_invalid_utf8_name.json \
+                  core/golden/e40e_http_get_param_invalid_utf8_value.json \
+                  core/golden/e40e_http_poll_listen_get_unknown_uuid.json \
+                  core/golden/e40e_http_poll_listen_unknown_type.json \
+                  core/golden/e40e_http_register_push_success.json \
+                  core/golden/e40e_http_unknown_action.json \
+                  core/golden/e40e_ws_audio_unknown_action.json \
+                  core/golden/e40e_ws_eventlog_last_page_is_empty.json \
+                  core/golden/e40e_ws_eventlog_page_out_of_range.json \
+                  core/golden/e40e_ws_eventlog_uuid_not_found.json \
+                  core/golden/e40e_ws_get_param_no_param_member.json \
+                  core/golden/e40e_ws_get_state_without_data.json \
+                  core/golden/e40e_ws_login_failure.json \
+                  core/golden/e40e_ws_login_service_invalid_token.json \
+                  core/golden/e40e_ws_login_service_success.json \
+                  core/golden/e40e_ws_login_success.json \
+                  core/golden/e40e_ws_login_success_no_msg_id.json \
+                  core/golden/e40e_ws_register_push_refused.json \
+                  core/golden/e40e_ws_register_push_success.json \
+                  core/golden/e40e_ws_scope_denied.json \
+                  core/golden/e40e_ws_settings_change_cred_refused.json \
+                  core/golden/e40e_ws_settings_change_cred_success.json
+endif
+
+#------------------------------------------------------------------------------
+#E4.0f - the audio surface of the JSON API characterized at VALUE level:
+#processDbResult()'s count-marker contract, the scalar formatting of the audio
+#answers (Utils::to_string(double) is six significant digits), the empty string
+#and non-ASCII rows of the switch table, and the WS/HTTP argument-placement
+#asymmetry. Uses the E4.0a harness unchanged; needs Audio/AudioDB.o for the
+#concrete fake database, like core/JsonApiPlayerState_test. Same link closure
+#and the same -DCALAOS_GOLDEN_DIR as core/JsonApiCharacterization_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiAudioPayload_test
+check_PROGRAMS += core/JsonApiAudioPayload_test
+core_JsonApiAudioPayload_test_SOURCES = core/JsonApiAudioPayload_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiAudioPayload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiAudioPayload_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiAudioPayload_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/e40f_ws_db_count_marker_in_the_middle.json \
+                  core/golden/e40f_ws_db_no_count_marker_at_all.json \
+                  core/golden/e40f_ws_db_rejects_the_http_spelling.json \
+                  core/golden/e40f_http_db_rejects_the_ws_spelling.json \
+                  core/golden/e40f_http_db_count_marker_in_the_middle.json \
+                  core/golden/e40f_ws_db_last_count_marker_wins.json \
+                  core/golden/e40f_ws_db_count_double_zero_does_not_clear.json \
+                  core/golden/e40f_ws_db_trailing_zero_count_clears.json \
+                  core/golden/e40f_ws_db_count_not_a_number.json \
+                  core/golden/e40f_ws_db_count_marker_row_keeps_its_other_keys.json \
+                  core/golden/e40f_ws_audio_time_six_significant_digits.json \
+                  core/golden/e40f_ws_audio_time_large_value_goes_scientific.json \
+                  core/golden/e40f_ws_audio_playlist_size_negative.json \
+                  core/golden/e40f_ws_audio_cover_url_empty.json \
+                  core/golden/e40f_ws_audio_playlist_item_non_ascii.json \
+                  core/golden/e40f_http_audio_playlist_item_non_ascii.json \
+                  core/golden/e40f_ws_db_track_infos_non_ascii.json \
+                  core/golden/e40f_ws_audio_http_shaped_request.json \
+                  core/golden/e40f_http_audio_ws_shaped_request.json \
+                  core/golden/e40f_http_audio_db_ws_shaped_arguments.json
+endif
+
+#T3.17f: eventlog - the last unguarded async chain of JsonApi.cpp
+#(buildJsonEventLog(), the 26th and only std::function<void(Json &)> method of
+#JsonApi.h, found by the T3.17e audit). Characterizes both of its callbacks - the
+#uuid one and the paginated one - on both transports, then pins the lifetime
+#guard: the JsonApi/handler destroyed while the sqlite worker thread is still
+#running the query.
+#Drives HistLogger like core/JsonApiSession_test (E4.0e) does: the history
+#database is built ONCE, before the first CoreFixture::SetUp(), in a directory
+#that lives as long as the process - a singleton born inside a case would point
+#at a per-case cache directory that TearDown() rm -rf's, and the worker would
+#then throw sqlite cantopen OUTSIDE its try block (HistLogger.cpp:190) and
+#std::terminate the binary. Different directory template from E4.0e's so the two
+#binaries can never share a database.
+#HistLogger.$(OBJEXT) is already part of CORE_SERVER_OBJECTS, so the link closure
+#is the same as core/JsonApiCharacterization_test, and so is -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiEventLog_test
+check_PROGRAMS += core/JsonApiEventLog_test
+core_JsonApiEventLog_test_SOURCES = core/JsonApiEventLog_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiEventLog_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiEventLog_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiEventLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t317f_ws_eventlog_page_out_of_range.json \
+                  core/golden/t317f_ws_eventlog_uuid_not_found.json \
+                  core/golden/t317f_http_eventlog_uuid_not_found.json \
+                  core/golden/evlog_ws_eventlog_db_locked.json \
+                  core/golden/evlog_http_eventlog_db_locked.json
+endif
+
+#T3.19: the two REMOTE CRASHES of JsonApi.cpp reachable by an authenticated
+#client on a legitimate call - the null AudioPlayer::database dereferenced by
+#the sixteen audio_db actions (SIGSEGV) and the unvalidated per_page divided by
+#in HistLogger's sqlite worker (SIGFPE). One binary because both are the same
+#defect in the same file, and because the eventlog half needs HistLogger brought
+#into the harness anyway.
+#Audio/AudioDB.$(OBJEXT) is needed for the concrete database the "capability
+#says no, pointer says yes" cases install (same need as T3.17c/E4.0f), and the
+#history database is built ONCE before the first CoreFixture::SetUp() against a
+#directory that lives as long as the process - a singleton born inside a case
+#would point at a per-case cache directory TearDown() rm -rf's, and
+#HistLogger.cpp:190 sits OUTSIDE its try, so cantopen would std::terminate the
+#binary. Own directory template (calaos_t319_hist_XXXXXX), so this binary can
+#never share a database with core/JsonApiSession_test or core/JsonApiEventLog_test.
+#HistLogger.$(OBJEXT) is already part of CORE_SERVER_OBJECTS, so the link
+#closure is the same as core/JsonApiMusicDb_test, and so is -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiInputGuards_test
+check_PROGRAMS += core/JsonApiInputGuards_test
+core_JsonApiInputGuards_test_SOURCES = core/JsonApiInputGuards_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiInputGuards_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiInputGuards_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiInputGuards_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/t319_ws_audio_db_no_database.json \
+                  core/golden/t319_http_audio_db_no_database.json \
+                  core/golden/t319_ws_eventlog_per_page_out_of_range.json \
+                  core/golden/t319_http_eventlog_per_page_out_of_range.json
+endif
+
+
+# T3.18
+#A scenario whose step lost its IO is DISABLED (user decision), with a
+#persisted, sticky `disabled_missing_io` param and a manual re-enable. Core
+#test: it plays real save/reload cycles, which is the only way the stickiness
+#can be shown, and drives buildAutoscenarioModify()/buildAutoscenarioReenable()
+#directly through a subclass of JsonApi - JsonApi.o is already part of
+#CORE_SERVER_OBJECTS, so no extra link closure is needed here (no WS/HTTP
+#transport is involved).
+#Own HAVE_GTEST block so that this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioDisabledMissingIo_test
+check_PROGRAMS += core/ScenarioDisabledMissingIo_test
+core_ScenarioDisabledMissingIo_test_SOURCES = core/ScenarioDisabledMissingIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioDisabledMissingIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario
+core_ScenarioDisabledMissingIo_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ScenarioDisabledMissingIo_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+
+# E4.6a
+#CHARACTERIZATION of the AutoScenario model, written before a single line of
+#src/ is touched by the E4.6 rewrite. It pins the five defects E4.6.md asks for
+#- the orphan sweep that destroys the rules of an unmarked scenario, the plain
+#IO an unmarked scenario IO stays, the "wrong input" of autoscenario get, the
+#full UI round trip that restarts an amputated scenario with two success:true,
+#and the installer style reload that leaves no trace at all - plus the one
+#acquired property nothing attested: config put backs the configuration up
+#BEFORE overwriting it.
+#It drives BOTH transports (the reference use case over WS, config put over
+#HTTP) and plays real save/reload cycles, so it needs the E4.0a harness and the
+#same link closure as core/JsonApiScenario_test: JsonApiHandlerHttp.o needs the
+#REAL HttpClient::buildHttpResponse(), and the camera/audio objects come with
+#the shared harness object.
+#It compares no golden, but the harness .cpp still needs -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AutoScenarioMigration_test
+check_PROGRAMS += core/AutoScenarioMigration_test
+core_AutoScenarioMigration_test_SOURCES = core/AutoScenarioMigration_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioMigration_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_AutoScenarioMigration_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_AutoScenarioMigration_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+
+#The JSON face of Params: the mapping it serializes to, and the escaping of the
+#dump that feeds the API wire - the one dimension the goldens cannot see, since
+#they compare parsed documents. Only libcalaos_common code is exercised (Params
+#alone), no server object and no fixture. Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ParamsJson_test
+check_PROGRAMS += ParamsJson_test
+ParamsJson_test_SOURCES = ParamsJson_test.cpp
+ParamsJson_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+#T3.24: which client the login throttle counts against. Needs a real HttpClient
+#whose request_headers carry an X-Forwarded-For, which the E4.0a harness does
+#not model (its WS session is built on a null HttpClient and its HTTP request on
+#a header-less one), so the two proxied session helpers live in the test file
+#itself and the harness is reused unmodified for the fixture and the oracle.
+#Same link closure as core/JsonApiSession_test - both drive both transports.
+#No golden: every assertion here is a boolean about which bucket was hit.
+if HAVE_GTEST
+TESTS += core/JsonApiThrottleIdentity_test
+check_PROGRAMS += core/JsonApiThrottleIdentity_test
+core_JsonApiThrottleIdentity_test_SOURCES = core/JsonApiThrottleIdentity_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiThrottleIdentity_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiThrottleIdentity_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiThrottleIdentity_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+
+# E4.1k
+#Characterization of the io_doc.json generator: IODoc::genDocJson() (the
+#document of one IO type) and IOFactory::genDocIO() (the aggregation and the
+#write of io_doc.json/io_doc.md). Written BEFORE the jansson -> nlohmann
+#migration of those two functions and green across it; the single seam is
+#docToJson() in the test itself, no assertion moves.
+#It needs the server core objects for the second half (genDoc instantiates
+#every registered IO type), so it uses the core LDADD. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IODocJson_test
+check_PROGRAMS += core/IODocJson_test
+core_IODocJson_test_SOURCES = core/IODocJson_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IODocJson_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+#The climate objects register the devices in the factory, which the
+#"devices" section of the generated document is checked on.
+core_IODocJson_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IODocJson_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif
+
+
+# E4.1e
+#Characterization of the KNX wire, written BEFORE IO/KNX is ported from
+#jansson to nlohmann::json and green across the port. Nothing in the existing
+#suite executes a driver (E4.0d), and the 145 goldens compare parsed
+#documents rather than bytes, so this wire had no net at all on either
+#dimension. Two binaries because KNXValue is declared TWICE - once in
+#KNXCtrl.h for the server, once in KNXExternProc_main.h for calaos_knx - and
+#the two classes cannot share a translation unit. They pin the SAME expected
+#literals on purpose: the two copies of toJson() must emit the same bytes or
+#the two ends of the wire stop understanding each other.
+#
+#Linking follows core/KnxIo_test: the server objects are reused as they are.
+#Only KNXCtrl.o and ExternProc.o are needed here, no fixture and no core.
+if HAVE_GTEST
+TESTS += KNXCtrlWire_test
+check_PROGRAMS += KNXCtrlWire_test
+KNXCtrlWire_test_SOURCES = KNXCtrlWire_test.cpp
+KNXCtrlWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  @CALAOS_SERVER_CFLAGS@
+KNXCtrlWire_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+KNXCtrlWire_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The calaos_knx end. KNXExternProc_cli.cpp holds the THIRD definition of
+#KNXValue::toJson() and is only compiled when eibclient.h is present
+#(configure.ac:135 AC_CHECK_HEADERS -> HAVE_LIBKNX); there is no --with-knx
+#option, the support is header-detected. Without that header calaos_knx does
+#not exist and neither can this test, hence the nested conditional. A build
+#that skips it is a build that never compiled two of the five files of this
+#ticket: check the configure summary line "Eib/KNX support".
+if HAVE_GTEST
+if HAVE_LIBKNX
+TESTS += KNXExternProcWire_test
+check_PROGRAMS += KNXExternProcWire_test
+KNXExternProcWire_test_SOURCES = KNXExternProcWire_test.cpp
+KNXExternProcWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  @CALAOS_SERVER_CFLAGS@
+KNXExternProcWire_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXExternProc_cli.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  -leibclient \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+KNXExternProcWire_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXExternProc_cli.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+endif
+
+
+# E4.1g
+#Characterization of the MQTT wire (MqttCtrl.cpp <-> MqttExternProc_main.cpp),
+#written BEFORE any line of src/ and green across the migration. Nothing in
+#the suite executes a driver (E4.0d), so this file is the only net this
+#migration has. It pins the payload LENGTH (json_stringn vs json_string), the
+#'?' substitution of invalid UTF-8 bytes (a shipped user decision), the
+#crossing of a VALID non-ASCII payload, and - on BYTES, not on a parsed
+#document - the exact wire produced by both ends, which is the only oracle
+#ensure_ascii will ever have. Only libcalaos_common code is exercised (Params
+#+ Utils), no server object and no fixture; the migration commit points the
+#test at src/bin/calaos_server/IO/Mqtt/MqttWire.h. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += MqttWire_test
+check_PROGRAMS += MqttWire_test
+MqttWire_test_SOURCES = MqttWire_test.cpp
+MqttWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MqttWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+#E4.1b: the BYTES the API puts on the wire - the one dimension the 145 goldens
+#of E4.0 are blind to by construction (they compare parsed documents, so an
+#escaping change cannot make any of them red; the E4.1k review measured
+#ensure_ascii true->false leaving the whole suite green). Every assertion here
+#reads HttpTestRequest::body() / WsTestSession::lastMessage() raw.
+#Drives `eventlog`, the only action whose payload is built with nlohmann on both
+#transports (buildJsonEventLog(), the single std::function<void(Json &)> method
+#of JsonApi.h), so both nlohmann emitters are exercised end to end; and get_home
+#in the same case for the jansson side, which is what puts the two escapings
+#side by side on one house.
+#HistLogger is brought in exactly like core/JsonApiEventLog_test and
+#core/JsonApiSession_test do - built once, before the first CoreFixture::SetUp(),
+#in a directory of its own (template calaos_e41b_hist_XXXXXX) so no two binaries
+#ever share a database.
+#Same link closure as core/JsonApiEventLog_test: it drives both transports and
+#needs HistLogger, already part of CORE_SERVER_OBJECTS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiEmissionBytes_test
+check_PROGRAMS += core/JsonApiEmissionBytes_test
+core_JsonApiEmissionBytes_test_SOURCES = core/JsonApiEmissionBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiEmissionBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiEmissionBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiEmissionBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1i
+#Characterization of the Reolink wire: the {action:"register", ...} message
+#ReolinkCtrl sends to calaos_reolink, and the flattening of every message the
+#external process sends back. Written BEFORE the jansson -> nlohmann migration
+#of ReolinkCtrl.cpp and green across it; the two seams are buildRegisterWire()
+#and decodeWire() in the test itself, which the migration commit rewires onto
+#the production header IO/Reolink/ReolinkWire.h so that a mutation of the
+#shipped emitter turns this suite red.
+#Two of its cases assert on the RAW BYTES of the wire (ensure_ascii, and the
+#invalid-UTF-8 error handler): the 145 goldens compare parsed documents and
+#are blind to escaping by construction.
+#Only libcalaos_common code is exercised (Params + the free functions of the
+#wire header), no server object and no fixture. Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += ReolinkWire_test
+check_PROGRAMS += ReolinkWire_test
+ReolinkWire_test_SOURCES = ReolinkWire_test.cpp \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Reolink/ReolinkWire.h
+ReolinkWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+ReolinkWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# E4.1h
+#Characterization of the Wago wire: the eight requests WagoMap sends to
+#calaos_wago, the two reply shapes calaos_wago sends back, and the decoding
+#both ends do. Written BEFORE the jansson -> nlohmann migration of
+#WagoMap.cpp / WagoExternProc_main.cpp and green across it; the seams are the
+#free functions of the anonymous namespace in the test itself, which the
+#migration commit rewires onto the production header
+#IO/Wago/WagoWire.h so that a mutation of the SHIPPED emitter turns this suite
+#red. Nothing in this suite executed a driver before (E4.0d), and
+#WagoConfigParse_test only covers the io.xml address parser: this file is the
+#only net this migration has.
+#Two of its cases assert on the RAW BYTES (ensure_ascii, and the invalid-UTF-8
+#error handler); the 145 goldens compare parsed documents and are blind to
+#escaping by construction. Eight more freeze the exact request strings, which
+#do NOT move across the migration - Params is a std::map, so the jansson
+#adapter already emitted alphabetically.
+#Two of its cases were written as ..._BUG, pinning the fact that
+#write_multiple_bits/write_multiple_words emitted no "values" array at all;
+#the fix commit of this same ticket flips them, which is what they were for.
+#Only libcalaos_common code is exercised (Params + Utils + the wire header),
+#no server object and no fixture, and
+#-I.../IO/Wago is already in AM_CPPFLAGS. Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WagoWire_test
+check_PROGRAMS += WagoWire_test
+WagoWire_test_SOURCES = WagoWire_test.cpp
+WagoWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# E4.1d
+#Characterization of the two THIRD PARTY JSON READERS of the tree: the
+#Logitech Media Server answer Squeezebox.cpp walks for artwork_url, and the
+#Philips Hue bridge answer HueOutputLightRGB.cpp walks for
+#state.{sat,bri,hue,on,reachable}. Both are READ ONLY - neither builds JSON for
+#its third party, so neither carries a wire this series has to protect.
+#Written BEFORE the jansson -> nlohmann migration of the two files and green
+#across it; the seams are the free functions of the anonymous namespace in each
+#test, which the migration commit rewires onto the production headers
+#Audio/SqueezeboxWire.h and IO/Hue/HueWire.h so that a mutation of the SHIPPED
+#reader turns these suites red.
+#SqueezeboxWire_test carries the ONLY byte oracles of the ticket, on the ONLY
+#dump() of the perimeter - a cDebug() trace: one case is red if ensure_ascii is
+#dropped, one is red if error_handler_t::replace is dropped, and a tripwire
+#records the measurement that makes that handler DEFENSIVE and not load
+#bearing (both libraries refuse invalid UTF-8 at parse time, so nothing can
+#reach the dump with a bad byte). The 145 goldens compare parsed documents and
+#are blind to escaping by construction.
+#HueWire_test carries NO byte oracle and claims none: there is no dump() in
+#HueOutputLightRGB.cpp at all. Its risk is TYPE TOLERANCE, and its tripwire
+#pins the measured divergence between json_integer_value() and the "obvious"
+#j.value("sat", 0), which THROWS on two of the five shapes a bridge can send -
+#inside a download callback with no try/catch on the path.
+#Only libcalaos_common code is exercised (Params + Utils + ColorValue + the
+#wire headers), no server object and no fixture. -I.../Audio is already in AM_CPPFLAGS, -I.../IO/Hue is
+#not. Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += SqueezeboxWire_test
+check_PROGRAMS += SqueezeboxWire_test
+SqueezeboxWire_test_SOURCES = SqueezeboxWire_test.cpp
+SqueezeboxWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += HueWire_test
+check_PROGRAMS += HueWire_test
+HueWire_test_SOURCES = HueWire_test.cpp
+HueWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+HueWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# E4.1f
+#Characterization of the OLA wire: the [{channel,value}, ...] array OLACtrl
+#sends to calaos_ola, and the decoding calaos_ola does of it. Written BEFORE
+#the jansson -> nlohmann migration of OLACtrl.cpp / OLAExternProc_main.cpp and
+#green across it; the seam is the free functions of the anonymous namespace in
+#the test itself, which the migration commit rewires onto the production header
+#IO/OLA/OLAWire.h so that a mutation of the SHIPPED emitter turns this suite
+#red. Nothing in this suite executed a driver before (E4.0d) and there is no
+#other OLA test at all: this file is the only net this migration has.
+#⭐ This is the ONLY wire of the series that carries real JSON INTEGERS
+#(json_integer, not json_string). Its most important case is the type proof -
+#a `value` that comes back quoted stops the DMX driver in silence, and the
+#decoder cannot catch it because it flattens everything to strings anyway.
+#Two of its cases assert on the RAW BYTES (ensure_ascii, and the invalid-UTF-8
+#error handler); the 145 goldens compare parsed documents and are blind to
+#escaping by construction. Those two are DEFENSIVE and say so: no string of
+#any kind reaches this wire in production, only two integers.
+#Only libcalaos_common code is exercised (Params + Utils + ColorValue + the
+#wire header), no server object and no fixture, so the _DEPENDENCIES pitfall
+#cannot apply. -I.../IO/OLA is NOT in
+#the global AM_CPPFLAGS, hence the dedicated _CPPFLAGS.
+#NOTE: this test does NOT need libola and is built whether or not calaos_ola
+#is (if HAVE_LIBOLA in src/bin/calaos_server/Makefile.am) - the wire header has
+#no libola dependency. A build without libola still runs this suite, but it
+#never compiles OLAExternProc_main.cpp: check the configure summary line
+#"Open Lightning Architecture support" before trusting a green.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += OLAWire_test
+check_PROGRAMS += OLAWire_test
+OLAWire_test_SOURCES = OLAWire_test.cpp
+OLAWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA
+OLAWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+# T3.29
+#JSON `path` syntax of the MQTT and Web IOs: (A) characterization of the two
+#duplicated parsers - an array index is a path segment of its own
+#(weather/[0]/description), an index glued to its key resolves to nothing -
+#and (B) the syntax the ioDoc actually PUBLISHES, read back out of
+#IODoc::genDocJson(), the document --gendoc writes and calaos_installer ships.
+#Links the two parser objects from the server build plus WebDocBase (the Web
+#`path` description) and the core closure; MqttCtrl::commonDoc() is static and
+#WebDocBase has no state, so (B) instantiates no IO. -I.../IO/Mqtt is NOT in
+#the global AM_CPPFLAGS, hence the dedicated _CPPFLAGS (same as MqttIO_test).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+#
+#⚠️⚠️ RELINK HOLE - READ THIS BEFORE ANY MUTATION CAMPAIGN ON THIS TARGET.
+#Pre-existing, introduced by T3.29, and it belongs to T3.36's scope - but it
+#bites HERE, so it is written HERE, where the next person will look.
+#_DEPENDENCIES below is overridden to libcalaos_common.la ALONE, so the three
+#objects this binary links - MqttCtrl.o, WebCtrl.o, WebDocBase.o - are NOT
+#prerequisites of it: `make check` does NOT relink when one of those .cpp
+#changes. MEASURED on fix/t3.37, `make -j12 && make check -j6`, same image:
+#  1. mutate MqttCtrl.cpp, rm -f binary  -> CXXLD 1, exit 1, 3 reds  (honest)
+#  2. restore PRISTINE MqttCtrl.cpp, NO rm -> CXXLD 0, MqttCtrl.o IS rebuilt,
+#     and the binary still fails with the SAME 3 reds. 88/87/1 on a CLEAN
+#     TREE. ⭐ That is a FALSE RED, and the reviewer of T3.37 walked into it.
+#  3. rm -f binary + test .o, rebuild   -> CXXLD 1, 63/63 green.
+#⭐ JsonPath.h is NOT in the hole - and that protection is INCIDENTAL, not
+#designed. JsonPathSyntax_test.cpp does `#include "JsonPath.h"`, so the header
+#lands in THIS target's own .deps: editing it rebuilds the test object, which
+#drags the relink along (measured: edit JsonPath.h, no rm -f at all -> CXXLD 1,
+#exit 1, 2 reds, one per copy of the parser). ⚠️ Drop that include - e.g. to
+#test only through the two wrappers - and the header drops straight into the
+#hole beside the two .cpp files. Do not rely on it; rely on the rule below.
+#⇒ RULE for this target: rm -f tests/JsonPathSyntax_test AND
+#tests/JsonPathSyntax_test-JsonPathSyntax_test.o before every mutation AND
+#before every RESTORATION, then require the line `CXXLD    JsonPathSyntax_test`
+#(DOUBLE space, path relative to tests/) in the make output, and take the
+#verdict from the exit code of the binary run directly.
+#⛔ Do NOT "fix" the _DEPENDENCIES line here without measuring. It is T3.36's
+#scope; this target is 1 of 51 in the same shape (52 overrides over 87
+#check_PROGRAMS, 51 of which really do link server objects - ⚠️ a naive scan
+#says 31 because CORE_TEST_LDADD expands to CORE_SERVER_OBJECTS); and a hasty
+#harness edit is exactly what produced the nine false green/red variants of
+#this series. See FINDINGS.md [F-RELINK-T337].
+if HAVE_GTEST
+TESTS += JsonPathSyntax_test
+check_PROGRAMS += JsonPathSyntax_test
+JsonPathSyntax_test_SOURCES = JsonPathSyntax_test.cpp
+JsonPathSyntax_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+JsonPathSyntax_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+JsonPathSyntax_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebDocBase.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1j
+#Characterization of the DOWNSTREAM half of the Lua wire: the messages
+#calaos_script emits ({msg,data} from every Lua binding that talks back, plus
+#the flat "finished") and the messages it decodes ("execute" with its script,
+#its context array and its env; "event" with its type_str and its nested
+#data). Written BEFORE the jansson -> nlohmann migration of
+#LuaScript/ScriptExtern_main.cpp and LuaScript/ScriptBindings.cpp and green
+#across it; the seams are the free functions of the anonymous namespace in the
+#test itself, which the migration commit rewires onto the production header
+#LuaScript/ScriptWire.h so that a mutation of the SHIPPED emitter or decoder
+#turns this suite red. LuaScript/ScriptExec.cpp - the calaos_server end - is
+#OUT of perimeter (E4.1m) and untouched: both ends decode with a real JSON
+#parser, so the mixed state is supported.
+#Nothing in this suite executed a driver before (E4.0d) and no golden covers
+#this wire: this file is the only net this migration has.
+#Three of its cases assert on the RAW BYTES (ensure_ascii, the invalid-UTF-8
+#error handler, and the three spellings of that handler pinned separately).
+#Unlike Wago/OLA/Hue those oracles are LOAD BEARING here, not defensive: one
+#line of user Lua - calaos.sendPushNotif(string.char(0xFF)) - puts an
+#arbitrary byte straight into a JSON string value, and a naked dump() on this
+#path is std::terminate on calaos_script.
+#Only libcalaos_common code is exercised (Params + Utils + the wire header),
+#no server object and no fixture, which also keeps it clear of the
+#_DEPENDENCIES pitfall.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += ScriptWire_test
+check_PROGRAMS += ScriptWire_test
+ScriptWire_test_SOURCES = ScriptWire_test.cpp
+ScriptWire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/LuaScript
+ScriptWire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.30
+#Characterization of the modbus multiple-write buffer assembly of
+#IO/Wago/WagoCtrl.cpp - FINDINGS.md F-WAGO-2, three defects on the same ten
+#lines: a `count` taken from the message and never confronted with the decoded
+#`values` (SIGSEGV 139 on an empty vector), a setBit() that takes a reference
+#to ONE byte and is called with `*data` for every bit (only bits 0..7 are ever
+#written, and pos >= 32 is an undefined shift), and a memset shorter than its
+#allocation (nb = 17 allocates 3 bytes and zeroes 2).
+#⭐ Nothing in the tree calls these functions - WagoMap::write_multiple_bits and
+#write_multiple_words have zero callers, indirect ones included, so no PLC has
+#ever seen this message and no RELEASE_NOTES entry is due. The suite exists
+#because the code LOOKS right: the first caller written gets all three at once.
+#THE SEAM is namespace `seam` in the test. The characterization commit carries
+#the shipped bodies there verbatim; the fix commit rewires it onto the
+#production header IO/Wago/WagoBits.h so that from then on a mutation of the
+#SHIPPED packer turns this suite red.
+#⚠️ WagoCtrl.o is in NO test binary and cannot be - write_multiple_bits()
+#returns on !is_connected() before its body, which needs a live modbus socket.
+#The two call sites in WagoCtrl.cpp are covered by SOURCE TRIPWIRES (hence
+#CALAOS_TOP_SRCDIR) and by nothing else;
+#swapping `address` and `nb` there stays green here and needs distinct types,
+#which is T3.31's business.
+#⚠️ Two of its cases DIE instead of failing before the fix - SIGSEGV on
+#values[0], exit code -11, and NO "FAILED" line at all:
+#the verdict is the per-case EXIT CODE, taken with --gtest_filter.
+#WagoBits.h is a self-contained header (<vector> alone) with no calaos
+#dependency; -I.../IO/Wago is already in AM_CPPFLAGS. No server object is
+#linked and none may be, which keeps this suite clear of the _DEPENDENCIES
+#pitfall. Own HAVE_GTEST block so this stays a pure append at the end of file.
+if HAVE_GTEST
+TESTS += WagoBits_test
+check_PROGRAMS += WagoBits_test
+WagoBits_test_SOURCES = WagoBits_test.cpp
+WagoBits_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+WagoBits_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.28
+#Characterization of the Roon launch arguments: the "port" parameter of the
+#RoonPlayer ioDoc, and the two startProcess() call sites of RoonCtrl.
+#Written BEFORE the fix and RED on master, on three counts: port is declared
+#mandatory with no default (9330 landed in the bool `mandatory` parameter of
+#IODoc::paramAdd, IODoc.h:46), the processExited handler relaunches
+#calaos_roon without --host/--port, and RoonPlayer::port has no in-class
+#initialiser.
+#⛔ THE NEXT SENTENCE IS FALSE AND IS KEPT ONLY TO BE CORRECTED - see the T3.28b
+#paragraph at the end of this block. It read: "RoonCtrl is UNREACHABLE from make
+#check - its constructor binds a unix socket through ExternProcServer and spawns
+#calaos_roon (measured in E4.1h, FINDINGS.md:109-113, and the review closed the
+#question)". Every clause about the constructor is true; the conclusion is not.
+#The respawn and the member initialiser were therefore pinned by SOURCE
+#TRIPWIRES over CALAOS_TOP_SRCDIR;
+#what was already behavioural is the ioDoc, read off a real RoonPlayer, and the
+#RoonArgs free functions the fix extracts into Audio/RoonArgs.h.
+#It links Audio/RoonPlayer.$(OBJEXT) on top of the core objects. ⛔ T3.27: this
+#comment used to say "the only suite of the tree that does", which is FALSE -
+#17 targets link that object on fb9d064c, 16 of them core/JsonApi* suites that
+#all predate this one. What IS true is that this is the only suite that EXERCISES
+#RoonPlayer; the others link it to satisfy the core linker and never call it.
+#Linking is not exercising - see FINDINGS.md F-LINK-1.
+#⚠️ _DEPENDENCIES = libcalaos_common.la, like 49 of the 83 test binaries, so
+#automake does NOT relink this binary when RoonPlayer.o changes: any mutation
+#campaign on this file must rm -f BOTH the .o and the test binary and then check
+#the CXXLD line really came back.
+#⭐ T3.28b: and this suite now EXERCISES RoonCtrl too - it points
+#CALAOS_BIN_PREFIX at a temporary directory and watches the real spawn, first
+#launch and respawn. "RoonCtrl is unreachable from make check" was false.
+#⚠️ It spends the ONE launch this process can observe on a direct
+#RoonCtrl::Instance() call, which leaves Audio/RoonPlayer.cpp:227 uncovered -
+#that is what core/RoonSpawnViaPlayer_test is for, in its own process. The
+#shared harness is core/RoonSpawnHarness.h; it also gives back the /tmp sandbox,
+#the unix socket and the last child, none of which _exit() would.
+#-I.../Audio is already in AM_CPPFLAGS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RoonArgs_test
+check_PROGRAMS += core/RoonArgs_test
+core_RoonArgs_test_SOURCES = core/RoonArgs_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/RoonSpawnHarness.h
+core_RoonArgs_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_RoonArgs_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RoonArgs_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.27
+#The RETURN CONTRACT of the calaos:* scriptable API, observed FROM LUA.
+#setIOParam()/waitForIO() declared `return 1` and pushed nothing, so Lunar::
+#thunk handed the script back its own last argument; the defect is a property
+#of the lua stack, not of the C++ return value, so every case here pushes a
+#real lua_State through ScriptManager::ExecuteScript() and runs literal lua.
+#Same object reuse as LuaSandbox_test (ScriptManager/ScriptBindings/ExternProc
+#are built into calaos_script, a program): this suite therefore DOES reach
+#ScriptBindings.cpp, which FINDINGS.md F-LUA-3 believed unreachable.
+#ExternProc.$(OBJEXT) is needed for real here and not only to satisfy the
+#linker: one case connects a live AF_UNIX socket and decodes the set_param
+#frame the binding emits, which is what turns the io.set_param(value,key)
+#permutation red.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += LuaCalaosApi_test
+check_PROGRAMS += LuaCalaosApi_test
+LuaCalaosApi_test_SOURCES = LuaCalaosApi_test.cpp
+LuaCalaosApi_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+LuaCalaosApi_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT)   \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT)             \
+                  @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+LuaCalaosApi_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/LuaScript/ScriptBindings.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ExternProc.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.34
+#"impulse down <ms>" prefix removal: both shutter IOs recognised the 13
+#character prefix and then erased 11 characters, so the duration reached
+#Utils::from_string() as "n <ms>" and ImpulseDown() always got 0. Pins the
+#duration actually transmitted, the duration published in the IO command
+#state, and the stop timer really armed (this one drives the default uvw
+#loop, every wait wall clock bounded like core/Timer_test). Links the two
+#shutter objects on top of the core closure. Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ShutterImpulse_test
+check_PROGRAMS += core/ShutterImpulse_test
+core_ShutterImpulse_test_SOURCES = core/ShutterImpulse_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ShutterImpulse_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ShutterImpulse_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ShutterImpulse_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.28b
+#⭐ THE SECOND BINARY, and it is a second BINARY for one measured reason.
+#RoonCtrl::Instance() is a function-local static (Audio/RoonPlayer.cpp:86): the
+#first call in a process wins, so ONE process can observe exactly ONE launch
+#configuration. core/RoonArgs_test spends it by calling Instance() itself,
+#which leaves Audio/RoonPlayer.cpp:227 - RoonCtrl::Instance(host, port), the
+#call that carries the user's configuration across - uncovered. The review of
+#T3.28b proved it bites: exchanging it for RoonCtrl::Instance(host,
+#RoonArgs::DefaultPort) left core/RoonArgs_test at 14/14, exit 0. That is the
+#field defect of T3.28 moved one call site further on.
+#A test binary is a process: this one builds a REAL RoonPlayer with a non-empty
+#zone_id and watches the launch that follows, so both forms are covered without
+#a fork, a seam, or a test-only hook in src/.
+#⚠️ ONE case on purpose. A second case needing a differently-configured
+#controller in the same process would be back on the same singleton.
+#Same linkage as core/RoonArgs_test: Audio/RoonPlayer.$(OBJEXT) on top of the
+#core objects; -I.../Audio is already in AM_CPPFLAGS.
+#⚠️ _DEPENDENCIES = libcalaos_common.la, like 49 of the test binaries, so
+#automake does NOT relink this binary when RoonPlayer.o changes: any mutation
+#campaign must rm -f BOTH the .o and the test binary, then check the CXXLD line
+#really came back (double space, path relative to tests/ - match it with a
+#regex, never a single space).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RoonSpawnViaPlayer_test
+check_PROGRAMS += core/RoonSpawnViaPlayer_test
+core_RoonSpawnViaPlayer_test_SOURCES = core/RoonSpawnViaPlayer_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/RoonSpawnHarness.h
+core_RoonSpawnViaPlayer_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RoonSpawnViaPlayer_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RoonSpawnViaPlayer_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25 (A)
+#The parsing contract of Utils::from_string()/Utils::is_of_type()
+#(src/lib/StringUtils.h). Everything under test is a template in a header of
+#libcalaos_common, so nothing more is linked and there is no _DEPENDENCIES
+#pitfall to dodge. AM_CPPFLAGS already carries -I$(top_srcdir)/src/lib.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += StringUtilsFromString_test
+check_PROGRAMS += StringUtilsFromString_test
+StringUtilsFromString_test_SOURCES = StringUtilsFromString_test.cpp
+StringUtilsFromString_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#Built elsewhere, do not let automake turn them into prerequisites
+StringUtilsFromString_test_DEPENDENCIES = $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25 (B)
+#The remotely reachable chain of T3.25: set_state -> decodeSetState ->
+#OutputShutter::set_value()/OutputLightDimmer::set_value() -> from_string().
+#Reuses the E4.0a harness (core/JsonApiCharacterization.*) UNMODIFIED, so the
+#same link closure as the other JsonApi* core suites is required - the harness
+#builds a reference house containing a StandardMjpeg camera and a RoonPlayer
+#and pulls both transports in. NO GOLDEN is produced or read by this suite:
+#every oracle is a direct assertion on cmd_state, which embeds
+#to_string(impulse_action_time) character for character, so the 145 goldens of
+#the tree are untouched. IO/OutputShutter and IO/OutputLightDimmer are NOT part
+#of CORE_SERVER_OBJECTS (they appear only in core_KnxIo_test_LDADD), hence the
+#two extra objects below. -DCALAOS_GOLDEN_DIR is still defined because the
+#harness compiles its golden helpers unconditionally.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SetStateGarbage_test
+check_PROGRAMS += core/SetStateGarbage_test
+core_SetStateGarbage_test_SOURCES = core/SetStateGarbage_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_SetStateGarbage_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_SetStateGarbage_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_SetStateGarbage_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25 (B2)
+#The same defect with the API boundary bypassed: OutputShutter::set_value() and
+#OutputLightDimmer::set_value() called directly, the way an in-process caller
+#does. SEPARATE BINARY ON PURPOSE - on the characterization commit these cases
+#take SIGSEGV (the indeterminate duration arms Timer::singleShot() on a
+#negative delay), and a death inside core/SetStateGarbage_test hid six of its
+#cases. Splitting bounds what a crash can hide. CoreFixture only, so no JSON
+#API object and no libuv loop is ever run here; the link closure is
+#CORE_TEST_LDADD plus the two IO objects, which are NOT in CORE_SERVER_OBJECTS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ImpulseGarbageIo_test
+check_PROGRAMS += core/ImpulseGarbageIo_test
+core_ImpulseGarbageIo_test_SOURCES = core/ImpulseGarbageIo_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ImpulseGarbageIo_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ImpulseGarbageIo_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ImpulseGarbageIo_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25 (review reserve 1)
+#The oracle the Wago `port` family did not have. WIAnalog/WITemp/WOAnalog/
+#WODali/WODaliRVB/WODigital appeared in NO test file of the tree, so their nine
+#from_string_or_keep("port") lines were pinned by nothing. The seam is
+#WagoMap::get_maps(): WagoMap keys its singletons on the (host, port) pair and
+#publishes the table, so the port an IO chose is observable without adding a
+#single accessor to production. Every case uses its own TEST-NET-1 host
+#(RFC 5737), which never binds and never collides with a parallel `make check`
+#peer. None of the six Wago IO objects, nor WagoMap/WagoCtrl, nor the
+#InputTemp/OutputAnalog/OutputLightRGB parents are part of CORE_SERVER_OBJECTS,
+#hence the list below. ⚠️ WagoCtrl.$(OBJEXT) is deliberately NOT linked: WagoMap.cpp
+#only #includes WagoCtrl.h and uses no symbol of it, while the object itself pulls
+#in the whole libmbus C library.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoPortDefault_test
+check_PROGRAMS += core/WagoPortDefault_test
+core_WagoPortDefault_test_SOURCES = core/WagoPortDefault_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoPortDefault_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoPortDefault_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoPortDefault_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1l
+#The BYTES of an event, on the three wires CalaosEvent::toJson() travels: the
+#websocket push, the HTTP poll_listen answer, and the HISTORY ROW that
+#EventManager::appendEvent() dumps into HistEvent::event_raw. The 145 goldens of
+#E4.0 compare parsed documents, so neither a key order nor an escaping change can
+#make any of them red - every assertion here reads WsTestSession::lastMessage(),
+#HttpTestRequest::body() and HistEvent::event_raw RAW, like E4.1b's
+#core/JsonApiEmissionBytes_test does.
+#The history wire had NO test at all before this file: CalaosCoreFixture.h says
+#HistLogger is only reachable for an IO flagged log_history="true" and the
+#reference house flags none, so the only production producer of event_raw was
+#linked (EventManager.o is in CORE_SERVER_OBJECTS) but never executed.
+#HistLogger is brought in exactly like core/JsonApiEventLog_test,
+#core/JsonApiSession_test and core/JsonApiEmissionBytes_test do - built once,
+#before the first CoreFixture::SetUp(), in a directory of its own (template
+#calaos_e41l_hist_XXXXXX) so no two binaries ever share a database.
+#Same link closure as core/JsonApiEmissionBytes_test: it drives both transports,
+#needs PollListenner for poll_listen and HistLogger for the history row, both
+#already part of CORE_SERVER_OBJECTS or listed below.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/EventWireBytes_test
+check_PROGRAMS += core/EventWireBytes_test
+core_EventWireBytes_test_SOURCES = core/EventWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_EventWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_EventWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_EventWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.46
+#The WRITE half of the Wago REPLY path: SingleBit_cb and SingleWord_cb
+#(WagoMap.h), the two slots that carry a write acknowledgement back from
+#calaos_wago. SingleWord_cb carried two bare Utils::UWord in a row - address
+#and value, interchangeable with no diagnostic, the pair F-WAGO-7 names,
+#arriving instead of leaving. T3.31 typed the OUTBOUND half and left this one,
+#named in T3.46.md section 6.
+#These cases are a COMPILATION property reported through an executable oracle
+#(std::is_invocable_v read by EXPECT_FALSE), NOT a behavioural oracle, and the
+#file says so at length: not one of the four implementations of these two
+#slots is reachable from a test binary. The closure of the implementations
+#themselves is established by mutation, in T3.46.md section 7.
+#It includes WagoMap.h and NOTHING else from the server, so no server object
+#is linked and none may be - that keeps it clear of the _DEPENDENCIES pitfall.
+#-I.../IO/Wago and -I.../IO are already in AM_CPPFLAGS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += WagoWriteReply_test
+check_PROGRAMS += WagoWriteReply_test
+WagoWriteReply_test_SOURCES = WagoWriteReply_test.cpp
+WagoWriteReply_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+WagoWriteReply_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# T3.40
+#⭐ A fire-and-forget one-shot must not outlive the IO that armed it.
+#Timer::singleShot()/Idler::singleIdler() copy the slot into an ANONYMOUS uvw
+#handle: no destructor and no member can cancel it, and sigc::trackable never
+#disconnects a lambda. Every IO in the tree can die before the deadline
+#(ListeRoom::deleteIO() from the JSON API, Room::RemoveIO(), ~Room() on a
+#configuration reload), so the four sites T3.34 guarded were not the only ones.
+#Oracle: each probe is built with placement new into a buffer the TEST owns,
+#destroyed explicitly, and the buffer is then poisoned with 0xA5 - a value none
+#of the callbacks writes. A write through the dangling `this` breaks the poison
+#and a dereference kills the binary, so this suite is judged on the EXIT CODE
+#first (a SIGSEGV prints no FAILED line) and on the log second.
+#The suites are declared in a deliberate order and the file carries its own
+#main() with _exit(): see the file header.
+#Links the switch base classes, the KNX objects (KNXIo<Base> is a template
+#mixin instantiated by the test itself, exactly as KNXIo.cpp does) and
+#Audio/RoonPlayer.o on top of the core closure; IO/Scenario.o and
+#Audio/AudioPlayer.o are already in CORE_SERVER_OBJECTS.
+#⚠️ _DEPENDENCIES = libcalaos_common.la, like most test binaries here, so
+#automake does NOT relink when one of those .o changes: a mutation campaign
+#must rm -f BOTH the .o and the test binary, rebuild from the ROOT, and check
+#the CXXLD line really came back (double space, path relative to tests/ -
+#match it with a regex, never a single space).
+#⭐ CALAOS_SRC_DIR is the SOURCE tree, read at run time by the three
+#IoLifetimeSourceGuardTest cases: they census the raw
+#Timer::singleShot()/Idler::singleIdler() call sites (a guard that is ABSENT on
+#a NEW site is what LifetimeTag cannot make unwritable) and the places that
+#pump the event loop (the invariant that closes the "the token dies last"
+#window). abs_top_srcdir, not srcdir: the binary runs from tests/ and the tree
+#may be a VPATH build.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IoLifetimeTimer_test
+check_PROGRAMS += core/IoLifetimeTimer_test
+core_IoLifetimeTimer_test_SOURCES = core/IoLifetimeTimer_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/RoonSpawnHarness.h
+core_IoLifetimeTimer_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -DCALAOS_SRC_DIR='"$(abs_top_srcdir)/src"'
+core_IoLifetimeTimer_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IoLifetimeTimer_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.50
+#The READ half of the Wago REPLY path: MultiBits_cb and MultiWords_cb
+#(WagoMap.h:38-39), the two slots that carry a read reply back from
+#calaos_wago. They carried (UWord address, int count) - two types that convert
+#into one another in silence, the pair E4.1h measured GREEN on a swap. T3.46
+#closed the WRITE half and named this one as the next ticket of the chain.
+#The *Refuses* cases are a COMPILATION property reported through an executable
+#oracle (std::is_invocable_v read by EXPECT_FALSE), never a behavioural one,
+#and every EXPECT_FALSE has its EXPECT_TRUE control next to it.
+#⭐ Unlike WagoWriteReply_test this one also probes the IMPLEMENTATIONS through
+#pointers to member, and EXERCISES one of them for real - which is why it links
+#the Wago server objects and lives under core/ with the fixture, exactly like
+#core/WagoPortDefault_test whose LDADD list this copies.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoReadReply_test
+check_PROGRAMS += core/WagoReadReply_test
+core_WagoReadReply_test_SOURCES = core/WagoReadReply_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoReadReply_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoReadReply_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoReadReply_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1m
+#The BYTES of the MODEL payloads - get_home and get_io - on the two transports.
+#The 145 goldens of E4.0 compare PARSED documents, so neither the key order nor
+#the escaping this ticket moves can make any of them red. Every assertion here
+#reads WsTestSession::lastMessage() and HttpTestRequest::body() RAW, exactly as
+#core/JsonApiEmissionBytes_test (E4.1b) and core/EventWireBytes_test (E4.1l) do.
+#Six disjoint oracles - key order, ensure_ascii, error_handler_t::replace,
+#U+007F, an embedded 0x00, and witnesses that must stay green on both trees - so
+#that a counter-mutation names ONE guilty parameter instead of reddening a file.
+#Adds NO golden: tests/core/golden must keep its tree hash.
+#Same link closure as core/EventWireBytes_test: it drives both transports, and
+#JsonApiHandlerHttp pulls PollListenner in.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiModelWireBytes_test
+check_PROGRAMS += core/JsonApiModelWireBytes_test
+core_JsonApiModelWireBytes_test_SOURCES = core/JsonApiModelWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiModelWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiModelWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiModelWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.53
+#The DALI UDP reply pair: WagoUdp_cb / WagoUdp_signal (WagoMap.h:81-82), the
+#slot and the signal that carry a UDP reply from calaos_wago back to a DALI
+#ballast. They carried (string command, string result) - the SAME type twice in
+#a row, so unlike every other pair of the Wago chain no compiler could ever
+#diagnose a permutation.
+#Scope of the "no test" claim, at the grain of the measurement: ZERO file NAMED
+#*Dali* under tests/, and NO test of the UDP REPLY PATH. master does already
+#carry two DALI cases (core/WagoPortDefault_test.cpp:220 and :228) but they
+#exercise the Modbus port default, never WagoMap::udpRequest_cb().
+#The *Refuses* cases are a COMPILATION property reported through an executable
+#oracle (std::is_invocable_v / std::is_same_v read by EXPECT_FALSE), never a
+#behavioural one, and every EXPECT_FALSE has its EXPECT_TRUE control inside its
+#own case.
+#⭐ The WagoUdpReplyExercise cases ARE behavioural: they build a production
+#WODali and a production WODaliRVB through IOFactory and hand them a reply
+#through WagoMap::udpRequest_cb(), which is why this links the Wago server
+#objects and lives under core/ with the fixture - the LDADD list is
+#core/WagoReadReply_test's.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoUdpReply_test
+check_PROGRAMS += core/WagoUdpReply_test
+core_WagoUdpReply_test_SOURCES = core/WagoUdpReply_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoUdpReply_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoUdpReply_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoUdpReply_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1n
+#The BYTES the STATE chain puts on the wire: get_state (buildJsonState),
+#get_states (buildJsonStates), query (buildQuery) and the two answer builders of
+#set_state (decodeSetState). Same reason as core/JsonApiEmissionBytes_test
+#(E4.1b) and core/EventWireBytes_test (E4.1l): the 145 goldens compare PARSED
+#documents and are blind BY CONSTRUCTION to key order, to the case of a \uXXXX
+#escape and to whether a byte was escaped at all, so the byte dimension of this
+#ticket is covered by nothing else. Every assertion reads
+#HttpTestRequest::body() / WsTestSession::lastMessage() RAW.
+#The ...Today cases pin the jansson bytes and are flipped by the migration
+#commit; the ones with no suffix are invariants and must read the same on both
+#sides - including the three ...AnswersAnEmptyObject, which guard against
+#`Json jret;` (null) where the code means Json::object().
+#Same link closure as core/JsonApiEmissionBytes_test: it drives both transports
+#on the JsonApiCharacterization harness.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiStateWireBytes_test
+check_PROGRAMS += core/JsonApiStateWireBytes_test
+core_JsonApiStateWireBytes_test_SOURCES = core/JsonApiStateWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiStateWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiStateWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiStateWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#What a RemoteUI panel receives for a device (expanded references,
+#device object in remote_ui_io_states, io_changed). Same link closure as
+#JsonApiStateWireBytes_test.
+if HAVE_GTEST
+TESTS += core/RemoteUIDevice_test
+check_PROGRAMS += core/RemoteUIDevice_test
+core_RemoteUIDevice_test_SOURCES = core/RemoteUIDevice_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RemoteUIDevice_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_RemoteUIDevice_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_RemoteUIDevice_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#T3.51 -- controle permanent de l'outillage : si un cache de compilation
+#(ccache) est en service, il doit rendre un objet qui correspond a la source.
+#
+#Sort 77 (SKIP) quand AUCUN cache n'est en service.  ATTENTION : ce n'est PAS
+#le cas par defaut partout.  Sur Fedora et Gentoo, /usr/lib64/ccache (resp.
+#/usr/lib/ccache) est dans le PATH par defaut et `g++` y est un lien vers
+#ccache : la sonde y trouve donc un cache EN SERVICE, non configure, et rend
+#1 -- `make check` est ROUGE des le premier essai, sans que personne n'ait
+#rien allume.  TROIS issues, au choix :
+#  (1) scripts/ccache-setup.sh  (ecrit la configuration auditee dans le
+#      CCACHE_DIR ; sans CCACHE_DIR il utilise celui que ccache lui-meme
+#      declare) ;
+#  (2) les variables CCACHE_* dans l'environnement (rien n'est persiste) :
+#      CCACHE_SLOPPINESS= CCACHE_COMPILERCHECK=content CCACHE_HASHDIR=true
+#      CCACHE_BASEDIR= ... ;
+#  (3) retirer le repertoire de shims du PATH (ou CXX=/usr/bin/g++) : plus
+#      aucun cache en service, la sonde rend 77 -- un SKIP propre.
+#
+#La sonde ne rend PASS que sur un cache en service ET conforme ; tout autre
+#mode d'echec rend 1, jamais 77 (voir scripts/ccache-honesty-probe.py).
+#Cout mesure : 29-40 ms sans cache (sortie 77), 165-176 ms avec (six
+#compilations triviales), ccache 4.7.5 et 4.12.3.
+#DELIBEREMENT EN TOUTE FIN DE FICHIER, apres le dernier `endif`, et donc HORS
+#de tout `if HAVE_GTEST` : ce test n'a besoin ni de gtest ni d'un binaire
+#construit. Ce placement rend la liste TESTS de `master` un PREFIXE STRICT de
+#celle de la branche -- une seule entree, ajoutee en queue, verifiable.
+TESTS += check-ccache-honesty.sh
+dist_check_SCRIPTS += check-ccache-honesty.sh
+
+# E4.1o
+#The bytes of the param and timerange chain, plus the ?param=%ff%80x injection
+#channel: the 145 goldens compare PARSED documents and cannot see an escaping
+#change, so this is the only cover on that dimension for this perimeter.
+#Same link closure as core/JsonApiScenario_test: it drives both transports on
+#the JsonApiCharacterization harness and instantiates an InPlageHoraire.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiParamsWireBytes_test
+check_PROGRAMS += core/JsonApiParamsWireBytes_test
+core_JsonApiParamsWireBytes_test_SOURCES = core/JsonApiParamsWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiParamsWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiParamsWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiParamsWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1p
+#The bytes of the audio player chain: get_playlist and its recursive, async
+#stage, plus the five single-shot audio actions. The 20 audio goldens compare
+#PARSED documents and cannot see an escaping change, so this is the only cover
+#on that dimension for this perimeter.
+#Same link closure as core/JsonApiPlayerState_test: it drives both transports on
+#the JsonApiCharacterization harness and subclasses AudioPlayer/AudioDB.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiAudioWireBytes_test
+check_PROGRAMS += core/JsonApiAudioWireBytes_test
+core_JsonApiAudioWireBytes_test_SOURCES = core/JsonApiAudioWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiAudioWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiAudioWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiAudioWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1q
+#core/JsonApiMusicDbWireBytes_test - the BYTES the music database chain puts on
+#the wire: processDbResult(), audioDbUnavailable(), audioGetDbStats() and the
+#fifteen audioDbGet* twins, on both transports. The 145 goldens compare PARSED
+#documents and are blind to key order and to escaping; this binary is the only
+#net on that dimension for this perimeter.
+#Same link closure as core/JsonApiAudioWireBytes_test: it drives both transports
+#on the JsonApiCharacterization harness and subclasses AudioPlayer/AudioDB.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiMusicDbWireBytes_test
+check_PROGRAMS += core/JsonApiMusicDbWireBytes_test
+core_JsonApiMusicDbWireBytes_test_SOURCES = core/JsonApiMusicDbWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiMusicDbWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiMusicDbWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiMusicDbWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1r
+#The BYTES the autoscenario commands put on the wire: key order, step order,
+#escaping, and the four refusals of create/modify/reenable. The nine e40c_*
+#goldens cover the STRUCTURE and the VALUES of this perimeter; nothing covered
+#its byte dimension before this file. Written against the untouched tree first
+#(the ...Today cases), then rewritten by the migration commit.
+#Same link closure as core/JsonApiScenario_test, and for the same measured
+#reason: JsonApiHandlerHttp.o needs the REAL HttpClient::buildHttpResponse().
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiScenarioWireBytes_test
+check_PROGRAMS += core/JsonApiScenarioWireBytes_test
+core_JsonApiScenarioWireBytes_test_SOURCES = core/JsonApiScenarioWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiScenarioWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiScenarioWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiScenarioWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# E4.1s
+#The INPUT PARSE and the last two jansson emitters of the API. This ticket is
+#the one that MOVES THE BYTES of the wire, so the 145 goldens - which compare
+#PARSED documents - cannot see any of it. This binary and the tripwire of
+#ParamsJson_test are the whole net on that dimension, and this binary is the
+#only one anywhere that can see the INPUT surface (what json_loads() refused
+#and Json::parse() accepts: the escaped NUL, an integer beyond int64, a
+#nesting depth above 2048).
+#Same link closure as core/JsonApiSession_test: it drives both transports and
+#needs the REAL HttpClient::buildHttpResponse() for the status line and the
+#Content-Length header.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiDispatchWireBytes_test
+check_PROGRAMS += core/JsonApiDispatchWireBytes_test
+core_JsonApiDispatchWireBytes_test_SOURCES = core/JsonApiDispatchWireBytes_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiDispatchWireBytes_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiDispatchWireBytes_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_JsonApiDispatchWireBytes_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.36
+# Static guard over this very file: a test binary that links a calaos_server
+# object must declare it in its _DEPENDENCIES, or make never relinks the
+# binary when that object is rebuilt and `make check` re-runs the stale one.
+# 65 of the 102 test binaries were in that state until T3.36. Every ticket
+# appends its block here by copying an older one, so the blind form would come
+# back on its own; this check is what stops it. It needs no gtest and no built
+# binary, so it lives outside the HAVE_GTEST conditional.
+TESTS += check-test-deps.sh
+dist_check_SCRIPTS += check-test-deps.sh
+EXTRA_DIST += check-test-deps.py
+
+
+# E4.6b
+#The AutoScenario DEFINITION and its params codec (E4.6.md D1..D4): the
+#params <-> definition round trip, the percent-encoding of '%', '|' and '=',
+#the action whose IO does not exist being KEPT, the orphan `as_*` param being
+#ignored at load and removed at save, and `autoscenario_steps` being the one
+#authoritative key.
+#It also carries the guard rail of the whole epic: E4.6b must NOT re-key the
+#marker that builds an AutoScenario, because re-keying it arms the orphan sweep
+#of ListeRoom.cpp:320-330 on every rule carrying `auto_scenario` (18 of them in
+#configs/raoulh, E4.6.md §5.2). That sweep is E4.6c's to remove.
+#It creates scenarios through the real WS API and plays save/reload cycles, so
+#it needs the E4.0a harness and the same link closure as
+#core/AutoScenarioMigration_test.
+#It compares no golden, but the harness .cpp still needs -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AutoScenarioDef_test
+check_PROGRAMS += core/AutoScenarioDef_test
+core_AutoScenarioDef_test_SOURCES = core/AutoScenarioDef_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioDef_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_AutoScenarioDef_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_AutoScenarioDef_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#AutoScenario as a rules generator: idempotence of the rebuild, the reads that
+#must not mutate, and the rules that must never be destroyed.
+#Same link closure and harness as core/AutoScenarioDef_test - it drives the real
+#WS API and plays save/reload cycles. No golden, but the harness .cpp still
+#needs -DCALAOS_GOLDEN_DIR.
+if HAVE_GTEST
+TESTS += core/AutoScenarioRules_test
+check_PROGRAMS += core/AutoScenarioRules_test
+core_AutoScenarioRules_test_SOURCES = core/AutoScenarioRules_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioRules_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_AutoScenarioRules_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_AutoScenarioRules_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+
+# E4.6h
+#DEFENCE IN DEPTH ON THE UPLOAD PATH (E4.6.md D10, levels 1 and 2). It plays the
+#vector of RC9 - a whole configuration uploaded through `config put` by a client
+#that regenerated it and lost something on the way - and measures the two
+#answers the server owes: the backup taken before the overwrite is USABLE (the
+#lost scenario comes back out of it), and the startup that follows the upload
+#raises a configuration alert NAMING what went missing. Plus the standing proof
+#that nothing is ever refused: level 3 is ruled out by decision.
+#It drives BOTH transports (autoscenario create over WS, config put over HTTP)
+#and plays real save/reload cycles, so it needs the E4.0a harness and the same
+#link closure as core/AutoScenarioMigration_test.
+#It compares no golden, but the harness .cpp still needs -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AutoScenarioUploadGuard_test
+check_PROGRAMS += core/AutoScenarioUploadGuard_test
+core_AutoScenarioUploadGuard_test_SOURCES = core/AutoScenarioUploadGuard_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioUploadGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_AutoScenarioUploadGuard_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_AutoScenarioUploadGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.43
+#Links the shipped mbus_cmd/mbus_rqst objects. mbus_sock.c is deliberately NOT
+#linked: the test supplies mbus_sock_read()/mbus_sock_write() itself and feeds
+#libmbus a forged response frame, so no live PLC is needed.
+#-I.../IO/Wago/libmbus, -I.../IO/Wago and -DLIBMBUS are already in AM_CPPFLAGS;
+#WagoBits.h is included for coilBufferSize(), so the size the test calls "the
+#caller's buffer" is the one read_bits() really allocates.
+if HAVE_GTEST
+TESTS += MbusResponse_test
+check_PROGRAMS += MbusResponse_test
+MbusResponse_test_SOURCES = MbusResponse_test.cpp
+MbusResponse_test_CPPFLAGS = $(AM_CPPFLAGS)
+MbusResponse_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_cmd.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_rqst.$(OBJEXT) \
+                  @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+MbusResponse_test_DEPENDENCIES = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_cmd.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/libmbus/mbus_rqst.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.58
+#Where the three widenings of the request parser LAND, one layer past the door
+#core/JsonApiDispatchWireBytes_test watches: the nesting depth the previous
+#parser capped at 2048, and - characterized only, no guard - the escaped NUL
+#once the XML writer has had it, and a JSON number once the flattening contract
+#has turned it into a Params string.
+#Same link closure as core/JsonApiDispatchWireBytes_test: it drives both
+#transports, needs the REAL HttpClient::buildHttpResponse() for the status line
+#and the Connection header, and builds an autoscenario.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/JsonApiRequestGuards_test
+check_PROGRAMS += core/JsonApiRequestGuards_test
+core_JsonApiRequestGuards_test_SOURCES = core/JsonApiRequestGuards_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_JsonApiRequestGuards_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_JsonApiRequestGuards_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_JsonApiRequestGuards_test_DEPENDENCIES = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.61
+#THE CONTRACT OF E4.6.md §5.3, on a fixture reproducing the shape of
+#configs/raoulh attribute for attribute: the four legacy scenarios, their
+#markers, their sixteen machinery IOs and their eighteen rules. It measures
+#what the re-key of the IO marker does to them - the two visible ones still
+#start on their button, the two invisible ones still start on their time_start
+#rule, all four leave `autoscenario list`, and no byte of io.xml/rules.xml is
+#rewritten. It drives `autoscenario create/list/get` over WS, so it needs the
+#E4.0a harness and the same link closure as core/AutoScenarioMigration_test.
+#It compares no golden, but the harness .cpp still needs -DCALAOS_GOLDEN_DIR.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioMarkerRekey_test
+check_PROGRAMS += core/ScenarioMarkerRekey_test
+core_ScenarioMarkerRekey_test_SOURCES = core/ScenarioMarkerRekey_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioMarkerRekey_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_ScenarioMarkerRekey_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ScenarioMarkerRekey_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.67
+#Rien ne comparait l'environnement ou tourne `make check` au jeu Python que
+#src/bin/calaos_mcp/pyproject.toml declare : une image en retard sur sa propre
+#recette ne demarre pas le sidecar et fait skipper run-python-tests.sh.
+#77 par defaut pour AVERTIR sans bloquer, 1 sous CALAOS_PYDEPS_STRICT (ci.yml
+#et le build des images) -- meme motif que check-ccache-honesty.sh.
+#Hors de tout `if HAVE_GTEST` : ni gtest ni binaire construit.
+TESTS += check-pydeps-conformance.sh
+dist_check_SCRIPTS += check-pydeps-conformance.sh
+
+# T3.66
+#Ce que devient un octet zero dans un parametre d'IO: la reponse rendue au
+#client, les octets d'io.xml, et le modele qui revient d'un rechargement.
+#Meme cloture de lien que core/JsonApiRequestGuards_test: les deux transports,
+#le vrai HttpClient::buildHttpResponse() pour la ligne de statut.
+#Bloc HAVE_GTEST propre, pour que ceci reste un pur ajout en fin de fichier.
+if HAVE_GTEST
+TESTS += core/IoParamNulGuard_test
+check_PROGRAMS += core/IoParamNulGuard_test
+core_IoParamNulGuard_test_SOURCES = core/IoParamNulGuard_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IoParamNulGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_IoParamNulGuard_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: les objets serveur lies sont des prerequis, toucher l'un relie ce
+#binaire. Ils sont construits par src/, jamais ici.
+core_IoParamNulGuard_test_DEPENDENCIES = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.78
+#⭐ What reaches a sidecar's argv, read back from the KERNEL, through a real
+#controller. ExternProcServer::startProcess() used to take one string,
+#concatenate it into a command line and let Utils::CStrArray re-split it on the
+#space: any configured value carrying a space became several argv. T3.28a
+#closed the Roon case by refusing such a host; that answer does not exist for an
+#MQTT password, where a space is ordinary use.
+#⚠️ NOTHING HERE CALLS startProcess(). The three merges before this one each
+#found a guard exercised only by direct call and never wired to the shipped
+#site; the MQTT case builds a real MqttCtrl and the OneWire case a real OwCtrl,
+#so a mutation of MqttCtrl.cpp or OWCtrl.cpp turns this suite red.
+#⛔ The OneWire case is GREEN ON BOTH SIDES on purpose: `ow_args` is documented
+#as a LIST and OWExternProc_main.cpp joins argv[1..] back together, so its argv
+#must not move. It is the non-regression witness of the ticket.
+#It links IO/Mqtt/MqttCtrl.$(OBJEXT) and IO/OneWire/OWCtrl.$(OBJEXT) on top of
+#the core objects; -I.../IO/OneWire is already in AM_CPPFLAGS, -I.../IO/Mqtt is
+#not (same as MqttIO_test and JsonPathSyntax_test).
+#⚠️ Its own binary, and its own process: both controllers keep respawning their
+#sidecar every 100 ms for the life of the process, and OwCtrl::Instance() is a
+#process-lifetime singleton per argument string. The harness is
+#core/ExternProcSpawnHarness.h; unlike core/RoonSpawnHarness.h its recorder
+#preserves ARGUMENT BOUNDARIES, which is the only thing this suite asks about.
+#CALAOS_TOP_SRCDIR is for the source tripwire on IO/ExternProc.h.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcArgv_test
+check_PROGRAMS += core/ExternProcArgv_test
+core_ExternProcArgv_test_SOURCES = core/ExternProcArgv_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcArgv_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_ExternProcArgv_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcArgv_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.79
+#⭐ What a sidecar launch WRITES TO THE JOURNAL, on a stock install.
+#startProcess() logged the whole argv re-joined by spaces through
+#cInfoDom("process"); `debug_level` defaults to 4, LOG_LEVEL_INFO is 4, and
+#MqttWire::encodeConfig() puts the broker password in the argument that IS that
+#argv. The broker password therefore went out in clear with nothing switched on,
+#once per launch and once per respawn.
+#⚠️ NOTHING HERE CALLS startProcess(): a real MqttCtrl is built and std::cout is
+#captured across its first launch and its respawn, so a mutation of
+#IO/ExternProc.cpp turns this suite red.
+#⛔ The second case is the counterweight - deleting the line would also pass the
+#first one, and the journal must still name the sidecar and count its
+#relaunches. The third is a source tripwire on the sidecar's own two logging
+#sites, which no test process can execute: calaos_mqtt is a separate binary and
+#returns on connectSocket() before reaching them.
+#Same link shape and same process-scoped harness as core/ExternProcArgv_test:
+#-I.../IO/Mqtt is not in AM_CPPFLAGS, and CALAOS_TOP_SRCDIR feeds the tripwire.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcLogSecret_test
+check_PROGRAMS += core/ExternProcLogSecret_test
+core_ExternProcLogSecret_test_SOURCES = core/ExternProcLogSecret_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcLogSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_ExternProcLogSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.80
+#The argv of the four sidecars nothing was watching: Wago, KNX, OLA and
+#Reolink. The vector conversion of startProcess() left MQTT, OneWire and Roon
+#pinned by a case that reads the argv the KERNEL handed the child, and these
+#four with nothing - and for OLA and Reolink the gap was STRUCTURAL: no test
+#binary linked IO/OLA/OLACtrl.$(OBJEXT) nor IO/Reolink/ReolinkCtrl.$(OBJEXT),
+#so no mutation of either could ever be red. This binary is what links them.
+#NOTHING HERE CALLS startProcess(): each fixture builds the production
+#controller (WagoMap, KNXCtrl, OLACtrl, ReolinkCtrl), lets its respawn run and
+#reads the spawn journal back, so a mutation of any of those four .cpp turns
+#this suite red.
+#Stand-in sidecars: no KNX bus, no Wago PLC, no camera, no olad. What is
+#pinned is the argument list, not what anyone does with it.
+#The harness is core/ExternProcSpawnHarness.h, whose recorder preserves
+#ARGUMENT BOUNDARIES - the only thing this suite asks about.
+#-I.../IO/Wago is already in AM_CPPFLAGS; IO/KNX, IO/OLA and IO/Reolink are
+#not (same as core/KnxIo_test for the first).
+#Its own binary, and its own process: the four controllers respawn their
+#sidecar for the life of the process and park timers on the default loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarArgv_test
+check_PROGRAMS += core/SidecarArgv_test
+core_SidecarArgv_test_SOURCES = core/SidecarArgv_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_SidecarArgv_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_SidecarArgv_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarArgv_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.81
+#⭐ What the sidecar TRANSPORT writes about the messages it carries.
+#ExternProcServer::sendMessage() streamed the whole outgoing payload and
+#processData() the whole incoming one. The Reolink camera registration carries
+#`username` and `password` in clear, so the transport published them - while
+#ReolinkWire.h says "Never log the message itself", ReolinkCtrl.cpp says "never
+#log it, here or anywhere downstream", and the python end really redacts. The
+#transport contradicted all three because it sees a string, not fields.
+#⚠️ NOTHING HERE CALLS sendMessage(): a real ReolinkCtrl is built, a peer
+#connects to the unix socket its ExternProcServer bound - which is all a sidecar
+#is - and announces itself, so a mutation of IO/ExternProc.cpp turns this suite
+#red.
+#⛔ The second case is the counterweight: deleting the lines would also pass the
+#first one, and a journal must still say that a message was exchanged, with
+#which sidecar, of which frame type and of what size. The fourth is a source
+#tripwire on Audio/AVRRose.cpp, whose device token no test process can reach:
+#that line needs a stubbed HTTPS answer from the amplifier. The fifth forks a
+#child that never raises the level, because the two severities this ticket
+#rests on - INFO printed on a stock install, DEBUG not - cannot be observed by
+#a process that has already raised it.
+#No core fixture here - the controller needs no config model, and main() has to
+#raise debug_level before the first log line of the process (the Logger domain
+#map is filled once and never re-read). CALAOS_TOP_SRCDIR feeds the tripwire.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcPayloadSecret_test
+check_PROGRAMS += core/ExternProcPayloadSecret_test
+core_ExternProcPayloadSecret_test_SOURCES = core/ExternProcPayloadSecret_test.cpp
+core_ExternProcPayloadSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink \
+                  -DCALAOS_TOP_SRCDIR='"$(abs_top_srcdir)"'
+core_ExternProcPayloadSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcPayloadSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.83
+#What the HTTP transport writes about the answers it carries: a real transfer
+#against a loopback HTTP peer whose response body carries a needle, the log of
+#the shipped code captured from std::cout, and the counterweight (status and
+#body size) that keeps a journal usable. A forked child that never raised the
+#level measures what a stock install prints for the urlutils domain, which the
+#suite itself cannot see: its own main() raises debug_level before the first
+#log line (the Logger domain map is filled once and never re-read), and that
+#also forbids gtest_main here.
+#Only libcalaos_common is linked: UrlDownloader lives in src/lib and every
+#driver of the tree reaches this line through it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloaderLogSecret_test
+check_PROGRAMS += UrlDownloaderLogSecret_test
+UrlDownloaderLogSecret_test_SOURCES = UrlDownloaderLogSecret_test.cpp
+UrlDownloaderLogSecret_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloaderLogSecret_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest
+endif
+
+# T3.85
+#What a controller republishes of an error frame its SIDECAR built.
+#ReolinkCtrl copied p["message"] into cErrorDom("reolink"). The python end
+#fills that key on its connection failure path with the text of an exception
+#raised by the camera library, by the call that had just authenticated with the
+#camera credentials: nothing in this tree constrains it, and ERROR prints on a
+#stock install - one level above the leak T3.81 closed.
+#NOTHING HERE CALLS THE MESSAGE HANDLER: a real ReolinkCtrl is built, a peer
+#connects to the unix socket its ExternProcServer bound and sends framed error
+#messages, so a mutation of IO/Reolink/ReolinkCtrl.cpp turns these cases red.
+#The second case is the counterweight - an unreachable camera is a common
+#failure and this line is what reports it, so the kind, the camera and the size
+#of what was withheld must survive. The third holds the other failure path of
+#the same wire, a frame this end cannot parse at all, to the same rule. The
+#fourth forks a child that never raises the level: this suite raises it in its
+#own main() and could not otherwise see that the line prints on a stock
+#install.
+#No core fixture: the controller needs no config model, and main() has to raise
+#debug_level before the first log line of the process (the Logger domain map is
+#filled once and never re-read).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarErrorSecret_test
+check_PROGRAMS += core/SidecarErrorSecret_test
+core_SidecarErrorSecret_test_SOURCES = core/SidecarErrorSecret_test.cpp
+core_SidecarErrorSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_SidecarErrorSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarErrorSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.86
+#What four controllers republish of a frame they could not parse.
+#MqttCtrl, KNXCtrl, ScriptExec and OwCtrl each wrote the whole incoming payload
+#into a cWarningDom() on their parse failure path, and WARNING prints on a
+#stock install. The bytes of a frame that does not parse come from the same
+#sender as the bytes of one that does; an mqtt payload is whatever a broker
+#publishes and a Lua set_param value is whatever a script writes into an IO
+#parameter, a camera password included.
+#NOTHING HERE CALLS A MESSAGE HANDLER: the four controllers are really built, a
+#peer connects to the unix socket each ExternProcServer bound and sends a
+#framed payload that does not parse, so a mutation of any of the four turns
+#these cases red.
+#The onewire wire is fed twice, on its two distinct failure branches: a frame
+#that parses but is not an array reached an exception built by concatenating
+#the frame into its message, a frame that does not parse reaches one whose
+#message quotes the token the parser choked on. A sensor spelled on `<< msg`
+#is blind to both.
+#Every leak assertion bounds the longest RUN of the frame the journal gives
+#back instead of naming a value, and each needle sits in its frame in clear and
+#percent encoded.
+#The second case is the counterweight - an unreadable frame must still be
+#reported, with its controller and its size. The third forks a child that never
+#touched a configuration: this suite reads what a STOCK box prints and cannot
+#raise the level without pulling in DEBUG dumps it does not close.
+#No core fixture: these controllers need no config model.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ControllerFrameSecret_test
+check_PROGRAMS += core/ControllerFrameSecret_test
+core_ControllerFrameSecret_test_SOURCES = core/ControllerFrameSecret_test.cpp
+core_ControllerFrameSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+core_ControllerFrameSecret_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ControllerFrameSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.87
+#What the HTTP transport publishes of the ADDRESS it calls. Every URL it
+#logged went through a masker that knew ten query parameter names and returned
+#untouched when the URL had no query at all: a Hue bridge carries its API key
+#as a PATH segment, so nothing was masked, and the constructor line is a
+#cInfoDom - the level a box ships with. The key left with the journal every
+#two seconds on a stock install.
+#NOTHING HERE CALLS THE REDUCER: a real UrlDownloader is built on a URL shaped
+#like the one HueOutputLightRGB builds, a real loopback peer answers it, so a
+#mutation of src/lib/StringUtils.cpp or of a log line of
+#src/lib/UrlDownloader.cpp turns these cases red.
+#The sensor bounds the longest RUN of the credential-bearing part of the URL
+#the journal gives back, in the raw and in the percent-decoded form, instead of
+#looking for a value chosen in advance. One case takes the FAILURE branch (the
+#peer accepts and answers nothing), which republishes the same URL at WARNING.
+#Two cases are the counterweight: which device answered and whether it did,
+#and two endpoints of the same host with paths of the same length still
+#rendering as two different lines. The last forks a child that never raises
+#the level, this suite raising it in its own main().
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloaderLogUrl_test
+check_PROGRAMS += UrlDownloaderLogUrl_test
+UrlDownloaderLogUrl_test_SOURCES = UrlDownloaderLogUrl_test.cpp
+UrlDownloaderLogUrl_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloaderLogUrl_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest
+endif
+
+# T3.90
+#What the server publishes of the requests it RECEIVES. Once a request was
+#parsed, HttpClient wrote its target raw and then the VALUE of every header it
+#carried, one line each. The carriers are made by this repository itself: the
+#bearer get_mcp_info hands out with the instruction to send it back in
+#Authorization, the second bearer HMACAuthenticator reads beside its nonce and
+#its signature, and the session cookie of a browser. api.php takes
+#cn_user/cn_pass as GET parameters, so a login carries its password in the
+#target too.
+#NOTHING HERE CALLS processHeaders(): a real HttpServer listens on loopback, an
+#ordinary socket sends the bytes of a real request and libuv delivers them, so
+#a mutation of src/bin/calaos_server/HttpClient.cpp or of src/lib/StringUtils.cpp
+#turns these cases red.
+#One planted header has a name that appears NOWHERE in this tree: a guard
+#spelled on the names known today stays green on every other case and red on
+#that one, which is the argument against a redaction list. Every leak assertion
+#bounds the longest RUN the journal gives back, in four forms (raw,
+#percent-decoded, base64-decoded, base64-encoded) and in two haystacks (the
+#journal, and the journal with the whitespace removed, so a value cut across
+#two lines is not a way through).
+#One case takes the REFUSAL branch (a login refused for its credentials), one
+#takes the websocket handshake, which carries the same headers, and one sends a
+#real masked text frame over that handshake: the frame line rendered the first
+#forty bytes of the payload, which is the api request of a websocket client,
+#before the json handler ever built its redacted dump. Two are the
+#counterweight: which request arrived and which headers it carried, and two
+#requests differing only in their query still rendering as two lines. The last
+#forks a child that never raises the level, and pins BOTH directions: these
+#lines are cDebugDom, so a stock box prints none of them.
+#Same server objects as core/RemoteUIDeviceInfo_test: HttpClient drags the
+#whole websocket/OTA/RemoteUI side of the server with it.
+#No core fixture: the refused paths need no config model, and main() has to
+#raise debug_level before the first log line of the process (the Logger domain
+#map is filled once and never re-read).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HttpRequestLogSecret_test
+check_PROGRAMS += core/HttpRequestLogSecret_test
+core_HttpRequestLogSecret_test_SOURCES = core/HttpRequestLogSecret_test.cpp
+core_HttpRequestLogSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_HttpRequestLogSecret_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_HttpRequestLogSecret_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.89
+#What nine catch blocks publish of a document the parser refused. Each streams
+#e.what() of a nlohmann exception raised by Json::parse() of a runtime
+#document, at a level a stock box prints: nothing is concatenated at any of
+#them, the LIBRARY puts the input back into its message as
+#`last read: '<token>'`. The heaviest is the registration answer of the HiFi
+#Rose amplifier, the body deviceRoseToken comes out of.
+#NOTHING HERE CALLS A REDUCER, AND NOTHING FAKES A TRANSPORT: the four
+#amplifier sites are fed by a real TLS peer this suite brings up (openssl is
+#already a hard dependency of the tree), so libcurl, the loop and AVRRose are
+#the production ones; the notification site is fed by a plain client on the
+#notification port; the websocket site is entered through the call
+#WebSocket.cpp makes on a text frame; and the three file sites are handed a
+#real file through their public entry point, the state cache through the
+#Config constructor that reads it.
+#Every leak assertion bounds the longest RUN of the document the journal gives
+#back instead of naming a value: the parser decides where it cuts, so each
+#needle sits in the document in clear OUTSIDE the refused token and percent
+#encoded INSIDE it, and the clear search is expected to stay green.
+#The second case is the counterweight - a parse failure must still say where
+#the parser stopped and on how many bytes, both compared to values measured
+#here. The last forks a child that never touched a configuration: this suite
+#reads what a STOCK box prints and cannot raise the level.
+#No core fixture: none of these nine sites needs a config model.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+PARSE_ERROR_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVROnkyo.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRPioneer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRYamaha.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVReceiver.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRose.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRoseNotifServer.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Web/WebCtrl.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+
+TESTS += core/ParseErrorSecret_test
+check_PROGRAMS += core/ParseErrorSecret_test
+core_ParseErrorSecret_test_SOURCES = core/ParseErrorSecret_test.cpp
+core_ParseErrorSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_ParseErrorSecret_test_LDADD = $(PARSE_ERROR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD) \
+                  -lssl -lcrypto
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ParseErrorSecret_test_DEPENDENCIES = $(PARSE_ERROR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.93
+#Same link set as core/HttpRequestLogSecret_test: HttpClient drags the whole
+#websocket/OTA/RemoteUI side of the server with it, and the authenticated
+#families need the io factory of the core objects.
+#No core fixture: the two ios are built straight from ListeRoom, and main() has
+#to raise debug_level before the first log line of the process (the Logger
+#domain map is filled once and never re-read).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IncomingLogStockLevel_test
+check_PROGRAMS += core/IncomingLogStockLevel_test
+core_IncomingLogStockLevel_test_SOURCES = core/IncomingLogStockLevel_test.cpp
+core_IncomingLogStockLevel_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+INCOMING_LOG_STOCK_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+core_IncomingLogStockLevel_test_LDADD = $(INCOMING_LOG_STOCK_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_IncomingLogStockLevel_test_DEPENDENCIES = $(INCOMING_LOG_STOCK_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.88
+if HAVE_GTEST
+#The Synology camera driver on top of the core objects: its own object plus
+#IPCam.o, already in CORE_SERVER_OBJECTS. Nothing else is needed - the driver
+#talks to the network through UrlDownloader, which lives in libcalaos_common.
+DRIVER_ANSWER_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+
+TESTS += core/DriverAnswerSecret_test
+check_PROGRAMS += core/DriverAnswerSecret_test
+core_DriverAnswerSecret_test_SOURCES = core/DriverAnswerSecret_test.cpp
+core_DriverAnswerSecret_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_DriverAnswerSecret_test_LDADD = $(DRIVER_ANSWER_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_DriverAnswerSecret_test_DEPENDENCIES = $(DRIVER_ANSWER_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.96: a bounded-echo ceiling must be re-derived by its own suite. Half the
+# suites that carry one had the shape that keeps it honest and half did not,
+# because the shape spreads by hand, one suite at a time. This is the only
+# place that holds the class rather than each member of it.
+TESTS += check-echo-ceilings.sh
+dist_check_SCRIPTS += check-echo-ceilings.sh
+EXTRA_DIST += check-echo-ceilings.py
+
+# T3.82
+#⭐ BY WHICH CHANNEL the broker credentials reach calaos_mqtt. The broker
+#configuration was argv[1] and it carries `user` and `password`;
+#/proc/<pid>/cmdline is mode 444, so an account with no relation to the owner of
+#the process read that argv back verbatim, for the whole life of the sidecar,
+#and `ps` was enough. T3.79 closed the leak by the JOURNAL - this is the leak by
+#the KERNEL, which no log hygiene can reach.
+#⚠️ NOTHING HERE CALLS startProcess() NOR sendMessage(): one real MqttCtrl is
+#built from a real Params, its respawn is let run, and what is read back is the
+#argv the KERNEL handed the child - then the socket that same controller
+#listens on, connected to from the path the launch itself published.
+#⚠️ The needle is measured in TWO forms, the literal and the one the emitter
+#really writes: the wire is JSON with ensure_ascii, so a quote and an accent do
+#not look on the wire like they look in the source.
+#Same link shape and same process-scoped harness as core/ExternProcArgv_test:
+#-I.../IO/Mqtt is not in AM_CPPFLAGS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/MqttConfigTransport_test
+check_PROGRAMS += core/MqttConfigTransport_test
+core_MqttConfigTransport_test_SOURCES = core/MqttConfigTransport_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttConfigTransport_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+core_MqttConfigTransport_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_MqttConfigTransport_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.82
+#⭐ What the REAL calaos_mqtt does now that its configuration comes by socket.
+#Moving the credentials off the argv moves the "configuration unreadable"
+#failure with them: it was an argc test in main(), it is a wait on a socket, and
+#a wait has three ways to go wrong an argument did not have - never arrives,
+#arrives twice, arrives malformed. The first is what a PARTIAL UPDATE looks
+#like, a server older than its sidecar.
+#⭐ calaos_mqtt has a main(), so nothing links it and nothing can call into it:
+#every earlier statement about it in this tree is a source tripwire, i.e. a
+#spelling. Here an ExternProcServer spawns the SHIPPED BINARY, writes on the
+#socket what a controller would write, and reads back the sidecar's own stdout,
+#which the server pipes into its own.
+#CALAOS_MQTT_SIDECAR names that binary. It is built only under
+#HAVE_LIBMOSQUITTO, so the fixture SKIPS rather than fails when it is absent -
+#which keeps the number of TESTS the same in every configuration.
+#⚠️ Every wait is bounded on the wall clock: a regression must be able to fail
+#a case, never to hang `make check`.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/MqttSidecarConfigWait_test
+check_PROGRAMS += core/MqttSidecarConfigWait_test
+core_MqttSidecarConfigWait_test_SOURCES = core/MqttSidecarConfigWait_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttSidecarConfigWait_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt \
+                  -DCALAOS_MQTT_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_mqtt"'
+core_MqttSidecarConfigWait_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_MqttSidecarConfigWait_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.41
+#Which client the server thinks it is talking to when the peer is not AF_INET.
+#Same link set as core/IncomingLogStockLevel_test: HttpClient drags the whole
+#websocket/OTA/RemoteUI side of the server with it.
+#NOTHING HERE CALLS getClientIp(): a real HttpServer is bound to `::`, ordinary
+#sockets connect to it from ::1 and from two addresses of 127.0.0.0/8, and what
+#is asserted is which of them the per-source connection cap lets in. A guard
+#exercised by a direct call proves that the guard works, never that the path
+#reaches it.
+#No core fixture: no io is needed, and main() has to set the cap before the
+#first read of the option (cached once) and raise debug_level before the first
+#log line of the process.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, where the listening
+#socket of the fixture cannot exist. Measured present in the development image.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PeerAddressFamily_test
+check_PROGRAMS += core/PeerAddressFamily_test
+core_PeerAddressFamily_test_SOURCES = core/PeerAddressFamily_test.cpp
+core_PeerAddressFamily_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+PEER_ADDRESS_FAMILY_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+core_PeerAddressFamily_test_LDADD = $(PEER_ADDRESS_FAMILY_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_PeerAddressFamily_test_DEPENDENCIES = $(PEER_ADDRESS_FAMILY_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#T3.106: where the server ends up listening when listen_address cannot be
+#applied. Three forms - unreadable, well formed but absent from the machine,
+#IPv6 - plus the case where the widened fallback finds the port taken, and the
+#port they land on, read off the descriptor by SO_ACCEPTCONN and getsockname()
+#rather than taken from the library that got it wrong. The discovery socket of
+#the same child is read the same way, which is why UDPServer is linked in.
+#One process per value: HttpServer binds once per process, so each case is a
+#fork() that configures itself and reports.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, and on a machine that
+#has configured 192.0.2.1 or 2001:db8::1, where the absent-address cases would
+#measure nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ListenAddressFallback_test
+check_PROGRAMS += core/ListenAddressFallback_test
+core_ListenAddressFallback_test_SOURCES = core/ListenAddressFallback_test.cpp \
+                  core/ReservedPort.h
+core_ListenAddressFallback_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+LISTEN_ADDRESS_FALLBACK_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+core_ListenAddressFallback_test_LDADD = $(LISTEN_ADDRESS_FALLBACK_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ListenAddressFallback_test_DEPENDENCIES = $(LISTEN_ADDRESS_FALLBACK_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#T3.106: the OTA rescan gate, the only decision keyed on the peer address that
+#GRANTS rather than counts. Four real POSTs from four source addresses the
+#suite binds itself: the IPv6 loopback, an IPv4-mapped loopback, 127.1.0.1 (the
+#/8 the two loopback rules used to disagree about), and a real interface
+#address, which is the only source that measures the gate closing.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6 or without ::1 on the
+#loopback, and on a machine with no non-loopback IPv4 address, where the
+#refusal half has no peer to come from. A machine where 127.0.0.0/8 is not
+#local in its entirety turns the fixture case RED, never quietly green.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/OtaRescanGate_test
+check_PROGRAMS += core/OtaRescanGate_test
+core_OtaRescanGate_test_SOURCES = core/OtaRescanGate_test.cpp
+core_OtaRescanGate_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+OTA_RESCAN_GATE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+core_OtaRescanGate_test_LDADD = $(OTA_RESCAN_GATE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_OtaRescanGate_test_DEPENDENCIES = $(OTA_RESCAN_GATE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.60
+#The service scope, on both transports. The websocket half runs on a REAL
+#HttpServer bound on loopback: real socket, real handshake, real login_service
+#against the token McpServerManager holds, real masked frames - a guard
+#exercised by a direct call says nothing about the path a client takes.
+#The HTTP half cannot be driven that way, and that is the finding rather than a
+#shortcut: no HTTP entry opens a service session, which is itself a case here.
+#Its guard is exercised on the shipped handler with a real HttpClient.
+#Every loop walks the shipped rule AND pins its exact content, so a rule that
+#loses a name reddens instead of shrinking the loop.
+#Same server objects as core/HttpRequestLogSecret_test: HttpClient drags the
+#whole websocket/OTA/RemoteUI side of the server with it.
+#No core fixture: the refusals happen above every model, and main() has to
+#configure the credentials and the service token before the singletons cache
+#them.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SERVICE_SCOPE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+TESTS += core/JsonApiServiceScope_test
+check_PROGRAMS += core/JsonApiServiceScope_test
+core_JsonApiServiceScope_test_SOURCES = core/JsonApiServiceScope_test.cpp
+core_JsonApiServiceScope_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_JsonApiServiceScope_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_JsonApiServiceScope_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.101
+#What the server does with what its sidecars print.
+#ExternProcServer copied every complete line of a child's stdout onto its own
+#std::cout and every line of its stderr onto std::cerr, verbatim: the only
+#level filter such a line met was the CHILD's, the line carried neither domain
+#nor level, and a child that died mid-word lost its last words in the buffer.
+#The haystack of every case is the WHOLE standard output and standard error of
+#the process, captured at the streambuf - taking "the lines of the journal"
+#would make a line written outside the journal invisible by construction.
+#Three shipped controllers really spawn: OwCtrl, WagoMap and KNXCtrl, the last
+#because it runs TWO sidecars under ONE --namespace. A fourth, OLACtrl, is
+#built in a forked child to measure what a stock install hears - Logger fills
+#its domain map once and this process raises the level.
+#Stand-in sidecars: no PLC, no KNX bus, no owfs. They print and sleep.
+#-I.../IO/Wago is already in AM_CPPFLAGS; IO/KNX, IO/OLA and IO/OneWire are not.
+#Its own binary, and its own process: the controllers respawn their sidecar for
+#the life of the process and park timers on the default loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarOutputJournal_test
+check_PROGRAMS += core/SidecarOutputJournal_test
+core_SidecarOutputJournal_test_SOURCES = core/SidecarOutputJournal_test.cpp
+core_SidecarOutputJournal_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+SIDECAR_OUTPUT_JOURNAL_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT)     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT)     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)
+core_SidecarOutputJournal_test_LDADD = $(SIDECAR_OUTPUT_JOURNAL_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarOutputJournal_test_DEPENDENCIES = $(SIDECAR_OUTPUT_JOURNAL_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.63: an ordering assertion must not accept the "not found" answer of the
+# helper it compares. A rank helper says -1 and a position helper says npos;
+# either sits on one side of a `<` and satisfies it, so the case turns green
+# precisely when the key it guards disappears from the payload.
+TESTS += check-order-sentinels.sh
+dist_check_SCRIPTS += check-order-sentinels.sh
+EXTRA_DIST += check-order-sentinels.py
+
+# T3.57
+#No AutoScenario may name an IO that has been destroyed. The five machinery
+#members are read back by ListeRoom::refreshBrokenScenarios(), which every IO
+#deletion runs, so a stale one is dereferenced inside the deletion itself.
+#Most cases destroy through ListeRoom::deleteIO() directly (model cases); the
+#API reachable one goes through a duplicated `autoscenario_uid` in io.xml,
+#which makes two live scenarios share one machinery, and then through
+#buildAutoscenarioDelete() - JsonApi.o is already in CORE_SERVER_OBJECTS, no
+#extra link closure is needed.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ScenarioInternalIoLifetime_test
+check_PROGRAMS += core/ScenarioInternalIoLifetime_test
+core_ScenarioInternalIoLifetime_test_SOURCES = core/ScenarioInternalIoLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ScenarioInternalIoLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario
+core_ScenarioInternalIoLifetime_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ScenarioInternalIoLifetime_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.38
+#The ioDoc bounds of the two RGB drivers. Nothing in calaos_server reads a
+#min/max: they leave IODoc through genDocJson() only, so they are the whole
+#guard between an installer and a DMX channel libola will drop in silence.
+#The cases are written in relation - the three channels against each other and
+#against OLAOutputLightDimmer's single channel - because the defect they pin is
+#a bound copied from the neighbouring line, and a constant would stop biting
+#the day the bound moves.
+#Both drivers reach a controller that spawns an external helper; it does not
+#exist next to the binary, so uv_spawn fails cleanly (same as core/KnxIo_test,
+#custom main() included).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IoDocRgbBounds_test
+check_PROGRAMS += core/IoDocRgbBounds_test
+core_IoDocRgbBounds_test_SOURCES = core/IoDocRgbBounds_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IoDocRgbBounds_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OLA \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+IO_DOC_RGB_BOUNDS_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLACtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLAOutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OLA/OLAOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputLightRGB.$(OBJEXT)
+core_IoDocRgbBounds_test_LDADD = $(IO_DOC_RGB_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_IoDocRgbBounds_test_DEPENDENCIES = $(IO_DOC_RGB_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.59
+#The default branch of a sub-dispatch, measured on a REAL socket: a real
+#HttpServer bound on loopback, real connections, real answers read back from
+#the wire. A direct call to processApi() cannot see what this ticket is about -
+#the answer is what releases the socket (sendJson() sets Connection: Close and
+#HttpClient force-closes half a second later), and requestReadTimeout() covers
+#only the delay BEFORE the first request is parsed.
+#The hoarding case gives itself its own per-source bucket through an
+#X-Forwarded-For line - loopback is a trusted hop - so its small ceiling cannot
+#be reached by a slot borrowed from another case of this file.
+#Same server objects as core/JsonApiServiceScope_test: HttpClient drags the
+#whole websocket/OTA/RemoteUI side of the server with it. IPCam.o is already in
+#CORE_SERVER_OBJECTS.
+#No core fixture: main() has to configure the credentials, the per-source cap
+#and the camera before the singletons cache them.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SUB_DISPATCH_DEFAULT_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT)
+TESTS += core/JsonApiSubDispatchDefault_test
+check_PROGRAMS += core/JsonApiSubDispatchDefault_test
+core_JsonApiSubDispatchDefault_test_SOURCES = core/JsonApiSubDispatchDefault_test.cpp
+core_JsonApiSubDispatchDefault_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_JsonApiSubDispatchDefault_test_LDADD = $(SUB_DISPATCH_DEFAULT_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_JsonApiSubDispatchDefault_test_DEPENDENCIES = $(SUB_DISPATCH_DEFAULT_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.21
+#The immutability guard on "id", measured from the API and not from IOBase.
+#buildJsonDelParam() reached into o->get_params().Delete() and never called
+#IOBase::del_param(), so the rule its sibling set_param() enforces was
+#unreachable from the two transports. Both are driven here - the WS one
+#carries a scope layer, the HTTP one carries none - through the E4.0a harness
+#(core/JsonApiCharacterization.*), reused UNMODIFIED. No golden is produced or
+#read: every oracle is the answer document or a get_io payload.
+#Same link closure as the other JsonApi* core suites (the reference house
+#holds a StandardMjpeg camera and a RoonPlayer, which drag both transports and
+#the RemoteUI side in). -DCALAOS_GOLDEN_DIR is still needed because the
+#harness compiles its golden helpers unconditionally.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/DelParamIdGuard_test
+check_PROGRAMS += core/DelParamIdGuard_test
+core_DelParamIdGuard_test_SOURCES = core/DelParamIdGuard_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_DelParamIdGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_DelParamIdGuard_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_DelParamIdGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25a (1)
+#The impulse duration that does not fit in an int, driven over the real WS
+#transport and watched on the real uvw loop. core/SetStateGarbage_test cannot
+#host this: its fixture uses time="0" ON PURPOSE so that no stop timer is ever
+#armed, and a fixture that arms nothing cannot see a shutter left on its full
+#travel. Same harness and same link closure as that suite, plus
+#IO/OutputShutterSmart, which carries its own copy of both impulse grammars.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ImpulseOverflow_test
+check_PROGRAMS += core/ImpulseOverflow_test
+core_ImpulseOverflow_test_SOURCES = core/ImpulseOverflow_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ImpulseOverflow_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_ImpulseOverflow_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ImpulseOverflow_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.25a (2)
+#The sampling period of an analog input: a parameter that is present but does
+#not read used to become a period of ZERO, i.e. a poll of the hardware on
+#every turn of the rules loop, and the legacy rename SAVED that zero into
+#io.xml. No transport is involved - readConfig() runs in the constructor, so
+#the path under test is the one a configuration takes - hence the plain core
+#fixture and the two analog objects on top of the core closure.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InputAnalogPeriod_test
+check_PROGRAMS += core/InputAnalogPeriod_test
+core_InputAnalogPeriod_test_SOURCES = core/InputAnalogPeriod_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InputAnalogPeriod_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InputAnalogPeriod_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_InputAnalogPeriod_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.124
+#The immutability guard of the model keys on a NAME, and "id" is not the only
+#param the installation is rebuilt from: "type" is the one the configuration
+#loader resolves the driver class with, so losing it costs the whole
+#equipment at the next start. Both transports are driven through the E4.0a
+#harness (core/JsonApiCharacterization.*), reused UNMODIFIED, and every loss
+#case asserts after a real saveConfig() + reloadFromDisk() - a guard that only
+#answered the client would pass a suite written on the answer alone.
+#Same link closure as the other JsonApi* core suites (the reference house holds
+#a StandardMjpeg camera and a RoonPlayer, which drag both transports and the
+#RemoteUI side in). -DCALAOS_GOLDEN_DIR is still needed because the harness
+#compiles its golden helpers unconditionally.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/StructuralParamGuard_test
+check_PROGRAMS += core/StructuralParamGuard_test
+core_StructuralParamGuard_test_SOURCES = core/StructuralParamGuard_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_StructuralParamGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_StructuralParamGuard_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_StructuralParamGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.123
+#The three PERCENTAGE grammars of the smart shutter - set/up/down <n> - which
+#had no guard against a saturated argument and, more importantly, no sensor at
+#all on the direction of travel. The cases watch the energized terminal and the
+#position served by get_state, so they need the real WS transport: same harness
+#and same link closure as core/ImpulseOverflow_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ShutterPercentGrammar_test
+check_PROGRAMS += core/ShutterPercentGrammar_test
+core_ShutterPercentGrammar_test_SOURCES = core/ShutterPercentGrammar_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ShutterPercentGrammar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_ShutterPercentGrammar_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ShutterPercentGrammar_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+
+# T3.116: a bounded-echo bound is one-sided, so a measure that answers nothing
+# satisfies every one of them at once - blinding the wrapper the eight suites
+# call left all their ceilings green. The sibling probe reads the shape of the
+# ceiling and never the measure under it, so it cannot see that.
+TESTS += check-echo-measures.sh
+dist_check_SCRIPTS += check-echo-measures.sh
+EXTRA_DIST += check-echo-measures.py
+
+# T3.117
+#Nothing refuses a duplicated `autoscenario_uid`, and everything a scenario
+#owns - the five machinery IOs and the generated rules - is DERIVED from it.
+#The suite edits the uid in the SAVED io.xml and loads the files back, because
+#that is the only way a duplicate exists: no API path allocates one.
+#It links JsonApi for buildAutoscenarioDelete()/buildAutoscenarioList() -
+#JsonApi.o is already in CORE_SERVER_OBJECTS, no extra link closure is needed.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AutoScenarioUidUniqueness_test
+check_PROGRAMS += core/AutoScenarioUidUniqueness_test
+core_AutoScenarioUidUniqueness_test_SOURCES = core/AutoScenarioUidUniqueness_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AutoScenarioUidUniqueness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario
+core_AutoScenarioUidUniqueness_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_AutoScenarioUidUniqueness_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.105
+#⭐ How often a sidecar that keeps failing is relaunched.
+#The exit status never crossed processExited, so the eight controllers that
+#respawn did so at the same cadence whatever the child answered: ~110 ms per
+#launch, forever, for a broker that is merely switched off.
+#⚠️ NOTHING HERE ASSERTS A DURATION. The counting cases bound the number of
+#launches from ABOVE inside a fixed window - load can only make fewer launches
+#happen - and the ramp and its reset rule are pure functions read directly.
+#⛔ Own binary and own process: the loop keeps respawning a stand-in for as long
+#as the process lives, and the sandbox of core/ExternProcSpawnHarness.h must
+#outlive the cases.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcRespawnBackoff_test
+check_PROGRAMS += core/ExternProcRespawnBackoff_test
+core_ExternProcRespawnBackoff_test_SOURCES = core/ExternProcRespawnBackoff_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcRespawnBackoff_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ExternProcRespawnBackoff_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcRespawnBackoff_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.109
+#The two remaining listens nothing read back: the HiFi Rose notification port
+#(bound on 0.0.0.0 whatever listen_address said, ErrorEvent subscribed AFTER
+#bind and after listen) and the sidecar pipe (bind + listen with no ErrorEvent
+#at all). Both are read off the DESCRIPTOR - SO_ACCEPTCONN among /proc/self/fd,
+#then getsockname() - and never from the line the constructor printed, which is
+#the very thing that lied.
+#One process per case: both objects bind at construction on the process-wide
+#libuv loop and the notification port is a compile-time constant.
+#⚠️ Exits 77 - and so SKIPS - on a kernel without IPv6, on a machine that has
+#configured 192.0.2.1, and on a machine already holding port 9284, where the
+#notification cases would measure another process's socket.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/NotifAndPipeListen_test
+check_PROGRAMS += core/NotifAndPipeListen_test
+core_NotifAndPipeListen_test_SOURCES = core/NotifAndPipeListen_test.cpp
+core_NotifAndPipeListen_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+NOTIF_AND_PIPE_LISTEN_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVReceiver.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRDenon.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRMarantz.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVROnkyo.$(OBJEXT)           \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRPioneer.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRYamaha.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRose.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AVRRoseNotifServer.$(OBJEXT)
+core_NotifAndPipeListen_test_LDADD = $(NOTIF_AND_PIPE_LISTEN_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_NotifAndPipeListen_test_DEPENDENCIES = $(NOTIF_AND_PIPE_LISTEN_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.131
+#The three grammars of the smart shutter that carry NO number - up, down,
+#toggle - whose direction of travel nothing held, and the honesty of
+#set_state <n>. Same transport and same link closure as
+#core/ShutterPercentGrammar_test: the cases watch the energized terminal and
+#the position served by get_state, so they need the real WS session.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ShutterBareGrammar_test
+check_PROGRAMS += core/ShutterBareGrammar_test
+core_ShutterBareGrammar_test_SOURCES = core/ShutterBareGrammar_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ShutterBareGrammar_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_ShutterBareGrammar_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT)            \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ShutterBareGrammar_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.135
+#What one undeliverable answer costs the rest of the box.
+#uvw republishes a send request's ErrorEvent on the HANDLE, as the very event a
+#failed receive uses: the owner's listener answered both with stop(), so an
+#unreachable correspondent took discovery, WAGO INT and WAGO KNX down with it
+#for the life of the process.
+#The refusal is produced WITHOUT a family defect - a server bound to 127.0.0.1
+#answering 192.0.2.1 (RFC 5737), which the kernel refuses to route - so this is
+#not a rerun of the send<IPv4>-on-an-IPv6-socket defect closed by T3.107.
+#A real UDPServer in a forked child, a real correspondent, and what that
+#correspondent reads at its own descriptor; inputs are counted through the
+#signal UDPServer emits, carrying the input number so a repeat cannot pass for
+#the next datagram.
+#⚠️ Exits 77 - and so SKIPS - on a machine that has configured 192.0.2.1 or
+#192.0.2.2, or that routes a loopback source off-link: there the accident this
+#suite is built on cannot be produced, and every case would be green for it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpSendFailureIsolation_test
+check_PROGRAMS += core/UdpSendFailureIsolation_test
+core_UdpSendFailureIsolation_test_SOURCES = core/UdpSendFailureIsolation_test.cpp \
+                  core/ReservedPort.h
+core_UdpSendFailureIsolation_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_SEND_FAILURE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpSendFailureIsolation_test_LDADD = $(UDP_SEND_FAILURE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpSendFailureIsolation_test_DEPENDENCIES = $(UDP_SEND_FAILURE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.137
+#⭐ set_param/del_param write any key, including the ones AutoScenarioDef
+#derives and re-emits at every save.
+#The oracle is the disk wherever the write is not re-derived - a PLAIN Scenario
+#IO, where saveToParams() returns at once and the forged keys reach io.xml - and
+#what the API publishes wherever it is.
+#Same link closure as the other JsonApi* core suites; -DCALAOS_GOLDEN_DIR is
+#still needed because the harness compiles its golden helpers unconditionally.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/DerivedParamGuard_test
+check_PROGRAMS += core/DerivedParamGuard_test
+core_DerivedParamGuard_test_SOURCES = core/DerivedParamGuard_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_DerivedParamGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_DerivedParamGuard_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_DerivedParamGuard_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.138
+#⭐ A sidecar that CRASHES, and where its uptime is counted from.
+#A child killed by SIGSEGV, SIGABRT or the OOM killer leaves exit status 0
+#under Linux, so a ramp deciding on the status alone let every crash loop keep
+#the cadence of before the ramp. And the reset rule reads a duration whose
+#origin nothing held: counted from the request instead of the spawn, the hold
+#itself becomes service time and the ramp stops biting at the ceiling.
+#⚠️ Launches are COUNTED in a fixed window and bounded from above; the single
+#duration read is bounded against a hold of 0.8 s and carries its own floor.
+#⛔ Own binary and own process, like core/ExternProcRespawnBackoff_test: the
+#loop respawns a stand-in for as long as the process lives, and the sandbox of
+#core/ExternProcSpawnHarness.h must outlive the cases.
+if HAVE_GTEST
+TESTS += core/ExternProcCrashBackoff_test
+check_PROGRAMS += core/ExternProcCrashBackoff_test
+core_ExternProcCrashBackoff_test_SOURCES = core/ExternProcCrashBackoff_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ExternProcCrashBackoff_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ExternProcCrashBackoff_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_ExternProcCrashBackoff_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.156
+#The CONTENT of the DALI state-read frame. WODali/WODaliRVB build
+#"WAGO_DALI_GET <line> <address>" and drop the group flag the matching write
+#carries, so a ballast addressed as a DALI GROUP reads back another ballast's
+#state at every server start.
+#Why a suite of its own rather than a case in core/WagoUdpReply_test: that file
+#drives the REPLY path and is green on the broken program. The defect is in the
+#frame the constructor EMITS, so every case here reads WagoMap's pending UDP
+#queue and asserts on the POSITION of each token - "the frame contains 1" is
+#already true before the fix, since line is 1.
+#The addresses are 7/11/22/33, never 0 or 1: swapping the address and the flag
+#changes no value when the address is itself a flag value, and the suite would
+#be blind to that permutation.
+#Same link closure and LDADD as core/WagoUdpReply_test: it builds a production
+#WODali and WODaliRVB through IOFactory, so it links the Wago server objects
+#and lives under core/ with the fixture.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoDaliGetGroup_test
+check_PROGRAMS += core/WagoDaliGetGroup_test
+core_WagoDaliGetGroup_test_SOURCES = core/WagoDaliGetGroup_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoDaliGetGroup_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoDaliGetGroup_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoDaliGetGroup_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.142
+#What the box puts on the wire when it is asked to introduce itself three times
+#in a row.
+#uvw's send(const sockaddr &, char *, unsigned int) neither copies nor owns the
+#buffer, and libuv reads it at the next turn of the loop as soon as another send
+#is already queued. processRequest() answered CALAOS_DISCOVER from a local
+#string, so the second and third answers of a burst carried freed heap to an
+#unauthenticated peer of the local network.
+#Three peers, one socket each, so an answer is identified by the descriptor it
+#lands on. What each holds is compared WHOLE and in hex: the payload owed and
+#the leaked bytes are both nineteen bytes long, so a length, a prefix or a
+#non-empty datagram would not tell them apart.
+#⚠️ Exits 77 - and so SKIPS - where a loopback correspondent is not answered
+#with 127.0.0.1, or where libuv does not hold a second back-to-back send until
+#the next turn: there the accident cannot be produced and every case would be
+#green for it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpAnswerBufferLifetime_test
+check_PROGRAMS += core/UdpAnswerBufferLifetime_test
+core_UdpAnswerBufferLifetime_test_SOURCES = core/UdpAnswerBufferLifetime_test.cpp \
+                  core/ReservedPort.h
+core_UdpAnswerBufferLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_ANSWER_BUFFER_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpAnswerBufferLifetime_test_LDADD = $(UDP_ANSWER_BUFFER_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpAnswerBufferLifetime_test_DEPENDENCIES = $(UDP_ANSWER_BUFFER_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.141
+#What an HTTP download does when uvw::Loop::resource<>() hands back nothing.
+#uv_poll_init_socket() is the only initializer of the 45 resource<>() sites of
+#the tree that can refuse (EEXIST/EPERM/EBADF), and the socket callback of the
+#libcurl-multi transport dereferenced the handle four lines below the call.
+#The refusal is produced by interposing the C entry point uv_poll_init_socket()
+#from the test executable: libuv is a shared object and UrlDownloader.o is not,
+#so the shipped code calls this definition, which forwards to libuv verbatim
+#while disarmed. Everything else is real - a loopback HTTP peer, a real
+#UrlDownloader, real libcurl driven by the real libuv loop.
+#Each case runs in a forked child: the unguarded form kills the process instead
+#of failing an assertion, and the parent reads the signal that killed it.
+#-ldl for the forwarding dlsym; own main() raises debug_level, so no
+#gtest_main. Only libcalaos_common is linked: UrlDownloader lives in src/lib.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += UrlDownloaderPollGuard_test
+check_PROGRAMS += UrlDownloaderPollGuard_test
+UrlDownloaderPollGuard_test_SOURCES = UrlDownloaderPollGuard_test.cpp
+UrlDownloaderPollGuard_test_CPPFLAGS = $(AM_CPPFLAGS)
+UrlDownloaderPollGuard_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -ldl \
+                  -lgtest
+endif
+
+# T3.108
+#What a parent learns from a sidecar whose main loop failed. run() answers
+#false when it left on a failed select(); the only thing a parent can act on is
+#the child's exit status, and procMain() is the only join between the two. A
+#case calling procMain() would prove nothing, the defect being that its answer
+#went nowhere - so these cases exec the SHIPPED BINARIES, serve the socket a
+#controller serves, and read back waitpid().
+#No sidecar but calaos_mqtt registers a descriptor of its own, so a server can
+#only end their loop the orderly way. core/selectfail_preload.c is interposed
+#into the child to make its select() answer EBADF, which is what makes the
+#failing branch reachable without touching production code. It is built here,
+#by hand, because it is a plain shared object and not a library anything links.
+#calaos_ola refuses to start without olad, so its cases open a listener on
+#olad's port first: StreamingClient::Setup() only wants a TCP connection.
+#calaos_knx and calaos_ola are conditional; their cases are compiled in only
+#where the binary is, which keeps TESTS the same everywhere.
+#calaos_mqtt is absent on purpose: its setup() waits for its configuration in a
+#select() loop of its own, so an interposed select() makes it leave before
+#procMain() is entered - the case would have measured setup(), not the loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+EXTRA_DIST += core/selectfail_preload.c
+CLEANFILES = core/selectfail_preload.so
+
+core/selectfail_preload.so: $(srcdir)/core/selectfail_preload.c
+	$(AM_V_GEN)$(MKDIR_P) $(@D) && $(CC) -shared -fPIC -o $@ $< -ldl
+
+SIDECAR_LOOP_EXIT_DEFS =
+if HAVE_LIBKNX
+SIDECAR_LOOP_EXIT_DEFS += -DCALAOS_KNX_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_knx"'
+endif
+if HAVE_LIBOLA
+SIDECAR_LOOP_EXIT_DEFS += -DCALAOS_OLA_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_ola"'
+endif
+
+TESTS += core/SidecarLoopExitStatus_test
+check_PROGRAMS += core/SidecarLoopExitStatus_test
+core_SidecarLoopExitStatus_test_SOURCES = core/SidecarLoopExitStatus_test.cpp
+core_SidecarLoopExitStatus_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_SELECTFAIL_PRELOAD='"$(abs_builddir)/core/selectfail_preload.so"' \
+                  -DCALAOS_SCRIPT_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_script"' \
+                  -DCALAOS_WAGO_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_wago"' \
+                  -DCALAOS_1WIRE_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_1wire"' \
+                  $(SIDECAR_LOOP_EXIT_DEFS)
+core_SidecarLoopExitStatus_test_LDADD = -lgtest -lgtest_main
+#Nothing of the server is linked here: the code under test is in another
+#process. The interposed object is the one prerequisite make must build.
+core_SidecarLoopExitStatus_test_DEPENDENCIES = core/selectfail_preload.so
+endif
+
+# T3.164
+#Attribution of an incoming UDP datagram to the head of WagoMap's command
+#queue. A WAGO_GET_VERSION answer arriving after its 2s expiry - or a
+#duplicate of one that arrived in time - lands on the first DALI state read
+#instead, whose callback reads "3.0" as a ballast state and lights the
+#luminaire.
+#Why a suite of its own rather than a case in core/WagoDaliGetGroup_test or
+#core/WagoUdpReply_test: those measure the frame EMITTED and the reply path of
+#a matching answer. Nothing there drives a datagram that answers a command no
+#one is waiting for any more.
+#Every case carries a positive control: "the ballast is off" is its startup
+#value, so a case asserting only that is green when no callback runs at all.
+#Same link closure and LDADD as core/WagoDaliGetGroup_test: it builds a
+#production WODali and WODaliRVB through IOFactory.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoReplyAttribution_test
+check_PROGRAMS += core/WagoReplyAttribution_test
+core_WagoReplyAttribution_test_SOURCES = core/WagoReplyAttribution_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoReplyAttribution_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoReplyAttribution_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoReplyAttribution_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.161
+#CHARACTERISATION, not a regression suite: WOVoletBase::voletInit() has no
+#resynchronisation point with the PLC, so a shutter whose relay was excited
+#when the server died is re-excited when the PLC republishes its output image.
+#Pins that the two shutter IOs issue NO Modbus command at construction and
+#none when the sidecar reconnects, against a WODigital that does read its bit
+#back on the same signal. Three controls stand against the empty expectation:
+#the digital on its own host, the digital and the shutter sharing one host,
+#and the shutter's own relay writes. Three of its cases are meant to turn red
+#the day the arbitration is settled and a resync lands.
+#Links the two shutter objects and the Wago closure on top of the core one.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoVoletRestart_test
+check_PROGRAMS += core/WagoVoletRestart_test
+core_WagoVoletRestart_test_SOURCES = core/WagoVoletRestart_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoVoletRestart_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoVoletRestart_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoVoletRestart_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.179
+#What a parent learns when the five bytes it sent were not a frame. The parent
+#writes 0x21 followed by a length above the 4 MiB cap on the socket a
+#controller serves; the sidecar's framing state machine flags it, the main loop
+#leaves, and what is read is the exit status waitpid() gives the parent.
+#Unlike core/SidecarLoopExitStatus_test, nothing is interposed: the input comes
+#from the parent over the socket the sidecar is built to read, so the path is
+#reachable with production code untouched - it is the one an installation can
+#take.
+#Each family is run twice against the same binary: invalid frame, then hangup.
+#The second half is not decoration - a server hanging up is how a sidecar is
+#meant to stop and must still exit zero, so a fix that answered "failed" on
+#every way out of the loop would feed the respawn ramp with sidecars that did
+#nothing wrong.
+#calaos_knx and calaos_ola are conditional; their cases are compiled in under
+#the same automake condition that builds them, which keeps TESTS the same
+#everywhere and leaves no runtime skip to hide behind.
+#Nothing of the server is linked: the code under test is in another process, so
+#there is no server object to make a prerequisite of.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SIDECAR_FRAMING_DEFS =
+if HAVE_LIBKNX
+SIDECAR_FRAMING_DEFS += -DCALAOS_KNX_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_knx"'
+endif
+if HAVE_LIBOLA
+SIDECAR_FRAMING_DEFS += -DCALAOS_OLA_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_ola"'
+endif
+
+TESTS += core/SidecarFramingExitStatus_test
+check_PROGRAMS += core/SidecarFramingExitStatus_test
+core_SidecarFramingExitStatus_test_SOURCES = core/SidecarFramingExitStatus_test.cpp
+core_SidecarFramingExitStatus_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_SCRIPT_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_script"' \
+                  -DCALAOS_WAGO_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_wago"' \
+                  -DCALAOS_1WIRE_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_1wire"' \
+                  $(SIDECAR_FRAMING_DEFS)
+core_SidecarFramingExitStatus_test_LDADD = -lgtest -lgtest_main
+endif
+
+# T3.149
+#Why the receiver is given up when a READ fails, and what that costs.
+#An unconnected UDP socket is never told about ICMP, so no peer can make this
+#server's receive fail: what can is an accident in this process's own descriptor
+#table. epoll keeps its own reference to the file description, so the port stays
+#bound and keeps reporting readable while the read lands on whatever the
+#descriptor number now names - a stream socket (ENOTCONN), or nothing (EBADF).
+#The cause is INJECTED; the suite says so rather than dressing it as a network
+#event.
+#libuv's poll is level triggered and its read does not disarm on an error, so
+#the same failure returns on every turn: the stop is what makes that one line
+#instead of one per turn, and one case counts the lines to hold it.
+#No skip: whether the accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpReceiveErrorDeafness_test
+check_PROGRAMS += core/UdpReceiveErrorDeafness_test
+core_UdpReceiveErrorDeafness_test_SOURCES = core/UdpReceiveErrorDeafness_test.cpp \
+                  core/ReservedPort.h
+core_UdpReceiveErrorDeafness_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_RECEIVE_ERROR_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpReceiveErrorDeafness_test_LDADD = $(UDP_RECEIVE_ERROR_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpReceiveErrorDeafness_test_DEPENDENCIES = $(UDP_RECEIVE_ERROR_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.136
+#⭐ The relaunch ramp WagoMap keeps for itself, and the count it reads.
+#That count used to be its own, cleared by processConnected - the IPC socket,
+#which calaos_wago opens as its first instruction - so every launch that
+#reached the binary cleared it: the hold never left its first step and the
+#"still failing after N attempts" alarm, which only fires on a multiple, never
+#fired once. One cause, two symptoms.
+#⚠️ NOTHING HERE CALLS scheduleProcessRespawn(): a real WagoMap is built, its
+#stand-in sidecar CONNECTS to the unix socket it was handed - which is all
+#calaos_wago's setup() does before anything else - and then dies, so a mutation
+#of IO/Wago/WagoMap.cpp turns this suite red. Without that connection the suite
+#would be measuring the missing binary, the one case the ramp always handled.
+#The launch instants are stamped by the child, one line per launch, and every
+#bound on a gap is a floor read from the ramp itself: load can only make a hold
+#end later, never sooner.
+#Links WagoMap on top of the core objects; ExternProc is already in
+#CORE_SERVER_OBJECTS. Built elsewhere: the server objects come from another
+#Makefile, so they may appear in _DEPENDENCIES only as prerequisites.
+#Its own binary and its own process: WagoMap respawns its sidecar for the life
+#of the process and parks timers on the default loop.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoRespawnRamp_test
+check_PROGRAMS += core/WagoRespawnRamp_test
+core_WagoRespawnRamp_test_SOURCES = core/WagoRespawnRamp_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_WagoRespawnRamp_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoRespawnRamp_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_WagoRespawnRamp_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.152
+#Who decides how many lines the journal gets when answers are refused.
+#UDPServer answers the source of the datagram it just read and UDP discovery
+#needs no credentials, so one line per refused answer hands the length of the
+#journal to whoever speaks on the network. The ceiling is one line per doubling
+#of the count: the first refusal is always written, n of them cost log2(n)
+#lines, and no count is ever the last - a lasting failure keeps being said at a
+#rate that falls.
+#⚠️ The ceiling lives INSIDE the send branch, after the pendingSends test. The
+#same listener also carries the stop, whose two lines are the last thing the box
+#writes before it goes deaf; a ceiling spread over the listener as a whole could
+#swallow them. One case injects a receive error on the run whose ramp is deepest
+#and asks for the stop anyway.
+#Each refusal goes to its own address of 192.0.2.0/24, so the journal says WHICH
+#refusals were kept: a count of eight is passed by keeping the first eight, the
+#last eight or every sixteenth, and those name different peers.
+#No skip: whether the accidents can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpSendFailureLogCeiling_test
+check_PROGRAMS += core/UdpSendFailureLogCeiling_test
+core_UdpSendFailureLogCeiling_test_SOURCES = core/UdpSendFailureLogCeiling_test.cpp \
+                  core/ReservedPort.h
+core_UdpSendFailureLogCeiling_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_SEND_CEILING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpSendFailureLogCeiling_test_LDADD = $(UDP_SEND_CEILING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpSendFailureLogCeiling_test_DEPENDENCIES = $(UDP_SEND_CEILING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.153
+#Who sent the SIGTERM. The ramp exempted the signal by its VALUE, so a killall,
+#systemd or an operator got the cadence of before the ramp and a silent journal
+#- the very loop the ramp exists to slow down. Decided: a SIGTERM the server
+#did not send feeds the ramp and is reported; the one terminate() sends stays
+#free and silent, and both halves are pinned here because reading provenance
+#wrong the other way would slow down a sidecar the server just stopped.
+#⚠️ Launches are COUNTED in a fixed window and bounded from above; no case
+#reads a duration. The journal case proves its sink is listening before it
+#concludes anything from a missing line.
+#⛔ Own binary and own process, like core/ExternProcCrashBackoff_test: the loop
+#respawns a stand-in for as long as the process lives, and the sandbox of
+#core/ExternProcSpawnHarness.h must outlive the cases.
+if HAVE_GTEST
+TESTS += core/SidecarTerminateProvenance_test
+check_PROGRAMS += core/SidecarTerminateProvenance_test
+core_SidecarTerminateProvenance_test_SOURCES = core/SidecarTerminateProvenance_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_SidecarTerminateProvenance_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_SidecarTerminateProvenance_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_SidecarTerminateProvenance_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.172
+#OutputShutter has no readConfig() and its initialiser list stops at sens,
+#old_sens, the timers and state_volet: time, is_impulse_action,
+#impulse_action_time and impulse_time survive the constructor untouched.
+#Stop() branches on impulse_time and its impulse branch drives BOTH relays of
+#one shutter true at once, so this is the only open ticket with a hardware
+#risk. Measured by POISONING: the storage is filled with a known byte, the
+#object is placement-new'd over it, the members are read back, and the census
+#is run under two different fills so the answers must follow the poison.
+#The relay chain is measured at the (coil, value) pair WOVoletBase computes,
+#which is the last point it exists - WagoMap drops the frame with no sidecar
+#connected, so only the KIND of a command survives into mbus_commands.
+#Links the two shutter objects and the Wago closure, same set as
+#core/WagoVoletRestart_test.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear beside them in _DEPENDENCIES (the
+#_DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ShutterUninitMembers_test
+check_PROGRAMS += core/ShutterUninitMembers_test
+core_ShutterUninitMembers_test_SOURCES = core/ShutterUninitMembers_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ShutterUninitMembers_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ShutterUninitMembers_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ShutterUninitMembers_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVoletSmart.$(OBJEXT) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.193
+#What re-arming a given-up UDP receiver would cost, measured before one is
+#written. UDPServer stops its receiver on a failed read and nothing ever arms it
+#again; three conducts are defensible and this suite prices them rather than
+#picking one - it changes no line of src/.
+#The fault is INJECTED in this process's own descriptor table, and the re-arm is
+#injected too, a turn of the loop after the give-up: that is the only shape a
+#deferred recovery could have.
+#A closed descriptor is not the only way an unconnected read fails: ENOMEM and
+#ENOBUFS fail it with the descriptor intact, and there the re-arm recovers the
+#whole queue. Which producer is injected decides the verdict, not where the
+#re-arm sits.
+#Two children differ only in how long they are pumped and must report the SAME
+#count of give-ups - what bounds the journal is a number of attempts, never a
+#delay, and nothing here reads a duration.
+#One child dies on SIGABRT: libuv hands a closed descriptor back to epoll_ctl on
+#the re-arm and aborts, so on THAT producer a deferred recovery turns a deaf box
+#into a dead one.
+#No skip: whether the accident can be produced here is read by cases that go
+#red, never by a barrier reporting a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpDeafnessRearmCost_test
+check_PROGRAMS += core/UdpDeafnessRearmCost_test
+core_UdpDeafnessRearmCost_test_SOURCES = core/UdpDeafnessRearmCost_test.cpp \
+                  core/ReservedPort.h
+core_UdpDeafnessRearmCost_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_REARM_COST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpDeafnessRearmCost_test_LDADD = $(UDP_REARM_COST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpDeafnessRearmCost_test_DEPENDENCIES = $(UDP_REARM_COST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.167
+#What a sidecar does when it writes to a peer that is no longer listening.
+#send() without MSG_NOSIGNAL raises SIGPIPE, no sidecar installs a handler, and
+#uv_spawn resets every disposition to SIG_DFL in the child - so the server
+#ignoring SIGPIPE for itself does not travel. The sidecar dies of signal 13 on
+#an ordinary write and the respawn ramp counts a crash.
+#The peer goes deaf with shutdown(SHUT_RD), never with close(): close() makes
+#the read side answer ECONNRESET at the same instant, and the two race - the
+#read side wins nearly every time. SHUT_RD leaves the sidecar's recv() alone,
+#so the write is the only door left and the ending is the same every run.
+#calaos_1wire only: it is the one shipped sidecar whose loop writes unprompted.
+#The code under test is shared - sendMessage() belongs to ExternProcClient -
+#so the family is a vehicle, not the subject.
+#Nothing of the server is linked: the code under test is in another process.
+#calaos_1wire is built in every configuration, so its absence is asserted as a
+#broken tree and never skipped over.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/SidecarSigpipeOnSend_test
+check_PROGRAMS += core/SidecarSigpipeOnSend_test
+core_SidecarSigpipeOnSend_test_SOURCES = core/SidecarSigpipeOnSend_test.cpp
+core_SidecarSigpipeOnSend_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_1WIRE_SIDECAR='"$(abs_top_builddir)/src/bin/calaos_server/calaos_1wire"'
+core_SidecarSigpipeOnSend_test_LDADD = -lgtest -lgtest_main
+endif
+
+# T3.174
+#What an outgoing HTTP transfer does against a peer that accepts and then goes
+#silent, and what that costs a relay with no end of its own. Everything is
+#real: a loopback peer, a real UrlDownloader, real libcurl on the real libuv
+#loop. Each case runs in a forked child that always writes its report, even
+#when the transfer never ends - a child the parent had to kill says nothing
+#about what it saw. No skip guard: nothing here needs a binary or a service.
+#Own main(), so no gtest_main; only libcalaos_common, UrlDownloader is in
+#src/lib; own HAVE_GTEST block so this stays a pure append at end of file.
+if HAVE_GTEST
+TESTS += UrlDownloaderStallTimeout_test
+check_PROGRAMS += UrlDownloaderStallTimeout_test
+UrlDownloaderStallTimeout_test_SOURCES = UrlDownloaderStallTimeout_test.cpp
+#abs_top_srcdir, not srcdir: the binary runs from tests/ and the census case
+#reads src/ itself
+UrlDownloaderStallTimeout_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -DCALAOS_SRC_DIR='"$(abs_top_srcdir)/src"'
+UrlDownloaderStallTimeout_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest
+endif
+
+# T3.212
+#The OTHER journal line of processRequest(), and it was ten lines below the one
+#a previous ticket bounded: a CALAOS_DISCOVER whose source no local address
+#reaches wrote one ERROR line per datagram, no ceiling, no stop, no credentials
+#asked, and nothing read it. Bounded here by the same rule as the refused-send
+#ramp - one line per doubling of the count, the first always written, no count
+#ever the last - and the rule carries no threshold to invent.
+#⚠️ The unanswerable state is produced by lowering the soft RLIMIT_NOFILE for
+#the length of the flood: GetLocalIPFor() opens a socket to learn which local
+#address reaches the source, so a box with none left has none for ANY source.
+#Each datagram comes from its own address of 127/8, so the journal says WHICH
+#discoveries were kept and not merely how many.
+#⛔ One case reads the CENSUS instead of the fix: GetLocalIPFor() writes its own
+#line on the same path, once per datagram, with no ceiling. Closing the member
+#named in the ticket does not close its callee's twin, and that is measured.
+#⛔ Two cases are a CHARACTERISATION of T3.211 and not a repair: the refused-send
+#count is cumulative for the life of the process, so an unauthenticated peer
+#drives it to a power of two and a LATER real failure - another correspondent,
+#another range - is not written at all. Its partner shows the same failure IS
+#written on a box whose count nobody drove up, so the silence is the work of the
+#count and not of the machine. The day the count is rearmed, the first of the two
+#goes red and must be turned into its opposite, never relaxed.
+#No skip: whether either accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpDiscoverJournalCadence_test
+check_PROGRAMS += core/UdpDiscoverJournalCadence_test
+core_UdpDiscoverJournalCadence_test_SOURCES = core/UdpDiscoverJournalCadence_test.cpp \
+                  core/ReservedPort.h
+core_UdpDiscoverJournalCadence_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_DISCOVER_CADENCE_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpDiscoverJournalCadence_test_LDADD = $(UDP_DISCOVER_CADENCE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpDiscoverJournalCadence_test_DEPENDENCIES = $(UDP_DISCOVER_CADENCE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.239
+#The receiver used to be given up for good on a failed read and nothing ever
+#armed it again, so a box stayed deaf for the life of the process while its
+#heartbeat kept saying it was well. It now comes back a bounded number of
+#times, and it LOOKS AT THE DESCRIPTOR before every attempt: a fault that left
+#it alone hands the whole queue back, one that closed it makes libuv abort()
+#inside uv_run without a word.
+#⚠️ Both halves live in one suite because either alone reads like the opposite
+#of a defect. The abort the guard avoids is PRICED here and not assumed: a
+#partner child arms the read by hand over the same closed descriptor and dies
+#on SIGABRT.
+#⚠️ One seam: a child that wants its fault to heal puts the descriptor back
+#from a listener of its own on the server's handle, on the nth error. It calls
+#no method of the server and decides nothing about the recovery; what it buys
+#is a heal between two attempts instead of after a wall-clock delay.
+#No skip: whether either accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpReceiverRearmGuard_test
+check_PROGRAMS += core/UdpReceiverRearmGuard_test
+core_UdpReceiverRearmGuard_test_SOURCES = core/UdpReceiverRearmGuard_test.cpp \
+                  core/ReservedPort.h
+core_UdpReceiverRearmGuard_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_REARM_GUARD_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpReceiverRearmGuard_test_LDADD = $(UDP_REARM_GUARD_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpReceiverRearmGuard_test_DEPENDENCIES = $(UDP_REARM_GUARD_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.240
+#Both journal ceilings of UDPServer counted the whole life of the process, so
+#the silence they bound was BUYABLE: the only caller of the send is the answer
+#to an unauthenticated CALAOS_DISCOVER, a third party drives a count to a power
+#of two and the next real failure is written nowhere for as long again. There
+#are TWO of them - refused answers and discoveries no local address reaches -
+#and closing one would leave exactly the hole the other was opened for. Both
+#are now counted inside a window that restarts on its own, ONE count for the
+#box and not one per correspondent: a per-peer count costs one line per peer,
+#which is the traffic a third party produces most easily.
+#⛔ Every conclusion is preceded by a case that requires the purchase to have
+#HAPPENED and counts it: a "the ceiling rearms" case is green on a tree where
+#nothing was ever refused.
+#⚠️ The window is a length of time and no verdict reads one: a child that has
+#to cross a window moves the server's own monotonic source forward and changes
+#nothing else - the comparison, the constant and the restart stay the server's.
+#⚠️ The refusal half goes through a subclass whose answer() calls the protected
+#send, because nothing else in the tree can hand UDPServer a correspondent that
+#has gone away; the unanswerable half needs no seam and uses none.
+#No skip: whether either accident can be produced here is read by cases that go
+#red, never by a barrier that would report a clean run having measured nothing.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/UdpJournalWindowRearm_test
+check_PROGRAMS += core/UdpJournalWindowRearm_test
+core_UdpJournalWindowRearm_test_SOURCES = core/UdpJournalWindowRearm_test.cpp \
+                  core/ReservedPort.h
+core_UdpJournalWindowRearm_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+UDP_JOURNAL_WINDOW_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/UDPServer.$(OBJEXT)
+core_UdpJournalWindowRearm_test_LDADD = $(UDP_JOURNAL_WINDOW_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_UdpJournalWindowRearm_test_DEPENDENCIES = $(UDP_JOURNAL_WINDOW_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.243
+#A DALI read the PLC REFUSES, read as a lit luminaire. A 4.0 program answers
+#"WAGO_DALI_GET ERR <reason>" - verb kept, because the attribution filter drops
+#any other WAGO_ verb while a read is in flight - and both readers of that
+#frame took the refusal for data: WODali spells "lit" as "not the string 0" so
+#ERR became 100%, and each WODaliRVB channel handed the REASON to from_string(),
+#which publishes 0 and destroys the -1 that means "not answered yet".
+#⛔ The trap this suite exists to close: the frame could be discarded upstream,
+#by the attribution filter or by the old `>= 3` guard, and then a green case
+#would measure nothing. Every case reads WagoMap's pending queue and requires
+#the read to have been POPPED, and the first case pairs that with a frame that
+#really is discarded so the emptiness is a measurement.
+#⛔ And `value` starts at 0, so "the ballast is off" is also what an IO nobody
+#served says: every case carries a ballast that got a real answer and reached
+#100, and counts the start-read tokens.
+#No version gate is pinned by a case playing 2.3, 3.0, 4.0 and a PLC that
+#announced nothing: ERR is a level under no version.
+#Same link closure and LDADD as core/WagoDaliGetGroup_test: it builds a
+#production WODali and WODaliRVB through IOFactory.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoDaliErrorReply_test
+check_PROGRAMS += core/WagoDaliErrorReply_test
+core_WagoDaliErrorReply_test_SOURCES = core/WagoDaliErrorReply_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoDaliErrorReply_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoDaliErrorReply_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoDaliErrorReply_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# T3.244
+#What the DMX address bound of WODali/WODaliRVB actually does, which is nothing
+#but documentation: IODoc renders the range and no path in the server compares
+#an io.xml value against it.
+#⛔ Why no case asserts the bound is 355: it lives in one literal, a case would
+#read it back from the JSON that literal produced, and it would be green the
+#day the bound is wrong exactly as it is green today.
+#What is measured instead is the question narrowing the ceiling raises - an
+#address of 400 or 612 still loads and still reaches the wire unchanged, so an
+#installation written against the old text does not stop working - and that the
+#address is copied verbatim rather than turned into a DMX channel, which is why
+#the base being exclusive moves a sentence and no behaviour.
+#Same link closure and LDADD as core/WagoDaliGetGroup_test: it builds a
+#production WODali through IOFactory.
+#Built elsewhere: the server objects come from another Makefile, so only
+#libcalaos_common.la may appear in _DEPENDENCIES (the -DEPENDENCIES pitfall).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoDaliAddressRange_test
+check_PROGRAMS += core/WagoDaliAddressRange_test
+core_WagoDaliAddressRange_test_SOURCES = core/WagoDaliAddressRange_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoDaliAddressRange_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoDaliAddressRange_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT)                      \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)                     \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT)                \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)                \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_WagoDaliAddressRange_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Self-test of the PR diff-coverage gate (scripts/check-diff-coverage.py).
+#Outside any `if HAVE_GTEST`: it needs python3 only, no built binary.
+TESTS += check-diff-coverage-selftest.sh
+dist_check_SCRIPTS += check-diff-coverage-selftest.sh
+EXTRA_DIST += check-diff-coverage-selftest.py
+
+#IOChangeHub: typed synchronous per-IO change subscription. Pins the lifetime
+#contract (subscriber or IO destroyed first, both meaningful under ASan), the
+#serialization of a callback's writes through the rule march, and the order
+#relative to the rules. Links the plain core objects only. Own HAVE_GTEST block
+#so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/IOChangeHub_test
+check_PROGRAMS += core/IOChangeHub_test
+core_IOChangeHub_test_SOURCES = core/IOChangeHub_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_IOChangeHub_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_IOChangeHub_test_LDADD = $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_IOChangeHub_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# CORE-5
+#min/max on the OutputAnalog family and on InternalInt: clamp on write, the
+#clamped value is what is persisted, absent or inconsistent bounds change
+#nothing. WagoOutputAnalog is built through IOFactory, its Wago link closure
+#is the one of core/WagoDaliAddressRange_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/AnalogBounds_test
+check_PROGRAMS += core/AnalogBounds_test
+core_AnalogBounds_test_SOURCES = core/AnalogBounds_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AnalogBounds_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+ANALOG_BOUNDS_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT)
+core_AnalogBounds_test_LDADD = $(ANALOG_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_AnalogBounds_test_DEPENDENCIES = $(ANALOG_BOUNDS_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# CORE-5
+#MqttOutputString payload (plain and JSON templates) and state readback, and
+#MqttOutputAnalog bounds, on real IOs and a real MqttCtrl. The sidecar is a
+#stand-in that sleeps; the test connects to the controller's socket in its
+#place, so there is no broker. Own main(): same reason as
+#core/MqttConfigTransport_test.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/MqttOutputString_test
+check_PROGRAMS += core/MqttOutputString_test
+core_MqttOutputString_test_SOURCES = core/MqttOutputString_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttOutputString_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MQTT_OUTPUT_STRING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
+core_MqttOutputString_test_LDADD = $(MQTT_OUTPUT_STRING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_MqttOutputString_test_DEPENDENCIES = $(MQTT_OUTPUT_STRING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+# FIX-BASE-1
+#Destruction order of the ListeRoom/ListeRule/EventManager singletons at exit.
+#Nothing else in this binary may touch them: the forked child must be the first
+#to build them. Own HAVE_GTEST block so this stays a pure append at the end of
+#the file.
+if HAVE_GTEST
+TESTS += core/ListeRoomTeardownOrder_test
+check_PROGRAMS += core/ListeRoomTeardownOrder_test
+core_ListeRoomTeardownOrder_test_SOURCES = core/ListeRoomTeardownOrder_test.cpp
+core_ListeRoomTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ListeRoomTeardownOrder_test_LDADD = $(CORE_TEST_LDADD)
+core_ListeRoomTeardownOrder_test_DEPENDENCIES = $(CORE_TEST_DEPS)
+endif
+
+#Device base: <calaos:device> loading, owned IOs in the room's flat list, links
+#resolved after every room, nested save, cascade delete, refused IOs leaving
+#the rule event loop (hence the InputTime/InputTemp objects). Registers a
+#test-only impl, so it gets its own binary: the doc generator of other
+#binaries never sees it. Own HAVE_GTEST block so this stays a pure append at
+#the end of the file.
+if HAVE_GTEST
+TESTS += core/Device_test
+check_PROGRAMS += core/Device_test
+core_Device_test_SOURCES = core/Device_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_Device_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_Device_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTime.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_Device_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTime.$(OBJEXT)
+endif
+
+#Device commands (plain mode, partial JSON, best effort) and the published
+#device object (get_home goldens, debounced io_changed on a real loop).
+#Registers test-only impls, so it gets its own binary. Same link closure as
+#core/JsonApiHome_test: it drives both transports.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/DeviceApi_test
+check_PROGRAMS += core/DeviceApi_test
+core_DeviceApi_test_SOURCES = core/DeviceApi_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_DeviceApi_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_DeviceApi_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_DeviceApi_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/core4_ws_get_home_device.json \
+                  core/golden/core4_http_get_home_device.json
+endif
+
+#io.xml format 2 and the refusal of a `config put` that would drop devices:
+#drives the HTTP handler, so it needs the E4.0a harness and the same link
+#closure as core/AutoScenarioUploadGuard_test. Registers a test-only device
+#impl, hence its own binary. Own HAVE_GTEST block so this stays a pure append
+#at the end of the file.
+if HAVE_GTEST
+TESTS += core/DeviceFormat_test
+check_PROGRAMS += core/DeviceFormat_test
+core_DeviceFormat_test_SOURCES = core/DeviceFormat_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_DeviceFormat_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -I$(top_srcdir)/src/bin/calaos_server/Scenario \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_DeviceFormat_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_DeviceFormat_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#ClimateBase: capabilities derived from the links, the state object, command
+#validation and the low/high pair against min_range. Registers test-only impls,
+#so it gets its own binary. Own HAVE_GTEST block so this stays a pure append at
+#the end of the file.
+if HAVE_GTEST
+TESTS += core/ClimateBase_test
+check_PROGRAMS += core/ClimateBase_test
+core_ClimateBase_test_SOURCES = core/ClimateBase_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ClimateBase_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ClimateBase_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ClimateBase_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT)
+endif
+
+#A port reserved for a forked server must stay out of the ephemeral pool that
+#parallel tests draw from, and stay claimed while the caller lives.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ReservedPort_test
+check_PROGRAMS += core/ReservedPort_test
+core_ReservedPort_test_SOURCES = core/ReservedPort_test.cpp \
+                  core/ReservedPort.h
+core_ReservedPort_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ReservedPort_test_LDADD = $(CORE_TEST_LDADD)
+core_ReservedPort_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#ProxyClimate: field relay to command_io, heat_cool as auto, the remote
+#temperature relay and its keep-alive on the real loop. Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimate_test
+check_PROGRAMS += core/ProxyClimate_test
+core_ProxyClimate_test_SOURCES = core/ProxyClimate_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ProxyClimate_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ProxyClimate_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+core_ProxyClimate_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif
+
+#ProxyClimate on real Mqtt IOs against the stand-in sidecar of
+#core/MqttOutputString_test: the keep-alive publishes an unchanged value, the
+#mode goes out on the set topic, inputs cannot be written. Own main() for the
+#same reason. Own HAVE_GTEST block so this stays a pure append at the end of
+#the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimateMqtt_test
+check_PROGRAMS += core/ProxyClimateMqtt_test
+core_ProxyClimateMqtt_test_SOURCES = core/ProxyClimateMqtt_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_ProxyClimateMqtt_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+PROXY_CLIMATE_MQTT_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
+core_ProxyClimateMqtt_test_LDADD = $(PROXY_CLIMATE_MQTT_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ProxyClimateMqtt_test_DEPENDENCIES = $(PROXY_CLIMATE_MQTT_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A destroyed Mqtt IO no longer hears its topics: real IOs, a real MqttCtrl and
+#the stand-in sidecar of core/MqttOutputString_test. Own main() for the same
+#reason. Own HAVE_GTEST block so this stays a pure append at the end of the
+#file.
+if HAVE_GTEST
+TESTS += core/MqttSubscriptionLifetime_test
+check_PROGRAMS += core/MqttSubscriptionLifetime_test
+core_MqttSubscriptionLifetime_test_SOURCES = core/MqttSubscriptionLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_MqttSubscriptionLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+MQTT_SUBSCRIPTION_LIFETIME_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT)
+core_MqttSubscriptionLifetime_test_LDADD = $(MQTT_SUBSCRIPTION_LIFETIME_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_MqttSubscriptionLifetime_test_DEPENDENCIES = $(MQTT_SUBSCRIPTION_LIFETIME_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#InternalThermostat: evaluate(), the lock-outs on the real loop, the changeover,
+#the owned IOs recreated and the mode kept in the state cache. Registers
+#test-only IOs, so it gets its own binary. Own HAVE_GTEST block so this stays a
+#pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InternalThermostat_test
+check_PROGRAMS += core/InternalThermostat_test
+core_InternalThermostat_test_SOURCES = core/InternalThermostat_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostat_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostat_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+#The linked server objects are prerequisites, so touching one relinks this
+#binary. They are built by src/, never here (see the note above).
+core_InternalThermostat_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
+#set_state over HTTP and WebSocket and a Lua script writing an output of a
+#thermostat (spec 8.3): each is warned about with its own source. Same link
+#closure as RemoteUIDevice_test plus the thermostat; the Lua case runs the
+#real calaos_script, built by src/. Own HAVE_GTEST block so this stays a pure
+#append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ProtectedOutputWrites_test
+check_PROGRAMS += core/ProtectedOutputWrites_test
+core_ProtectedOutputWrites_test_SOURCES = core/ProtectedOutputWrites_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ProtectedOutputWrites_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"' \
+                  -DCALAOS_SCRIPT_BINDIR='"$(abs_top_builddir)/src/bin/calaos_server"'
+core_ProtectedOutputWrites_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ProtectedOutputWrites_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A thermostat still in its room at exit finds the registry of live thermostats
+#alive (forked child, like ListeRoomTeardownOrder_test). Own HAVE_GTEST block so
+#this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ThermostatTeardownOrder_test
+check_PROGRAMS += core/ThermostatTeardownOrder_test
+core_ThermostatTeardownOrder_test_SOURCES = core/ThermostatTeardownOrder_test.cpp
+core_ThermostatTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ThermostatTeardownOrder_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_ThermostatTeardownOrder_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
+#A deleted Wago IO leaves nothing on its WagoMap: no onWagoConnected slot and
+#no reply slot of a request in flight (FIX-BASE-4). Drives the Modbus replies
+#through processNewMessage and the DALI ones through udpRequest_cb.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoIoLifetime_test
+check_PROGRAMS += core/WagoIoLifetime_test
+core_WagoIoLifetime_test_SOURCES = core/WagoIoLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoIoLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoIoLifetime_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT)
+#The linked server objects are prerequisites, so touching one relinks this
+#binary. They are built by src/, never here (see the note above).
+core_WagoIoLifetime_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WIAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WITemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODali.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODaliRVB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WODigital.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WOVolet.$(OBJEXT)
+endif
+
+#A deleted RoonPlayer is not called by the next state of its zone: RoonCtrl
+#keeps the subscription as a sigc::slot so RoonPlayer's trackable cuts it.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/RoonZoneSubscription_test
+check_PROGRAMS += core/RoonZoneSubscription_test
+core_RoonZoneSubscription_test_SOURCES = core/RoonZoneSubscription_test.cpp
+core_RoonZoneSubscription_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RoonZoneSubscription_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks this
+#binary. They are built by src/, never here (see the note above).
+core_RoonZoneSubscription_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#InternalThermostat safety (spec §8.2): sensor freshness, dew point, start-up
+#lock-out. Own binary for its test-only IOs. Own HAVE_GTEST block so this stays
+#a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InternalThermostatSafety_test
+check_PROGRAMS += core/InternalThermostatSafety_test
+core_InternalThermostatSafety_test_SOURCES = core/InternalThermostatSafety_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostatSafety_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostatSafety_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_InternalThermostatSafety_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
+#Reversible floor zones (decision 22): one valve for both ways, the modes param.
+if HAVE_GTEST
+TESTS += core/InternalThermostatValve_test
+check_PROGRAMS += core/InternalThermostatValve_test
+core_InternalThermostatValve_test_SOURCES = core/InternalThermostatValve_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InternalThermostatValve_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_InternalThermostatValve_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_InternalThermostatValve_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
+#OWTemp on a real OwCtrl and a stand-in calaos_1wire: a repeated scan is a
+#reading, the input poll is not. Own main() for the harness teardown. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/OneWireReading_test
+check_PROGRAMS += core/OneWireReading_test
+core_OneWireReading_test_SOURCES = core/OneWireReading_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_OneWireReading_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+ONEWIRE_READING_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWTemp.$(OBJEXT)
+core_OneWireReading_test_LDADD = $(ONEWIRE_READING_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_OneWireReading_test_DEPENDENCIES = $(ONEWIRE_READING_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A thermostat on a KNX sensor reads the group when its last reading gets old,
+#one read at a time: a real KNXCtrl and a stand-in calaos_knx. Own main() for
+#the harness teardown. Own HAVE_GTEST block so this stays a pure append at the
+#end of the file.
+if HAVE_GTEST
+TESTS += core/KnxThermostatRead_test
+check_PROGRAMS += core/KnxThermostatRead_test
+core_KnxThermostatRead_test_SOURCES = core/KnxThermostatRead_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_KnxThermostatRead_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/KNX
+KNX_THERMOSTAT_READ_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchLongPress.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitchTriple.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/KNX/KNXIo.$(OBJEXT)
+core_KnxThermostatRead_test_LDADD = $(KNX_THERMOSTAT_READ_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_KnxThermostatRead_test_DEPENDENCIES = $(KNX_THERMOSTAT_READ_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#HistLogger cannot open its database: history is disabled, its readers still
+#get an answer and the process goes on (forked child per case).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerOpenFailure_test
+check_PROGRAMS += core/HistLoggerOpenFailure_test
+core_HistLoggerOpenFailure_test_SOURCES = core/HistLoggerOpenFailure_test.cpp
+core_HistLoggerOpenFailure_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerOpenFailure_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerOpenFailure_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A Hue light or a Synology camera deleted while one of its downloads is in
+#flight: the completion handler of that download leaves it alone. A loopback
+#peer holds the request until the IO is gone.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/InFlightDownload_test
+check_PROGRAMS += core/InFlightDownload_test
+core_InFlightDownload_test_SOURCES = core/InFlightDownload_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_InFlightDownload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Hue
+core_InFlightDownload_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+core_InFlightDownload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Hue/HueOutputLightRGB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/SynoSurveillanceStation.$(OBJEXT)
+endif
+
+#A Reolink switch and an A/V receiver IO still in their room at exit find
+#their controller alive (forked child, like ListeRoomTeardownOrder_test).
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ControllerTeardownOrder_test
+check_PROGRAMS += core/ControllerTeardownOrder_test
+core_ControllerTeardownOrder_test_SOURCES = core/ControllerTeardownOrder_test.cpp
+core_ControllerTeardownOrder_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink
+core_ControllerTeardownOrder_test_LDADD = $(AVR_TEST_OBJECTS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkInputSwitch.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_ControllerTeardownOrder_test_DEPENDENCIES = $(AVR_TEST_OBJECTS) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Reolink/ReolinkInputSwitch.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A WagoMap releases the reply slot of every request it queued, once the
+#request is answered or when the map is destroyed with it still pending.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/WagoCommandRelease_test
+check_PROGRAMS += core/WagoCommandRelease_test
+core_WagoCommandRelease_test_SOURCES = core/WagoCommandRelease_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_WagoCommandRelease_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoCommandRelease_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_WagoCommandRelease_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A Squeezebox deleted while its LMS connections are still connecting leaves
+#nothing listening on them. Port 1 of the loopback refuses the connections.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+SQUEEZEBOX_TEST_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/Squeezebox.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/SqueezeboxDB.$(OBJEXT)
+
+TESTS += core/SqueezeboxLifetime_test
+check_PROGRAMS += core/SqueezeboxLifetime_test
+core_SqueezeboxLifetime_test_SOURCES = core/SqueezeboxLifetime_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_SqueezeboxLifetime_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_SqueezeboxLifetime_test_LDADD = $(SQUEEZEBOX_TEST_OBJECTS) \
+                  $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_SqueezeboxLifetime_test_DEPENDENCIES = $(SQUEEZEBOX_TEST_OBJECTS) \
+                  $(AVR_TEST_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#What a climate device's state says to explain itself (CLIM-6): humidity,
+#connected, lockout and fault, on a real thermostat and proxy, with the
+#io_changed they publish and a get_home golden. Own HAVE_GTEST block so this
+#stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ClimateStatus_test
+check_PROGRAMS += core/ClimateStatus_test
+core_ClimateStatus_test_SOURCES = core/ClimateStatus_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ClimateStatus_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+CLIMATE_STATUS_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+core_ClimateStatus_test_LDADD = $(CLIMATE_STATUS_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ClimateStatus_test_DEPENDENCIES = $(CLIMATE_STATUS_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+#Goldens are data, they must travel with the distribution
+EXTRA_DIST += core/golden/clim6_ws_get_home_status.json
+endif
+
+#The device templates against the server: registered types, known link roles,
+#documented params, and a device from each template that loads without a
+#warning and round-trips. Mqtt IOs with the stand-in sidecar, hence its own
+#main(). Own HAVE_GTEST block so this stays a pure append at the end of the
+#file.
+if HAVE_GTEST
+TESTS += core/DeviceTemplates_test
+check_PROGRAMS += core/DeviceTemplates_test
+core_DeviceTemplates_test_SOURCES = core/DeviceTemplates_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_DeviceTemplates_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Mqtt
+DEVICE_TEMPLATES_OBJECTS = \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/AnalogIO.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/DeviceTemplates.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttBrokerslist.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttCtrl.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttInputTemp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputAnalog.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/Mqtt/MqttOutputString.$(OBJEXT)
+core_DeviceTemplates_test_LDADD = $(DEVICE_TEMPLATES_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_DeviceTemplates_test_DEPENDENCIES = $(DEVICE_TEMPLATES_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#ProxyClimate emulate_range: the emulated auto of a single setpoint unit, its
+#lock-outs, its suspension by a change on the unit, on the real loop. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimateRange_test
+check_PROGRAMS += core/ProxyClimateRange_test
+core_ProxyClimateRange_test_SOURCES = core/ProxyClimateRange_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ProxyClimateRange_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ProxyClimateRange_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+core_ProxyClimateRange_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif
+
+#Output conditions on string IOs with and without a comparable state.
+if HAVE_GTEST
+TESTS += core/ConditionOutputState_test
+check_PROGRAMS += core/ConditionOutputState_test
+core_ConditionOutputState_test_SOURCES = core/ConditionOutputState_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ConditionOutputState_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_ConditionOutputState_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_ConditionOutputState_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) $(CALAOS_SERVER_BUILDDIR)/IO/OutputLightDimmer.$(OBJEXT) $(CALAOS_SERVER_BUILDDIR)/IO/OutputString.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Rules on an audio player: both condition types match the last reported event.
+if HAVE_GTEST
+TESTS += core/AudioPlayerCondition_test
+check_PROGRAMS += core/AudioPlayerCondition_test
+core_AudioPlayerCondition_test_SOURCES = core/AudioPlayerCondition_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_AudioPlayerCondition_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_AudioPlayerCondition_test_LDADD = $(CORE_TEST_LDADD)
+core_AudioPlayerCondition_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Roon zone updates: a moving seek position must not replay "onplay" to rules.
+if HAVE_GTEST
+TESTS += core/RoonPlayerEvents_test
+check_PROGRAMS += core/RoonPlayerEvents_test
+core_RoonPlayerEvents_test_SOURCES = core/RoonPlayerEvents_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_RoonPlayerEvents_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_RoonPlayerEvents_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_RoonPlayerEvents_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The push.calaos.fr request body, legacy entries pinned byte for byte.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushPayload_test
+check_PROGRAMS += core/PushPayload_test
+core_PushPayload_test_SOURCES = core/PushPayload_test.cpp
+core_PushPayload_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushPayload_test_LDADD = $(CORE_TEST_LDADD)
+core_PushPayload_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#push_tokens written before push_format existed: migrated in place, the old
+#tokens keep the notification format. HistLogger is a singleton, one database
+#per binary.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushTokenStore_test
+check_PROGRAMS += core/PushTokenStore_test
+core_PushTokenStore_test_SOURCES = core/PushTokenStore_test.cpp \
+                  core/PushTestUtil.h
+core_PushTokenStore_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushTokenStore_test_LDADD = $(CORE_TEST_LDADD)
+core_PushTokenStore_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#events.db locked at the first start after the push_format update: the
+#migration cannot run, push still works and no log line carries a token.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/PushTokenLocked_test
+check_PROGRAMS += core/PushTokenLocked_test
+core_PushTokenLocked_test_SOURCES = core/PushTokenLocked_test.cpp \
+                  core/PushTestUtil.h
+core_PushTokenLocked_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_PushTokenLocked_test_LDADD = $(CORE_TEST_LDADD)
+core_PushTokenLocked_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#FIX-RUI-3: an upgrade that ships calaos-server and a RemoteUI firmware
+#restarted the server under the panels it had just offered the image to. The
+#offer is held right after a start and after the firmware package rescan, and
+#sent unasked to the connected panels once the hold ends. Real handler, real
+#loop timers, holds shortened to a few hundred ms.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/OtaOfferTiming_test
+check_PROGRAMS += core/OtaOfferTiming_test
+core_OtaOfferTiming_test_SOURCES = core/OtaOfferTiming_test.cpp \
+                  core/JsonApiCharacterization.cpp \
+                  core/JsonApiCharacterization.h \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_OtaOfferTiming_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI \
+                  -DCALAOS_GOLDEN_DIR='"$(srcdir)/core/golden"'
+core_OtaOfferTiming_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT)              \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#The linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here (see the note above).
+core_OtaOfferTiming_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IPCam/StandardMjpeg.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/RoonPlayer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/Audio/AudioDB.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#WagoMap's request socket: bound on an ephemeral wildcard port rather than the
+#PLC's address, closed and reopened after a backoff on error, and a reopen
+#still pending when the map is destroyed must not run. Own main, like
+#core/WagoRespawnRamp_test: real WagoMaps spawn their sidecar.
+if HAVE_GTEST
+TESTS += core/WagoUdpSocket_test
+check_PROGRAMS += core/WagoUdpSocket_test
+core_WagoUdpSocket_test_SOURCES = core/WagoUdpSocket_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h \
+                  core/ExternProcSpawnHarness.h
+core_WagoUdpSocket_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_WagoUdpSocket_test_LDADD = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+core_WagoUdpSocket_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/IO/Wago/WagoMap.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#How HttpClient logs a client socket error: a peer reset at debug with its
+#cause and address, never at critical. Same server objects and same own main
+#as core/HttpRequestLogSecret_test.
+if HAVE_GTEST
+TESTS += core/HttpClientDropLog_test
+check_PROGRAMS += core/HttpClientDropLog_test
+core_HttpClientDropLog_test_SOURCES = core/HttpClientDropLog_test.cpp
+core_HttpClientDropLog_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_HttpClientDropLog_test_LDADD = \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT)                       \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT)               \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT)                  \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT)                 \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT)                        \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT)                    \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT)                   \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT)             \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT)  \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT)        \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT)       \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT)      \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT)          \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT)         \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_LDADD)
+#T3.36: the linked server objects are prerequisites, so touching one relinks
+#this binary. They are built by src/, never here.
+core_HttpClientDropLog_test_DEPENDENCIES = $(CALAOS_SERVER_BUILDDIR)/HttpClient.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/HttpServer.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerHttp.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/JsonApiHandlerWS.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpProxyHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/McpServerManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/PollListenner.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/WebSocket.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/ConsoleTunnel.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputLight.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUI.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/RemoteUI/RemoteUIOutputRelay.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/FirmwareManifest.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/HMACAuthenticator.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaFirmwareManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/OtaHttpHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIManager.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIProvisioningHandler.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/RemoteUI/RemoteUIWebSocketHandler.$(OBJEXT) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#A history read whose SQL fails (events.db locked) is still answered, as a
+#failure, and the failure logs neither event contents nor the uuid asked.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerReadFailure_test
+check_PROGRAMS += core/HistLoggerReadFailure_test
+core_HistLoggerReadFailure_test_SOURCES = core/HistLoggerReadFailure_test.cpp \
+                  core/PushTestUtil.h
+core_HistLoggerReadFailure_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerReadFailure_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerReadFailure_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#events.db from servers without the created_at index: migrated without loss,
+#read through the index in the same order, same retention.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/HistLoggerSchema_test
+check_PROGRAMS += core/HistLoggerSchema_test
+core_HistLoggerSchema_test_SOURCES = core/HistLoggerSchema_test.cpp \
+                  core/PushTestUtil.h
+core_HistLoggerSchema_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_HistLoggerSchema_test_LDADD = $(CORE_TEST_LDADD)
+core_HistLoggerSchema_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The admin messages (docs/08_http_api.md, Administration) on a real HttpServer
+#bound on loopback, against a fake calaos-container on its own thread reached
+#through CALAOS_CONTAINER_URL. Configuration and cache (admin_seen_set) live in
+#a temporary directory; a fake calaos_mcp records its starts.
+if HAVE_GTEST
+TESTS += core/JsonApiAdmin_test
+check_PROGRAMS += core/JsonApiAdmin_test
+core_JsonApiAdmin_test_SOURCES = core/JsonApiAdmin_test.cpp \
+                  core/FakeDaemon.h
+core_JsonApiAdmin_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_JsonApiAdmin_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_JsonApiAdmin_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The /api/console tunnel (docs/08_http_api.md, Console) on a real HttpServer
+#bound on loopback, against a fake calaos-container and a fake console socket
+#in a temporary directory (CALAOS_CONTAINER_CONSOLE_DIR).
+if HAVE_GTEST
+TESTS += core/ConsoleTunnel_test
+check_PROGRAMS += core/ConsoleTunnel_test
+core_ConsoleTunnel_test_SOURCES = core/ConsoleTunnel_test.cpp \
+                  core/FakeConsole.h \
+                  core/FakeDaemon.h
+core_ConsoleTunnel_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_ConsoleTunnel_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ConsoleTunnel_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#Origin rules (docs/08_http_api.md, section Origin): the decision on injected
+#peers, then the websocket handshake and POST /api.php of a real HttpServer
+#bound on loopback under each AdminState. The cache is a temporary directory.
+if HAVE_GTEST
+TESTS += core/OriginPolicy_test
+check_PROGRAMS += core/OriginPolicy_test
+core_OriginPolicy_test_SOURCES = core/OriginPolicy_test.cpp
+core_OriginPolicy_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/RemoteUI -I$(top_srcdir)/src/bin/calaos_server/IO/RemoteUI
+core_OriginPolicy_test_LDADD = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_OriginPolicy_test_DEPENDENCIES = $(SERVICE_SCOPE_OBJECTS) \
+                  $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#The bytes Logger writes per level, on a pipe, a file and a terminal. Logger
+#decides once from the environment and from stdout, hence a program per
+#configuration: LogJournalPriority_helper is run by the test, not listed in TESTS.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += LogJournalPriority_test
+check_PROGRAMS += LogJournalPriority_test LogJournalPriority_helper
+LogJournalPriority_test_SOURCES = LogJournalPriority_test.cpp
+LogJournalPriority_test_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+LogJournalPriority_helper_SOURCES = LogJournalPriority_helper.cpp
+LogJournalPriority_helper_LDADD = @CALAOS_SERVER_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif
+
+#What a sidecar is told about logging and what the relay does of the priority
+#it writes, through a real OwCtrl and a stand-in sidecar.
+#Own HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ExternProcLogEnv_test
+check_PROGRAMS += core/ExternProcLogEnv_test
+core_ExternProcLogEnv_test_SOURCES = core/ExternProcLogEnv_test.cpp
+core_ExternProcLogEnv_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire
+EXTERN_PROC_LOG_ENV_OBJECTS = $(CALAOS_SERVER_BUILDDIR)/IO/OneWire/OWCtrl.$(OBJEXT)
+core_ExternProcLogEnv_test_LDADD = $(EXTERN_PROC_LOG_ENV_OBJECTS) \
+                  $(CORE_TEST_LDADD)
+core_ExternProcLogEnv_test_DEPENDENCIES = $(EXTERN_PROC_LOG_ENV_OBJECTS) \
+                  $(CORE_TEST_DEPS)
+endif
+
+if HAVE_GTEST
+TESTS += core/JpegThumbnail_test
+check_PROGRAMS += core/JpegThumbnail_test
+core_JpegThumbnail_test_SOURCES = core/JpegThumbnail_test.cpp \
+                  core/JpegTestFrames.h
+core_JpegThumbnail_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -DCALAOS_PICTURE_SCRIPT='"$(abs_top_srcdir)/src/bin/tools/calaos_picture"'
+core_JpegThumbnail_test_LDADD = $(CORE_TEST_LDADD)
+core_JpegThumbnail_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la
+endif

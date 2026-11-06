@@ -120,6 +120,10 @@ int mbus_cmd_diagnostics(mbus_struct *mbus,
       mbus_ubyte address, mbus_uword subfunction, mbus_uword *data);
 int mbus_cmd_force_multiple_coils(mbus_struct *mbus, mbus_ubyte slave_addr,
       mbus_uword coils_addr, mbus_uword coils_num, mbus_ubyte *coils_data);
+/* The only command whose request states no quantity: the response byte count
+ * can be checked against the frame alone, so `slave_data` must have room for
+ * MBUS_DATA_LEN bytes. That size cannot be expressed here and stays a contract
+ * on the caller; give it a size parameter the day this gets one. */
 int mbus_cmd_report_slave_id(mbus_struct *mbus,
       mbus_ubyte slave_addr, mbus_ubyte *data_count, mbus_ubyte *slave_data);
 int mbus_cmd_preset_multiple_registers(mbus_struct *mbus,

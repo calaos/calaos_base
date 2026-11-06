@@ -20,12 +20,44 @@
  ******************************************************************************/
 #include <WagoMap.h>
 #include <WagoCtrl.h>
+#include "WagoWire.h"
 #include <tcpsocket.h>
 #include "Prefix.h"
 #include "libuvw.h"
 
 using namespace Utils;
 using namespace Calaos;
+
+namespace
+{
+
+string udpVerb(const string &frame)
+{
+    string::size_type sp = frame.find(' ');
+    return sp == string::npos ? frame : frame.substr(0, sp);
+}
+
+/* Every PLC program from 1.7 on answers a command by repeating its name, so a
+ * reply naming a different one was produced by a different request. A payload
+ * whose first field is not a command name at all says nothing either way, and
+ * keeps the attribution it has always had.
+ *
+ * Only a DALI state read is guarded, because the harm is one-directional: a
+ * foreign datagram taken for a version answer leaves the PLC on "unknown",
+ * which is the two-parameter read every program has always been sent, while
+ * one taken for a DALI state yields a plain 100 and shows the luminaire lit. */
+bool udpReplyMisattributedToDaliGet(const string &command, const string &reply)
+{
+    if (udpVerb(command) != "WAGO_DALI_GET")
+        return false;
+
+    const string verb = udpVerb(reply);
+    if (verb.rfind("WAGO_", 0) != 0)
+        return false;
+    return verb != "WAGO_DALI_GET";
+}
+
+}
 
 WagoMapManager WagoMap::wagomaps;
 
@@ -42,6 +74,10 @@ WagoMap::WagoMap(std::string h, int p):
 
     createUdpSocket();
 
+    //Asked once per PLC, before anything else can be queued, because the
+    //answer decides the shape of every DALI state read sent to this host.
+    SendUDPCommand("WAGO_GET_VERSION", sigc::mem_fun(*this, &WagoMap::plcVersionReply_cb));
+
     heartbeat_timer = new Timer(0.1, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoHeartBeatTick));
     mbus_heartbeat_timer = new Timer(10.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::WagoModbusHeartBeatTick));
 
@@ -49,8 +85,14 @@ WagoMap::WagoMap(std::string h, int p):
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_wago";
 
-    string args = host;
-    args += " " + Utils::to_string(port);
+    //Two positional arguments the sidecar reads as host then port. An unset
+    //host used to be swallowed by the re-split, which left the PORT in argv[1]
+    //where the sidecar looks for the host; kept as is, that is a defect of
+    //empty configuration and not of argument transport.
+    process_args.clear();
+    if (!host.empty())
+        process_args.push_back(host);
+    process_args.push_back(Utils::to_string(port));
 
     process->messageReceived.connect(sigc::mem_fun(*this, &WagoMap::processNewMessage));
 
@@ -58,15 +100,18 @@ WagoMap::WagoMap(std::string h, int p):
     {
         onWagoDisconnected.emit();
 
-        //restart process when stopped
-        cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "wago", args);
+        //restart process when stopped, with backoff so a driver failing
+        //at startup does not respawn in a tight loop
+        scheduleProcessRespawn();
     });
 
-    process->startProcess(exe, "wago", args);
+    process->startProcess(exe, "wago", process_args);
 
     process->processConnected.connect([=]()
     {
+        //Not a proof that the sidecar is healthy, and it used to clear the
+        //respawn count: this is the IPC socket, which calaos_wago opens as the
+        //first instruction of setup(), before it has looked at the PLC at all.
         onWagoConnected.emit();
     });
 
@@ -75,13 +120,19 @@ WagoMap::WagoMap(std::string h, int p):
 
 WagoMap::~WagoMap()
 {
+    DELETE_NULL(respawn_timer);
+    DELETE_NULL(udp_reopen_timer);
+
     delete process;
 
-    handleSrv->stop();
-    handleSrv->close();
+    closeUdpSocket();
 
     delete heartbeat_timer;
     delete mbus_heartbeat_timer;
+
+    //udp command timers are only created on demand, they were leaked before
+    DELETE_NULL(udp_timer);
+    DELETE_NULL(udp_timeout_timer);
 }
 
 WagoMap &WagoMap::Instance(std::string h, int p)
@@ -102,6 +153,37 @@ WagoMap &WagoMap::Instance(std::string h, int p)
     return *wagomaps.maps[wagomaps.maps.size() - 1];
 }
 
+void WagoMap::scheduleProcessRespawn()
+{
+    if (respawn_timer)
+        return; //a respawn is already scheduled
+
+    const int attempts = process->respawnFailures();
+
+    //respawnDelay() takes the failures already counted, so the launch that
+    //follows the first one gets the first step. A count of zero is an exit the
+    //transport read as voluntary - it holds nothing there, and calaos_wago
+    //produces one whenever its main loop leaves without a select() error - so
+    //the out of range guard is what keeps a floor under that loop.
+    const double delay = respawnDelay(attempts - 1);
+
+    //never stop retrying (the Wago is the centerpiece of the installation),
+    //but keep reminding loudly that something is wrong
+    if (respawnAlarmDue(attempts))
+        cErrorDom("process") << "wago process still failing after "
+                             << attempts << " attempts. Check " << exe
+                             << " and the PLC at " << host << ":" << port;
+
+    cWarningDom("process") << "process exited, restarting in " << delay
+                           << "s (attempt " << attempts << ")";
+
+    respawn_timer = new Timer(delay, [this]()
+    {
+        DELETE_NULL(respawn_timer);
+        process->startProcess(exe, "wago", process_args);
+    });
+}
+
 void WagoMap::stopAllWagoMaps()
 {
     std::for_each(wagomaps.maps.begin(), wagomaps.maps.end(), Delete());
@@ -115,26 +197,49 @@ void WagoMap::createUdpSocket()
 
     handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
     {
+        udp_reopen_attempts = 0;
+
         string s(ev.data.get(), ev.length);
         this->udpRequest_cb(true, s);
     });
 
     handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &)
     {
-        cErrorDom("network") << "UDP server error: " << ev.what();
+        cErrorDom("network") << "UDP socket for " << host << " failed: "
+                             << ev.name() << " (" << ev.what() << ")";
         udpProcessError();
     });
 
-    handleSrv->bind(host, WAGO_LISTEN_PORT, uvw::UDPHandle::Bind::REUSEADDR);
-    handleSrv->recv();
+    //The PLC answers the source port of each request. WAGO_LISTEN_PORT belongs
+    //to the UDPServer that takes what the PLC sends on its own, and host is
+    //the PLC's address, which no local socket can bind to.
+    handleSrv->bind("0.0.0.0", 0);
+
+    //A refused bind has already closed the handle through udpProcessError().
+    if (handleSrv)
+        handleSrv->recv();
+}
+
+void WagoMap::closeUdpSocket()
+{
+    if (!handleSrv)
+        return;
+
+    //The handle outlives this map until libuv's close callback, and every
+    //listener on it captures this.
+    handleSrv->clear();
+    handleSrv->stop();
+    handleSrv->close();
+    handleSrv.reset();
 }
 
 void WagoMap::WagoModbusHeartBeatTick()
 {
-    read_bits(0, 1, sigc::mem_fun(*this, &WagoMap::WagoModbusReadHeartbeatCallback));
+    read_bits(WagoTypes::Address(0), WagoTypes::Count(1),
+              sigc::mem_fun(*this, &WagoMap::WagoModbusReadHeartbeatCallback));
 }
 
-void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int count, vector<bool> &values)
+void WagoMap::WagoModbusReadHeartbeatCallback(bool status, WagoTypes::Address address, WagoTypes::Count count, vector<bool> &values)
 {
     if (!status)
         cErrorDom("wago") << "failed to read !";
@@ -142,19 +247,17 @@ void WagoMap::WagoModbusReadHeartbeatCallback(bool status, UWord address, int co
 
 void WagoMap::processNewMessage(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    Params jsonData;
+    vector<string> values;
 
-    if (!jroot || !json_is_object(jroot))
+    //E4.1h: ONE non-throwing parse for both the flattened Params and the
+    //"values" array. The array used to be read straight off the raw parsed
+    //root, separately from the flattening.
+    if (!WagoWire::decodeMessage(msg, jsonData, &values))
     {
-        cWarningDom("wago") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("wago") << "Error parsing json from sub process";
         return;
     }
-
-    Params jsonData;
-    jansson_decode_object(jroot, jsonData);
 
     if (mbus_commands.find(jsonData["id"]) == mbus_commands.end())
         return;
@@ -174,217 +277,171 @@ void WagoMap::processNewMessage(const string &msg)
     if (cmd.command == MBUS_READ_BITS ||
         cmd.command == MBUS_READ_OUTBITS)
     {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
-        {
-            string v = json_string_value(value);
+        for (const string &v: values)
             values_bits.push_back(v == "true");
-        }
 
         if (cmd.mapSignals)
-            cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
+            cmd.mapSignals->multiBits_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_bits);
     }
     else if (cmd.command == MBUS_WRITE_BIT)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->singleBit_cb(status, address, false);
+            cmd.mapSignals->singleBit_cb(status, WagoTypes::Address(address),
+                                         WagoTypes::BitValue(false));
     }
     else if (cmd.command == MBUS_WRITE_BITS)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->multiBits_cb(status, address, count, values_bits);
+            cmd.mapSignals->multiBits_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_bits);
     }
     else if (cmd.command == MBUS_READ_WORDS ||
              cmd.command == MBUS_READ_OUTWORDS)
     {
-        uint idx;
-        json_t *value;
-
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
+        for (const string &v: values)
         {
-            string v = json_string_value(value);
             UWord vv;
             Utils::from_string(v, vv);
             values_words.push_back(vv);
         }
 
         if (cmd.mapSignals)
-            cmd.mapSignals->multiWords_cb(status, address, count, values_words);
+            cmd.mapSignals->multiWords_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_words);
     }
     else if (cmd.command == MBUS_WRITE_WORD)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->singleWord_cb(status, address, 0);
+            cmd.mapSignals->singleWord_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::WordValue(0));
     }
     else if (cmd.command == MBUS_WRITE_WORDS)
     {
         if (cmd.mapSignals)
-            cmd.mapSignals->multiWords_cb(status, address, count, values_words);
+            cmd.mapSignals->multiWords_cb(status, WagoTypes::Address(address),
+                                          WagoTypes::Count(count), values_words);
     }
 
     cmd.deleteSignals();
-
-    json_decref(jroot);
 }
 
-void WagoMap::read_bits(UWord address, int nb, MultiBits_cb callback)
+void WagoMap::read_bits(WagoTypes::Address address, WagoTypes::Count nb, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_BITS);
     cmd.createSignals();
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_bits" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(WagoWire::buildReadBitsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::read_output_bits(UWord address, int nb, MultiBits_cb callback)
+void WagoMap::read_output_bits(WagoTypes::Address address, WagoTypes::Count nb, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_OUTBITS);
     cmd.createSignals();
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_output_bits" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(WagoWire::buildReadOutputBitsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_single_bit(UWord address, bool val, SingleBit_cb callback)
+void WagoMap::write_single_bit(WagoTypes::Address address, WagoTypes::BitValue val, SingleBit_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_BIT);
     cmd.createSignals();
     cmd.mapSignals->singleBit_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_bit" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "value", val?"true":"false" } };
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(WagoWire::buildWriteBitRequest(cmd.wago_cmd_id, address, val));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_multiple_bits(UWord address, int nb, vector<bool> &values, MultiBits_cb callback)
+void WagoMap::write_multiple_bits(WagoTypes::Address address, WagoTypes::Count nb, vector<bool> &values, MultiBits_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_BITS);
     cmd.createSignals();
     cmd.mapSignals->multiBits_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_bits" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    json_t *jret = p.toJson();
-    json_t *jarr = json_array();
-    for (uint i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(values[i]?"true":"false"));
-    json_object_set_new(jret, "values", jarr);
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    //E4.1h - this site used to build the "values" array into a separate object
+    //it then threw away (leaking it) and send a second, fresh serialization of
+    //the four-key Params instead, so the array never left the process. Both
+    //the leak and the missing array are gone; the array is emitted by
+    //WagoWire::buildWriteBitsRequest(), which explains why fixing it was safe.
+    process->sendMessage(WagoWire::buildWriteBitsRequest(cmd.wago_cmd_id, address, nb, values));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::read_words(UWord address, int nb, MultiWords_cb callback)
+void WagoMap::read_words(WagoTypes::Address address, WagoTypes::Count nb, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_WORDS);
     cmd.createSignals();
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_words" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(WagoWire::buildReadWordsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::read_output_words(UWord address, int nb, MultiWords_cb callback)
+void WagoMap::read_output_words(WagoTypes::Address address, WagoTypes::Count nb, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_READ_OUTWORDS);
     cmd.createSignals();
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "read_output_words" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(WagoWire::buildReadOutputWordsRequest(cmd.wago_cmd_id, address, nb));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_single_word(UWord address, UWord val, SingleWord_cb callback)
+void WagoMap::write_single_word(WagoTypes::Address address, WagoTypes::WordValue val, SingleWord_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_WORD);
     cmd.createSignals();
     cmd.mapSignals->singleWord_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_word" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "value", Utils::to_string(val) } };
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    process->sendMessage(WagoWire::buildWriteWordRequest(cmd.wago_cmd_id, address, val));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
-void WagoMap::write_multiple_words(UWord address, int nb, vector<UWord> &values, MultiWords_cb callback)
+void WagoMap::write_multiple_words(WagoTypes::Address address, WagoTypes::Count nb, vector<UWord> &values, MultiWords_cb callback)
 {
     WagoMapCmd cmd(MBUS_WRITE_WORDS);
     cmd.createSignals();
     cmd.mapSignals->multiWords_cb = callback;
     cmd.wago_cmd_id = Utils::createRandomUuid();
 
-    Params p = {{ "action", "write_words" },
-                { "id", cmd.wago_cmd_id },
-                { "address", Utils::to_string(address) },
-                { "count", Utils::to_string(nb) } };
-
-    json_t *jret = p.toJson();
-    json_t *jarr = json_array();
-    for (uint i = 0;i < values.size();i++)
-        json_array_append_new(jarr, json_string(Utils::to_string(values[i]).c_str()));
-    json_object_set_new(jret, "values", jarr);
-
-    process->sendMessage(jansson_to_string(p.toJson()));
+    //E4.1h - same defect as write_multiple_bits(), fixed the same way.
+    //See WagoWire::buildWriteWordsRequest().
+    process->sendMessage(WagoWire::buildWriteWordsRequest(cmd.wago_cmd_id, address, nb, values));
 
     mbus_commands[cmd.wago_cmd_id] = cmd;
 }
 
 void WagoMap::udpProcessError()
 {
-    //handleSrv->stop();
-    //handleSrv->close();
+    closeUdpSocket();
 
-    handleSrv->once<uvw::CloseEvent>([this](auto &, auto&)
+    if (udp_reopen_timer)
+        return;
+
+    //Never reopened from inside the error callback, where a socket that cannot
+    //be created would retry in a tight loop. Same ramp as the sidecar respawn.
+    udp_reopen_timer = new Timer(respawnDelay(udp_reopen_attempts++), [this]()
     {
-        this->createUdpSocket();
+        DELETE_NULL(udp_reopen_timer);
+        createUdpSocket();
     });
 }
 
@@ -435,8 +492,110 @@ void WagoMap::SendUDPCommand(string command)
     }
 }
 
+bool WagoMap::plcDaliGetCarriesGroup() const
+{
+    if (plc_version_state != PLC_VERSION_KNOWN)
+        return false;
+
+    if (plc_version_major != DALI_GROUP_MAJOR)
+        return plc_version_major > DALI_GROUP_MAJOR;
+    return plc_version_minor >= DALI_GROUP_MINOR;
+}
+
+void WagoMap::sendDaliGet(const DaliGetRequest &req)
+{
+    /* The flag sits AFTER the address here and BEFORE it in WAGO_DALI_SET.
+     * That asymmetry is the 3.0 protocol, not a typo. An older program takes
+     * the short address from this same second field, so dropping the third
+     * one leaves its read exactly as it has always been; moving the address
+     * out of second position to make room for a flag would not. */
+    string cmd = "WAGO_DALI_GET " + req.line + " " + req.address;
+    if (plcDaliGetCarriesGroup())
+        cmd += " " + req.group;
+
+    SendUDPCommand(cmd, req.callback);
+}
+
+void WagoMap::SendDaliGetCommand(string line, string address, string group, WagoUdp_cb callback)
+{
+    DaliGetRequest req;
+    req.line = line;
+    req.address = address;
+    req.group = group;
+    req.callback = callback;
+
+    if (plc_version_state == PLC_VERSION_PENDING)
+    {
+        pending_dali_gets.push_back(req);
+        return;
+    }
+
+    sendDaliGet(req);
+}
+
+void WagoMap::plcVersionReply_cb(bool status, WagoTypes::UdpCommand, WagoTypes::UdpResult result)
+{
+    //Anything that is not a version we could read leaves the PLC on the
+    //conservative side, where the DALI read keeps the two parameters every
+    //program has always accepted.
+    plc_version_state = PLC_VERSION_UNKNOWN;
+
+    if (status)
+    {
+        vector<string> tokens;
+        split(result.v, tokens);
+
+        //"WAGO_GET_VERSION <H>.<L> <model>". The model is NOT usable: the
+        //seven 3.0 programs all announce 750-849 whatever module they run on.
+        if (tokens.size() >= 2 && tokens[0] == "WAGO_GET_VERSION")
+        {
+            vector<string> parts;
+            split(tokens[1], parts, ".");
+            if (parts.size() == 2 &&
+                Utils::is_of_type<int>(parts[0]) &&
+                Utils::is_of_type<int>(parts[1]))
+            {
+                Utils::from_string(parts[0], plc_version_major);
+                Utils::from_string(parts[1], plc_version_minor);
+                plc_version_state = PLC_VERSION_KNOWN;
+            }
+        }
+    }
+
+    cDebugDom("wago") << "PLC program version for " << host << ": "
+                      << (plc_version_state == PLC_VERSION_KNOWN ?
+                          Utils::to_string(plc_version_major) + "." + Utils::to_string(plc_version_minor) :
+                          string("unknown"))
+                      << ", DALI reads carry the group flag: " << plcDaliGetCarriesGroup();
+
+    /* Drained whatever the answer was. A request left here would take a
+     * StartReadRules count with it and the server would never run its start
+     * rules. Swapped out first: sendDaliGet() enqueues, and the state is no
+     * longer PENDING, so nothing can come back into this list. */
+    vector<DaliGetRequest> deferred;
+    deferred.swap(pending_dali_gets);
+    for (const DaliGetRequest &req: deferred)
+        sendDaliGet(req);
+}
+
 void WagoMap::udpRequest_cb(bool status, string res)
 {
+    /* Attribution is POSITIONAL: whatever arrives is the head's answer. A
+     * datagram that names another command answers a request nobody waits for
+     * any more - the version query that expired at 2s, or a duplicate of one
+     * already served - and handing "3.0" to a DALI read makes its caller read
+     * any non-"0" second token as a lit ballast.
+     * The return must stay ABOVE the timeout below: the head still owes its
+     * StartReadRules count, and the 2s timer is the only thing left to give it
+     * back. Cancel it here and the server never finishes starting. */
+    if (status && !udp_commands.empty() &&
+        udpReplyMisattributedToDaliGet(udp_commands.front().udp_command, res))
+    {
+        cDebugDom("wago") << "UDP, dropping '" << res << "' while waiting for '"
+                          << udp_commands.front().udp_command << "'";
+        return;
+    }
+
     if (udp_timeout_timer)
     {
         delete udp_timeout_timer;
@@ -454,7 +613,8 @@ void WagoMap::udpRequest_cb(bool status, string res)
     WagoUdp_signal sig;
     if (cmd.mapSignals)
         sig.connect(cmd.mapSignals->wagoUdp_cb);
-    sig.emit(status, cmd.udp_command, cmd.udp_result);
+    sig.emit(status, WagoTypes::UdpCommand(cmd.udp_command),
+             WagoTypes::UdpResult(cmd.udp_result));
 
     udp_commands.pop();
 }
@@ -488,7 +648,10 @@ void WagoMap::UDPCommand_cb()
     if (!udp_timeout_timer && !cmd.no_callback)
         udp_timeout_timer = new Timer(2.0, (sigc::slot<void>)sigc::mem_fun(*this, &WagoMap::UDPCommandTimeout_cb));
 
-    handleSrv->send(host, WAGO_LISTEN_PORT, (char *)cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
+    //While the socket is being reopened the frame is lost like a dropped
+    //datagram, and the timeout above still answers its caller.
+    if (handleSrv)
+        handleSrv->send(host, WAGO_LISTEN_PORT, (char *)cmd.udp_command.c_str(), cmd.udp_command.length() + 1);
 
     if (cmd.no_callback)
         udp_commands.pop();
@@ -514,4 +677,26 @@ void WagoMap::WagoHeartBeatTick()
     {
         cDebugDom("wago") << "No interface found corresponding to network : " << get_host();
     }
+}
+
+namespace
+{
+
+/* The field is the first one AFTER the verb - the same position the level is
+ * read from - and the comparison is on the string, not on a number: there is
+ * no numeric conversion anywhere on that path to place this test in front of.
+ * A reply with no reason behind it is still a refusal, so the reason is read
+ * separately and never guards the refusal. */
+const char DALI_ERROR_FIELD[] = "ERR";
+
+}
+
+bool Calaos::daliReplyIsError(const vector<string> &tokens)
+{
+    return tokens.size() >= 2 && tokens[1] == DALI_ERROR_FIELD;
+}
+
+string Calaos::daliReplyErrorReason(const vector<string> &tokens)
+{
+    return tokens.size() >= 3 ? tokens[2] : string("no reason given");
 }

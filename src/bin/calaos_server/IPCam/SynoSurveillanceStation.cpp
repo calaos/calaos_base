@@ -54,15 +54,15 @@ void SynoSurveillanceStation::downloadSnapshot(std::function<void(const string &
 {
     cDebugDom("syno.ss") << "downloadSnapshot()";
 
+    snapshotWaiters.push_back(std::move(dataCb));
+
     if (isRunning)
     {
-        cDebugDom("syno.ss") << "already running, returning last screenshot.";
-        dataCb(lastSnapshot);
+        cDebugDom("syno.ss") << "already running, waiting for its result.";
         return;
     }
 
     isRunning = true;
-    downloadDataCb = dataCb;
 
     if (authUrl.empty())
     {
@@ -75,7 +75,7 @@ void SynoSurveillanceStation::downloadSnapshot(std::function<void(const string &
             {
                 cWarning() << "Syno: Fail to get api info for SYNO.API.Auth";
                 isRunning = false;
-                downloadDataCb({});
+                finishSnapshot({});
                 return;
             }
 
@@ -104,7 +104,7 @@ void SynoSurveillanceStation::tryLogin()
                 apiSid.clear();
                 snapUrl.clear();
                 isRunning = false;
-                downloadDataCb({});
+                finishSnapshot({});
                 return;
             }
 
@@ -132,7 +132,7 @@ void SynoSurveillanceStation::tryGetSnapshot()
                 apiSid.clear();
                 snapUrl.clear();
                 isRunning = false;
-                downloadDataCb({});
+                finishSnapshot({});
                 return;
             }
 
@@ -156,10 +156,9 @@ void SynoSurveillanceStation::doGetSnapshot()
             apiSid.clear();
             snapUrl.clear();
         }
-        lastSnapshot = data;
-        cInfo() << "new snapshot: " << lastSnapshot.length();
+        cInfo() << "new snapshot: " << data.length();
         isRunning = false;
-        downloadDataCb(lastSnapshot);
+        finishSnapshot(data);
     });
 }
 
@@ -172,31 +171,31 @@ void SynoSurveillanceStation::getSnapshot(std::function<void(const string &data)
     if (!get_param("camera_profile").empty())
         url += "&profileType=" + Utils::url_encode(get_param("camera_profile"));
 
-    UrlDownloader *dl = new UrlDownloader(url, true);
-
-    dl->m_signalCompleteData.connect([=](const string &data, int status)
-    {
+    httpGet(url, [cb](UrlDownloader *dl, const string &data, int status)
+            {
         cDebugDom("syno.ss") << "getSnapshot done, status: " << status;
 
+        string contentType;
         if (status == 200)
         {
             auto headers = dl->getResponseHeaders();
-            cDebugDom("syno.ss") << "Headers Content-Type: " << headers["Content-Type"];
-            if (headers["Content-Type"] != "image/jpeg")
-            {
-                cWarning() << "GetSnapshot failed: " << data;
-                cb({});
-            }
-
-            cb(data);
+            contentType = headers["Content-Type"];
+            cDebugDom("syno.ss") << "Headers Content-Type: " << contentType;
+            //Whatever a nas answers instead of an image is a document of its
+            //own, and the request that asked for it carried the session id
+            if (contentType != "image/jpeg")
+                cWarning() << "Syno: GetSnapshot answered " << contentType
+                           << " instead of an image (" << data.size() << " bytes)";
         }
         else
         {
             cWarning() << "HTTP error: " << status;
-            cb({});
         }
+
+        //T3.3: single call site — the completion callback must fire exactly
+        //once (the old code fell through after cb({}) and called cb(data) too)
+        cb(snapshotPayload(status, contentType, data));
     });
-    dl->httpGet();
 }
 
 void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
@@ -206,10 +205,8 @@ void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
     url += "&account=" + Utils::url_encode(get_param("username"));
     url += "&passwd=" + Utils::url_encode(get_param("password"));
 
-    UrlDownloader *dl = new UrlDownloader(url, true);
-
-    dl->m_signalCompleteData.connect([=](const string &data, int status)
-    {
+    httpGet(url, [this, cb](UrlDownloader *, const string &data, int status)
+            {
         if (status == 200)
         {
             bool err;
@@ -229,7 +226,6 @@ void SynoSurveillanceStation::login(std::function<void(const string &sid)> cb)
             cb({});
         }
     });
-    dl->httpGet();
 }
 
 void SynoSurveillanceStation::getApiInfo(const string &api, const string &method, const string &version,
@@ -238,10 +234,9 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
     string url = SynoApiInfo;
     Utils::replace_str(url, "%1", get_param("url"));
     Utils::replace_str(url, "%2", api);
-    UrlDownloader *dl = new UrlDownloader(url, true);
 
-    dl->m_signalCompleteData.connect([=](const string &data, int status)
-    {
+    httpGet(url, [this, api, method, version, cb](UrlDownloader *, const string &data, int status)
+            {
         if (status == 200)
         {
             bool err;
@@ -262,7 +257,7 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
             Utils::replace_str(u, "%4", method);
             Utils::replace_str(u, "%5", version);
 
-            cDebugDom("syno.ss") << "API URL is: " << u;
+            cDebugDom("syno.ss") << "API URL is: " << Utils::urlForLog(u);
 
             cb({u});
         }
@@ -272,32 +267,64 @@ void SynoSurveillanceStation::getApiInfo(const string &api, const string &method
             cb({});
         }
     });
+}
+
+void SynoSurveillanceStation::httpGet(const string &url,
+                                      std::function<void(UrlDownloader *, const string &, int)> done)
+{
+    UrlDownloader *dl = new UrlDownloader(url, true);
+    dl->setInsecureFromParam(get_param("insecure")); //T2.19: insecure unless insecure="false"
+
+    //Each hop of the chain may answer after this camera is deleted: the
+    //download frees itself, and `done` reaches the camera.
+    dl->m_signalCompleteData.connect([dl, done, alive = ioAlive.token()](const string &data, int status)
+                                     {
+        if (alive.expired())
+            return;
+        done(dl, data, status);
+    });
     dl->httpGet();
 }
 
 Json SynoSurveillanceStation::parseJsonResult(const string &data, bool &error)
 {
-    Json jdoc;
+    /* WHAT MAY BE PUBLISHED OF AN ANSWER THIS DRIVER COULD NOT READ. login()
+     * reads its session id out of this very document, so the answer is a
+     * credential of the nas as often as it is a diagnosis. What leaves is the
+     * step that refused it - a literal of this file - and its size; the
+     * message of a nlohmann exception is not usable either, it quotes the
+     * bytes it choked on.
+     *
+     * The three refusals stay inside the try: reading `success` as a boolean
+     * throws on a string or a null, and a throw here is a throw in a download
+     * callback with no try/catch anywhere on the path. */
+    const char *refused = nullptr;
+    error = true;
+
     try
     {
-        error = false;
-        jdoc = Json::parse(data);
+        Json jdoc = Json::parse(data);
+
         if (!jdoc.is_object())
-            throw (invalid_argument(string("Json is not an object")));
-
-        if (!jdoc["success"])
-            throw (invalid_argument(string("success is false")));
-
-        Json jdata = jdoc["data"];
-        if (!jdata.is_object())
-            throw (invalid_argument(string("Json is not an object")));
-
-        return jdata;
+            refused = "the answer is not an object";
+        else if (!jdoc["success"])
+            refused = "the nas reported a failure";
+        else if (!jdoc["data"].is_object())
+            refused = "the answer carries no data block";
+        else
+        {
+            error = false;
+            return jdoc["data"];
+        }
     }
     catch (const std::exception &e)
     {
-        cWarning() << "Syno: Error parsing '" << data << "':" << e.what();
-        error = true;
+        cWarning() << "Syno: cannot read the answer: "
+                   << Utils::jsonErrorForLog(e, data.size());
         return {};
     }
+
+    cWarning() << "Syno: cannot read the answer: " << refused
+               << " (" << data.size() << " bytes)";
+    return {};
 }

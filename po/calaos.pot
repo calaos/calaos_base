@@ -876,10 +876,11 @@ msgstr ""
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:415
 msgid ""
 "The path where to find the value in the mqtt payload. If payload if JSON, "
-"informations will be extracted depending on the path. for example weather[0]/"
-"description, try to read the description value of the 1 element of the array "
-"of the weather object. if payload is simple json, just try to use the key of "
-"the value you want to read, for example : {\"temperature\":14.23} use "
+"informations will be extracted depending on the path. Array indices are "
+"their own path segment, written between square brackets: for example "
+"weather/[0]/description reads the description value of the first element "
+"of the weather array. if payload is simple json, just try to use the key "
+"of the value you want to read, for example : {\"temperature\":14.23} use "
 "\"temperature\" as path"
 msgstr ""
 
@@ -891,11 +892,12 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:418
 msgid ""
-"The path where to find the battery status in the mqtt payload. If payload if "
-"JSON, informations will be extracted depending on the path. for example "
-"weather[0]/description, try to read the description value of the 1 element "
-"of the array of the weather object. If payload is simple json object, just "
-"try to use the key of the value you want to read, for example : "
+"The path where to find the battery status in the mqtt payload. If payload "
+"if JSON, informations will be extracted depending on the path. Array "
+"indices are their own path segment, written between square brackets: for "
+"example weather/[0]/description reads the description value of the first "
+"element of the weather array. If payload is simple json object, just try "
+"to use the key of the value you want to read, for example : "
 "{\"battery\":90} use \"battery\" as path. When this path is set, and the "
 "level drops below 30%. The battery reported should be in percent. Use "
 "`battery_expr` to adjust if required."
@@ -918,13 +920,14 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:422
 msgid ""
-"The path where to find the connected status in the mqtt payload. If payload "
-"if JSON, informations will be extracted depending on the path. for example "
-"weather[0]/description, try to read the description value of the 1 element "
-"of the array of the weather object. If payload is simple json, just try to "
-"use the key of the value you want to read, for example : {\"connected\":"
-"true} use \"connected\" as path. The value should be a boolean. Use "
-"connected_status_expr to convert to a boolean"
+"The path where to find the connected status in the mqtt payload. If "
+"payload if JSON, informations will be extracted depending on the path. "
+"Array indices are their own path segment, written between square brackets: "
+"for example weather/[0]/description reads the description value of the "
+"first element of the weather array. If payload is simple json, just try to "
+"use the key of the value you want to read, for example : "
+"{\"connected\":true} use \"connected\" as path. The value should be a "
+"boolean. Use connected_status_expr to convert to a boolean"
 msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:423
@@ -945,12 +948,13 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:426
 msgid ""
-"The path where to find the wireless signal strength in the mqtt payload. If "
-"payload if JSON, informations will be extracted depending on the path. for "
-"example weather[0]/description, try to read the description value of the 1 "
-"element of the array of the weather object. If payload is simple json, just "
-"try to use the key of the value you want to read, for example : {\"signal\": "
-"70} use \"signal\" as path. The value should be a number in percent. Use "
+"The path where to find the wireless signal strength in the mqtt payload. "
+"If payload if JSON, informations will be extracted depending on the path. "
+"Array indices are their own path segment, written between square brackets: "
+"for example weather/[0]/description reads the description value of the "
+"first element of the weather array. If payload is simple json, just try to "
+"use the key of the value you want to read, for example : {\"signal\": 70} "
+"use \"signal\" as path. The value should be a number in percent. Use "
 "`wireless_signal_expr` to adjust if required."
 msgstr ""
 
@@ -973,10 +977,11 @@ msgstr ""
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:430
 msgid ""
 "The path where to find the uptime of the sensor in the mqtt payload. If "
-"payload if JSON, informations will be extracted depending on the path. for "
-"example weather[0]/description, try to read the description value of the 1 "
-"element of the array of the weather object. If payload is simple json, just "
-"try to use the key of the value you want to read, for example : {\"uptime\": "
+"payload if JSON, informations will be extracted depending on the path. "
+"Array indices are their own path segment, written between square brackets: "
+"for example weather/[0]/description reads the description value of the "
+"first element of the weather array. If payload is simple json, just try to "
+"use the key of the value you want to read, for example : {\"uptime\": "
 "3600} use \"uptime\" as path. The value should be a number in seconds. Use "
 "`uptime_expr` to adjust if required."
 msgstr ""
@@ -998,13 +1003,14 @@ msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:434
 msgid ""
-"The path where to find the IP address of the sensor in the mqtt payload. If "
-"payload if JSON, informations will be extracted depending on the path. for "
-"example weather[0]/description, try to read the description value of the 1 "
-"element of the array of the weather object. If payload is simple json, just "
-"try to use the key of the value you want to read, for example : "
-"{\"ip_address\": \"192.168.1.156\"} use \"ip_address\" as path. The value "
-"should be a string with the IP address."
+"The path where to find the IP address of the sensor in the mqtt payload. "
+"If payload if JSON, informations will be extracted depending on the path. "
+"Array indices are their own path segment, written between square brackets: "
+"for example weather/[0]/description reads the description value of the "
+"first element of the weather array. If payload is simple json, just try to "
+"use the key of the value you want to read, for example : {\"ip_address\": "
+"\"192.168.1.156\"} use \"ip_address\" as path. The value should be a "
+"string with the IP address."
 msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:436
@@ -1017,11 +1023,12 @@ msgstr ""
 msgid ""
 "The path where to find the WiFi SSID where the sensor is connected in the "
 "mqtt payload. If payload if JSON, informations will be extracted depending "
-"on the path. for example weather[0]/description, try to read the description "
-"value of the 1 element of the array of the weather object. If payload is "
-"simple json, just try to use the key of the value you want to read, for "
-"example : {\"wifi_ssid\": \"MyWifi\"} use \"wifi_ssid\" as path. The value "
-"should be a string with the WiFi SSID."
+"on the path. Array indices are their own path segment, written between "
+"square brackets: for example weather/[0]/description reads the description "
+"value of the first element of the weather array. If payload is simple "
+"json, just try to use the key of the value you want to read, for example : "
+"{\"wifi_ssid\": \"MyWifi\"} use \"wifi_ssid\" as path. The value should be "
+"a string with the WiFi SSID."
 msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp:439
@@ -1112,7 +1119,7 @@ msgstr ""
 msgid ""
 "The path where to found the Y (X/Y Color space) value in the mqtt payload. "
 "If payload if JSON, informations will be extracted depending on the path. "
-"for example color/y, try to read the x value from the color object."
+"for example color/y, try to read the y value from the color object."
 msgstr ""
 
 #: src/bin/calaos_server/IO/Mqtt/MqttOutputLightRGB.cpp:45
@@ -1997,15 +2004,17 @@ msgstr ""
 msgid ""
 "The path where to found the value. This value can take multiple values "
 "depending on the file type. If file_type is JSON, the json file downloaded "
-"will be read, and the informations will be extracted from the path. for "
-"example weather[0]/description, try to read the description value of the 1 "
-"element of the array of the weather object.\n"
-"If file_type is XML, the path is an xpath expression; Look here for syntax : "
-"http://www.w3schools.com/xsl/xpath_syntax.asp If file_type is TEXT, the "
-"downloaded file is returned as plain text file, and path must be in the form "
-"line/pos/separator Line is read, and is split using separator as delimiters "
-"The value returned is the value at pos in the split list. If the separator "
-"is not found, the whole line is returned. Example the file contains \n"
+"will be read, and the informations will be extracted from the path. Array "
+"indices are their own path segment, written between square brackets: for "
+"example weather/[0]/description reads the description value of the first "
+"element of the weather array.\n"
+"If file_type is XML, the path is an xpath expression; Look here for syntax "
+": http://www.w3schools.com/xsl/xpath_syntax.asp If file_type is TEXT, the "
+"downloaded file is returned as plain text file, and path must be in the "
+"form line/pos/separator Line is read, and is split using separator as "
+"delimiters The value returned is the value at pos in the split list. If "
+"the separator is not found, the whole line is returned. Example the file "
+"contains \n"
 "10.0,10.1,10.2,10.3\n"
 "20.0,20.1,20.2,20.3\n"
 "If the path is 2/4/, the value returne wil be 20.3\n"
@@ -2089,12 +2098,6 @@ msgstr ""
 
 #: src/bin/calaos_server/IPCam/Foscam.cpp:37
 msgid "Port number"
-msgstr ""
-
-#: src/bin/calaos_server/IPCam/Gadspot.cpp:31
-msgid ""
-"Gadspot IP Camera. Camera can be viewed directly inside calaos and used in "
-"rules."
 msgstr ""
 
 #: src/bin/calaos_server/IPCam/IPCam.cpp:35
@@ -2193,4 +2196,923 @@ msgstr ""
 
 #: src/bin/calaos_server/main.cpp:59
 msgid "\t-v, --version\tDisplay current version and exit.\n"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Name"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Name of the device, shown in the interfaces."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room the device is created in."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "ESPHome topic prefix"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"topic_prefix of the mqtt: block of the ESPHome node; its node name by "
+"default."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Climate object id"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Object id of the climate entity: its name in lower case, spaces and "
+"punctuation turned into underscores (Clim salon gives clim_salon)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT broker"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Address of the MQTT broker the node publishes to."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT port"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "TCP port of the MQTT broker."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT user"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "User of the MQTT broker, if it asks for one."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "MQTT password"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Password of that user."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Auto"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "On"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Off"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Low"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Medium"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "High"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Middle"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Focus"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Diffuse"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Quiet"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan modes"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan modes the climate accepts. None: no fan control."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Swing modes"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Swing modes the climate accepts. None: no swing control."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Both"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Vertical"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Horizontal"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Cool"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Dry"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan only"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Modes"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Modes the climate offers. One at least."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Two setpoints"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"The climate takes a low and a high setpoint (target_temperature_low and "
+"_high) instead of a single one, as a dual setpoint ESPHome thermostat does."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Lowest setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Lowest setpoint the climate accepts."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Highest setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Highest setpoint the climate accepts."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Setpoint step"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Step of the setpoint."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reports its action"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"The climate publishes what it is doing (heating, cooling, idle). Not every "
+"platform does."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"A sensor whose temperature Calaos relays to the climate, which then "
+"regulates on it. ESPHome needs a few lines of YAML to take it (see the "
+"notes): Calaos publishes it on <topic_prefix>/calaos/remote_temp."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} low setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} high setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} action"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} fan"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} swing"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "{name} remote temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"ESPHome takes no remote temperature over MQTT out of the box. For a "
+"Mitsubishi CN105 climate (MitsubishiCN105ESPHome), make the relayed "
+"temperature a sensor of the node and the climate's remote temperature "
+"source; past remote_temperature_timeout without an update, the climate goes "
+"back to its own sensor:"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"For a climate that regulates on a sensor of its own (thermostat platform), "
+"make the relayed temperature that sensor; the timeout turns it into NaN, and "
+"the thermostat off, when Calaos stops relaying:"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "ESPHome climate (MQTT)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"A heat pump or an air conditioner run by ESPHome, which regulates by itself: "
+"Calaos reads its state over MQTT and sends the commands. Optionally, Calaos "
+"relays the temperature of a room sensor to it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Room temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "The IR climate has a sensor: option and publishes current_temperature."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "ESPHome IR climate (MQTT)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"An air conditioner driven by infrared from ESPHome (climate_ir platforms). "
+"It reports no action and cannot take a remote temperature."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Temperature sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"The room temperature the thermostat regulates on. A sensor that only reports "
+"its changes may be taken for a silent one."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Relay or contact the thermostat switches. It belongs to this thermostat "
+"alone: rules must not write it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Electric heaters"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Water radiators (boiler, zone valve)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Underfloor heating"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heating output"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Emitter"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"What the output drives: it sets the hysteresis and the minimum on and off "
+"times."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heating thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Calaos switches a heating output from a room sensor and a setpoint."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reversible heat pump on contacts"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Fan coils (valves on a water loop)"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Cooling output"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"What the outputs drive: it sets the hysteresis, the minimum on and off times "
+"and the minimum range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Heating and cooling thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Calaos switches a heating and a cooling output from a room sensor: one "
+"setpoint in heat and cool, a range in auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Humidity sensor"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Relative humidity of the room. Cooling stops while it reads humidity_max or "
+"more, has not read, or is silent: the floor would sweat."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Maximum humidity"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Relative humidity from which cooling stops. At 60 % and 25 °C the dew point "
+"is about 17 °C, under the surface of a floor fed with water at 16 °C."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reversible floor thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Calaos heats and cools through the floor, and stops cooling before the dew "
+"point."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Reversible floor zone"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Calaos opens the valve of a floor zone to heat or to cool, the mode giving "
+"the direction. Rules drive the heat pump from the zones."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Valve or relay of the zone. It opens for any demand, heating or cooling: "
+"the mode gives the direction. It belongs to this thermostat alone: rules "
+"must not write it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Modes the zone offers; off always is. A zone without cooling keeps heat "
+"alone."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"Optional. With it, cooling stops while the room reads humidity_max or more, "
+"has not read, or is silent. Without it, the installation keeps the floor "
+"above the dew point."
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Relative humidity from which cooling stops, with a humidity sensor."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Minimum gap in degrees between target_temp_low and target_temp_high. A range "
+"closer than that is refused."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Minimum range"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Seconds a linked sensor may go without a reading, a repeated value included, "
+"before it counts as stale. A positive number; the default outlasts one lost "
+"hourly Zigbee report. A sensor older than half of it is asked for a reading "
+"when its protocol can (KNX)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Sensor timeout"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Comma separated modes the device offers (off, heat, cool, auto, dry, "
+"fan_only). Default to all of them."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Comma separated fan modes the appliance accepts. Without it every fan_mode "
+"command is refused."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Comma separated swing modes the appliance accepts. Without it every "
+"swing_mode command is refused."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Fan mode, one of the fan_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Swing mode, one of the swing_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+" Bounds are those of the linked IO (value_min, value_max, step, unit), else "
+"7 to 35 by 0.5 in °C. The effective ones are published in the capabilities."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid ""
+"Operating mode. The modes an instance accepts are published in its "
+"capabilities."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "The setpoint used in heat and cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "Low bound of the range used in auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ClimateBase.cpp
+msgid "High bound of the range used in auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Climate proxy"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"A climate appliance that regulates by itself (heat pump, ESPHome climate): "
+"Calaos reads its state and relays commands, it does not regulate."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Each link role reads the io of its link and writes its command_io, or the io "
+"itself when that is an output. A role that cannot be written is not offered."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"What is written to the mode link for auto. Without it, the spelling the "
+"appliance last reported, else heat_cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Auto payload"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Seconds between two relays of the remote_temp_source value to remote_temp, "
+"on top of each change. The appliance falls back to its own sensor when "
+"updates stop. A number of seconds above 0, else the default is used."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Remote temperature refresh"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Seconds a range bound just commanded is trusted before its readback confirms "
+"it, so two quick partial commands are validated together. A number of "
+"seconds above 0, else the default is used."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Readback hold"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Mode of the appliance. Needs a command_io unless its io is an output. Its "
+"availability is the appliance's: connected false in the state."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Current temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Temperature the appliance measures."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Setpoint used in heat and cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Low setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Low bound of the auto range. Both bounds are needed for a range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "High setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "High bound of the auto range. Both bounds are needed for a range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Action"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "What the appliance is doing: off, idle, heating, cooling, drying, fan."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Fan mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Fan mode. Needs the fan_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Swing mode"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Swing mode. Needs the swing_modes param."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Remote temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Where the temperature of another sensor is written, for appliances that take "
+"one. Needs remote_temp_source."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"Relative humidity the appliance, or a room sensor, reports: shown in the "
+"state."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"The sensor relayed to remote_temp. Needs remote_temp. Not relayed before it "
+"has read since the start, nor while it has sent nothing for sensor_timeout "
+"or reports itself disconnected: the appliance then falls back to its own "
+"sensor."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Climate thermostat"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"A thermostat that regulates in Calaos: it switches output_heat and "
+"output_cool from current_temp and its setpoints. Its mode is stored by the "
+"device."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Night setback, away mode and the like are rules writing the setpoints or the "
+"mode. Missing setpoint and action IOs are created at load."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Degrees past the setpoint before an output starts switching on: heat below "
+"the setpoint minus hysteresis, cool above the setpoint plus hysteresis. "
+"Switching off comes as soon as the setpoint is crossed."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Hysteresis"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Seconds an output stays on at least, except when the mode is off or a safety "
+"cut stops it."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Minimum on time"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Seconds an output stays off at least before it can start again."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Minimum off time"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Seconds before an output that something else keeps switching is put back; "
+"the wait doubles while the other writer keeps undoing it, up to "
+"put_back_delay_max. At least 0.001, else the default is used."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Put-back delay"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Longest wait between two put-backs, in seconds. Not below put_back_delay. It "
+"also sets the window of the log of writes from outside to an output: one "
+"line per source and output during that time."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Maximum put-back delay"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"What the outputs drive. Only floor has an effect: with a humidity link, "
+"floor cooling then stops at humidity_max (dew point)."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Zone valve"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Valve or relay of the zone, ON for any demand, heating or cooling: the mode "
+"gives the direction. Instead of output_heat and output_cool, which cannot "
+"be linked with it; the modes param says what it offers."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Comma separated modes the thermostat offers, among heat, cool and auto; off "
+"is always offered. Without it, the outputs decide: heat with output_heat, "
+"cool with output_cool, auto with both, and heat alone with output. A mode "
+"the outputs cannot run, or an unknown one, is ignored."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Relative humidity (%) from which floor cooling stops, with emitter=floor. "
+"Not negative."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+" An output belongs to a single thermostat: a second one linking it ignores "
+"the link."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Temperature the regulation reads. The outputs stay off until it has "
+"delivered a reading since the start (a cached or retained value does not "
+"count), while it has sent nothing for sensor_timeout, reports itself "
+"disconnected or reads outside valid_min..valid_max."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Setpoint used in heat and cool. Created when missing."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Low bound of the auto range. Created when missing, with output_cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "High bound of the auto range. Created when missing, with output_cool."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Written by the thermostat: off, idle, heating or cooling. Created when "
+"missing."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Output driven for heating. Enables heat."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Output driven for cooling. Enables cool and auto."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Relative humidity of the room. With emitter=floor, cooling stops while it "
+"reads humidity_max or more, has not read, is stale or disconnected. Without "
+"it, a floor cools with no dew-point cut."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+" Heat needs the output_heat link, cool needs output_cool and auto needs "
+"both; with the output link, the modes param says which ones."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Device.cpp
+msgid ""
+"Implementation of the device family: the key of this document in devices."
+msgstr ""
+
+#: src/bin/calaos_server/IO/Device.cpp
+msgid "Implementation"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Identifier"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Visible"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Enabled"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "Display type"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "IO type"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "History log"
+msgstr ""
+
+#: src/bin/calaos_server/IOBase.cpp
+msgid "InfluxDB"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Lowest plausible reading of current_temp, in the unit of the sensor. A "
+"reading below it is treated as no reading: the outputs go OFF at once, "
+"whatever min_on_time, until a reading is back within the bounds. No check "
+"when empty."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid ""
+"Highest plausible reading of current_temp, in the unit of the sensor. A "
+"reading above it is treated as no reading, like valid_min. No check when "
+"empty. Not below valid_min."
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Lowest valid temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/InternalThermostat.cpp
+msgid "Highest valid temperature"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"For a unit with a single setpoint: the device keeps target_temp_low and "
+"target_temp_high itself (internal IOs, created when missing) and offers "
+"auto. In auto the unit runs in heat on the low setpoint below the range, in "
+"cool on the high setpoint above it, and is off in between. Needs a "
+"target_temp link and heat and cool among the modes. The room temperature is "
+"remote_temp_source, else current_temp; while it is stale the unit is left as"
+" it is. A mode changed on the unit itself suspends auto until it is selected"
+" again. auto is never sent to the unit."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid "Emulated dual setpoint"
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: degrees past the range before the unit starts, in heat "
+"below the low setpoint minus hysteresis, in cool above the high setpoint "
+"plus hysteresis. It stops as soon as the room is back in the range."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: seconds the unit runs at least in heat or cool before "
+"auto stops it. A mode selected by the user is applied at once."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: seconds the unit stays off at least before auto starts "
+"it again."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid ""
+"With emulate_range: seconds between the end of heat and the start of cool, "
+"or the reverse, at least min_off_time."
+msgstr ""
+
+#: src/bin/calaos_server/IO/ProxyClimate.cpp
+msgid "Changeover delay"
+msgstr ""
+
+#: src/bin/calaos_server/IO/DeviceTemplates.cpp
+msgid ""
+"For a climate with a single setpoint (leave Two setpoints unchecked): Calaos"
+" keeps a low and a high setpoint and, in auto, runs the climate in heat "
+"below the low one, in cool above the high one, and stops it in between. "
+"Needs heat and cool among the modes."
 msgstr ""

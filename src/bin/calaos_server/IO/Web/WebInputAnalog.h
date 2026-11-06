@@ -22,23 +22,19 @@
 #ifndef WEBINPUTANALOG_H
 #define WEBINPUTANALOG_H
 
-#include "Calaos.h"
 #include "InputAnalog.h"
 #include "WebDocBase.h"
 
 namespace Calaos
 {
 
-class WebInputAnalog : public InputAnalog
+class WebInputAnalog : public WebInputBase<InputAnalog>
 {
 protected:
-    virtual void readValue();
-
-    WebDocBase docBase;
+    void readValue() override { readValueDouble(); }
 
 public:
     WebInputAnalog(Params &p);
-    ~WebInputAnalog();
 };
 
 }

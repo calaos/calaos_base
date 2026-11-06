@@ -26,7 +26,25 @@ using namespace Calaos;
 GpioCtrl::GpioCtrl(int _gpionum, double _debounce_time)
 {
     debounce = false;
-    debounce_time = _debounce_time;
+
+    if (debounceTimeValid(_debounce_time))
+    {
+        debounce_time = _debounce_time;
+    }
+    else
+    {
+        //0 also means "no debounce_time in the config": Utils::from_string()
+        //zero-fills its dest on an absent param (see FINDINGS), so stay
+        //silent for that case and only warn on a real misconfiguration.
+        if (_debounce_time != 0.0)
+        {
+            cWarningDom("input") << "Invalid debounce_time " << _debounce_time
+                                 << " (must be > 0 and <= " << DEBOUNCE_TIME_MAX
+                                 << "s), falling back to " << DEBOUNCE_TIME_DEFAULT << "s";
+        }
+        debounce_time = DEBOUNCE_TIME_DEFAULT;
+    }
+
     gpionum = _gpionum;
     gpionum_str = Utils::to_string(gpionum);
     cDebugDom("input") << "Create GpioCtrl for " << gpionum_str;
@@ -43,9 +61,9 @@ GpioCtrl::~GpioCtrl()
     }
 
     //unexportGpio();
-    if (fd == -1)
-        close(fd);
-    fd = -1;
+    //(the guard was inverted here and leaked the fd: close() only ran
+    // when fd was already -1. closeFd() has the correct check.)
+    closeFd();
     cDebugDom("input") << "Delete GpioCtrl";
 }
 
@@ -175,7 +193,12 @@ void GpioCtrl::emitChange()
     {
         debounce = true;
 
-        Timer::singleShot(0.05, [=](){
+        //Guard with the lifetime token: the GpioCtrl can be deleted
+        //(io reconfiguration) while the debounce timer is in flight.
+        Timer::singleShot(debounce_time, [this, token = std::weak_ptr<bool>(alive)]()
+        {
+            if (token.expired())
+                return; //GpioCtrl deleted while debouncing
             cDebugDom("input") << "Debounce finished";
             debounce = false;
             event_signal.emit();

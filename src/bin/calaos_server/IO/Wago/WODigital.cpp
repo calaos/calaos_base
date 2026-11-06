@@ -47,20 +47,20 @@ WODigital::WODigital(Params &p):
 
     from_string(get_param("var"), address);
 
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     WagoMap::Instance(host, port);
 
     if (get_param("knx") == "true")
         address += WAGO_KNX_START_ADDRESS;
 
-    int noTranslatedAddress = address;
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        //Do this before translating address to 841/849
-        WagoMap::Instance(host, port).read_output_bits((UWord)noTranslatedAddress, 1, sigc::mem_fun(*this, &WODigital::WagoReadCallback));
-    });
+    //Read back before translating address to 841/849
+    readBackAddress = address;
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WODigital::readBack));
 
     if (get_param("wago_841") == "true" && get_param("knx") != "true")
         address += WAGO_841_START_ADDRESS;
@@ -74,7 +74,12 @@ WODigital::~WODigital()
 {
 }
 
-void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool> &values)
+void WODigital::readBack()
+{
+    WagoMap::Instance(host, port).read_output_bits(WagoTypes::Address((UWord)readBackAddress), WagoTypes::Count(1), sigc::mem_fun(*this, &WODigital::WagoReadCallback));
+}
+
+void WODigital::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<bool> &values)
 {
     if (!status)
     {
@@ -102,7 +107,7 @@ void WODigital::WagoReadCallback(bool status, UWord addr, int count, vector<bool
     }
 }
 
-void WODigital::WagoWriteCallback(bool status, UWord addr, bool _value)
+void WODigital::WagoWriteCallback(bool status, WagoTypes::Address addr, WagoTypes::BitValue _value)
 {
     if (!status)
     {
@@ -119,10 +124,14 @@ bool WODigital::set_value_real(bool val)
         address += WAGO_KNX_START_ADDRESS;
     if (get_param("wago_841") == "true" && get_param("knx") != "true")
         address += WAGO_841_START_ADDRESS;
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
-    WagoMap::Instance(host, port).write_single_bit((UWord)address, val, sigc::mem_fun(*this, &WODigital::WagoWriteCallback));
+    WagoMap::Instance(host, port).write_single_bit(WagoTypes::Address((UWord)address), WagoTypes::BitValue(val),
+                                                    sigc::mem_fun(*this, &WODigital::WagoWriteCallback));
 
     return true;
 }

@@ -22,31 +22,15 @@
 #define S_WIDigitalLong_H
 
 #include <InputSwitchLongPress.h>
-#include <WagoMap.h>
+#include <WagoIOBase.h>
 
 namespace Calaos
 {
 
-class WIDigitalLong : public InputSwitchLongPress, public sigc::trackable
+class WIDigitalLong : public WIDigitalBase<InputSwitchLongPress>
 {
-protected:
-    type_signal_wago::iterator iter;
-
-    int address;
-    std::string host;
-    int port;
-
-    bool udp_value;
-
-    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-
-    virtual bool readValue();
-
 public:
     WIDigitalLong(Params &p);
-    ~WIDigitalLong();
-
-    virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
 };
 
 }

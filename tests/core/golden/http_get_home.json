@@ -1,0 +1,141 @@
+{
+  "audio": [
+    {
+      "avr": "e40_avr",
+      "database": "false",
+      "id": "e40_player",
+      "name": "Player",
+      "playlist": "false",
+      "type": "Roon"
+    }
+  ],
+  "cameras": [
+    {
+      "id": "e40_cam_ptz",
+      "name": "Camera PTZ",
+      "ptz": "true",
+      "type": "StandardMjpeg"
+    },
+    {
+      "id": "e40_cam_plain",
+      "name": "Camera plain",
+      "ptz": "false",
+      "type": "StandardMjpeg"
+    }
+  ],
+  "home": [
+    {
+      "hits": "3",
+      "items": [
+        {
+          "gui_type": "var_bool",
+          "id": "e40_bool_in",
+          "io_type": "inout",
+          "name": "Bool input",
+          "rw": "false",
+          "state": "false",
+          "type": "InternalBool",
+          "var_type": "bool",
+          "visible": "true"
+        },
+        {
+          "gui_type": "var_bool",
+          "id": "e40_bool_out",
+          "io_type": "inout",
+          "name": "Bool output",
+          "rw": "false",
+          "state": "false",
+          "type": "InternalBool",
+          "var_type": "bool",
+          "visible": "true"
+        },
+        {
+          "gui_type": "var_int",
+          "id": "e40_int",
+          "io_type": "inout",
+          "name": "Int value",
+          "rw": "false",
+          "state": "0",
+          "type": "InternalInt",
+          "var_type": "float",
+          "visible": "true"
+        },
+        {
+          "gui_type": "var_string",
+          "id": "e40_string",
+          "io_type": "inout",
+          "name": "String value",
+          "rw": "false",
+          "state": "",
+          "type": "InternalString",
+          "var_type": "string",
+          "visible": "true"
+        }
+      ],
+      "name": "Salon",
+      "type": "salon"
+    },
+    {
+      "hits": "0",
+      "items": [
+        {
+          "autoscenario_uid": "as_e40",
+          "chauffage_id": "e40_heater",
+          "gui_type": "var_string",
+          "hits": "12",
+          "id": "e40_accented",
+          "io_style": "temperature",
+          "io_type": "inout",
+          "name": "Éclairage café",
+          "rw": "false",
+          "state": "",
+          "step": "0.5",
+          "type": "InternalString",
+          "unit": "°C",
+          "value_warning": "false",
+          "var_type": "string",
+          "visible": "true"
+        }
+      ],
+      "name": "Cuisine",
+      "type": "cuisine"
+    },
+    {
+      "hits": "0",
+      "items": [
+        {
+          "gui_type": "camera",
+          "id": "e40_cam_ptz",
+          "io_type": "inout",
+          "name": "Camera PTZ",
+          "state": "",
+          "type": "StandardMjpeg",
+          "var_type": "string",
+          "visible": "false"
+        },
+        {
+          "gui_type": "camera",
+          "id": "e40_cam_plain",
+          "io_type": "inout",
+          "name": "Camera plain",
+          "state": "",
+          "type": "StandardMjpeg",
+          "var_type": "string",
+          "visible": "false"
+        },
+        {
+          "gui_type": "audio_player",
+          "id": "e40_player",
+          "io_type": "inout",
+          "name": "Player",
+          "state": "",
+          "type": "Roon",
+          "var_type": "string",
+          "visible": "false"
+        }
+      ],
+      "name": "Technique",
+      "type": "technique"
+    }
+  ]
+}

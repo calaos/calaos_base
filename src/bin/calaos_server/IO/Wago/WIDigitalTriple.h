@@ -22,32 +22,15 @@
 #define S_WIDigitalTriple_H
 
 #include <InputSwitchTriple.h>
-#include <WagoMap.h>
-#include <Timer.h>
+#include <WagoIOBase.h>
 
 namespace Calaos
 {
 
-class WIDigitalTriple : public InputSwitchTriple, public sigc::trackable
+class WIDigitalTriple : public WIDigitalBase<InputSwitchTriple>
 {
-protected:
-    type_signal_wago::iterator iter;
-
-    int address;
-    std::string host;
-    int port;
-
-    bool udp_value;
-
-    void WagoReadCallback(bool status, UWord address, int count, vector<bool> &values);
-
-    virtual bool readValue();
-
 public:
     WIDigitalTriple(Params &p);
-    ~WIDigitalTriple();
-
-    virtual void ReceiveFromWago(std::string ip, int addr, bool val, std::string intype);
 };
 
 }

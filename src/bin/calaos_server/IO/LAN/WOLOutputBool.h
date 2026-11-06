@@ -52,6 +52,13 @@ public:
     virtual bool set_value(bool val);
     virtual bool get_value_bool() { return value; }
     virtual bool set_value(string val);
+
+    /* Decode a MAC address into its 6 bytes. Accepts upper and lower case
+     * hex digits, with or without ':', '-' or '.' separators.
+     * Returns false and leaves address untouched when the string is not a
+     * valid MAC address.
+     */
+    static bool parseMacAddress(const string &macAddress, vector<uint8_t> &address);
 };
 
 #endif // PINGINPUTSWITCH_H

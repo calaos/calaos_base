@@ -24,11 +24,14 @@
 #include "Calaos.h"
 #include "EventManager.h"
 #include "IODoc.h"
+#include "Timer.h"
+
+#include <chrono>
+#include <optional>
 
 namespace Calaos
 {
 
-class AutoScenario;
 
 
 
@@ -51,6 +54,7 @@ protected:
     struct StatusInfo
     {
         double battery_level = 0.0; // Battery level in percentage
+        bool battery_level_set = false; // True once a battery level has been reported (0% is a valid reading)
         StatusConnected connected = StatusConnected::STATUS_NONE; // True if the device is connected
         double wireless_signal = 0.0; // Wireless signal strength in percentage
         uint64_t uptime = 0; // Uptime in seconds
@@ -61,10 +65,21 @@ protected:
     StatusInfo status_info;
 
 private:
-    bool auto_sc_mark;
-    AutoScenario *ascenario = nullptr;
-
     int io_type = IO_UNKNOWN;
+
+    //True when the constructor registered this IO into ListeRoom's io_table:
+    //only then may the destructor (or renameId()) touch the table.
+    bool hashRegistered = false;
+
+    std::string ownerDevice;
+
+    bool valueKnown = false;
+    std::optional<std::chrono::steady_clock::time_point> readingAt;
+
+    //When true, newly constructed IOBase objects are NOT registered into
+    //ListeRoom's io_table. Only ever set through ScopedDocGen (single
+    //threaded, not reentrant), used by IOFactory doc generation.
+    static bool docGenerationMode;
 
 public:
 
@@ -94,22 +109,71 @@ public:
 
     virtual map<string, string> query_param(string key) { map<string, string> m; return m; }
 
-    virtual void set_param(std::string opt, std::string val) { param.Add(opt, val); }
+    /* "id" is the key of ListeRoom's io_table hash. Changing it through the
+     * generic setter would leave the table keyed on the old id (stale lookup,
+     * dangling entry on delete -> potential use-after-free), so set_param()
+     * refuses to change an existing "id" and del_param() refuses to delete
+     * it. Renaming an IO must go through renameId(), which keeps the
+     * io_table consistent.
+     * Note: get_params() still hands out a mutable Params reference, callers
+     * must not use it to change "id" (a full read-only API is out of scope
+     * of T1.11). ⛔ Going through it is how the JSON API used to delete an id
+     * while the io_table stayed keyed on it: an IO nobody can address any
+     * more, and an unregister that no longer finds itself.
+     *
+     * Answers false when the write was REFUSED, and nothing was changed. A
+     * caller that reports success to a client has to read it: the two
+     * refusals ("id", and a zero byte in the name or the value) are silent
+     * otherwise. Setting a param to the value it already has is not a
+     * refusal.
+     *
+     * del_param() answers the same way, and for the same reason: its only
+     * refusal is silent otherwise. Deleting a param that was never there is
+     * not a refusal.
+     *
+     * Both also refuse a write that would leave an IO the configuration
+     * loader can no longer rebuild - today that is "type", because IOFactory
+     * resolves the driver class with it and answers nullptr without it, so a
+     * "successful" delete costs the whole equipment at the next start. The
+     * question is asked of IOFactory::canCreate() and not of a list of names:
+     * a param the factory starts reading is covered on its own. A write that
+     * leaves the IO buildable - moving it from one registered type to another
+     * - stays allowed, because nothing is lost. */
+    virtual bool set_param(std::string opt, std::string val);
     virtual std::string get_param(std::string opt) { return param[opt]; }
     virtual Params &get_params() { return param; }
     virtual bool param_exists(std::string opt) { return param.Exists(opt); }
-    virtual void del_param(std::string opt) { param.Delete(opt); }
+    virtual bool del_param(std::string opt);
 
-    virtual bool LoadFromXml(TiXmlElement *node);
-    virtual bool SaveToXml(TiXmlElement *node);
+    /* Controlled rename hook: atomically changes the "id" param AND the
+     * io_table key (unregister/re-register through ListeRoom). Fails (and
+     * changes nothing) when newId is empty or already taken by another IO.
+     * This is the only supported way to change an IO id after creation. */
+    bool renameId(const std::string &newId);
 
-    bool isAutoScenario() { return auto_sc_mark; }
-    void setAutoScenario(bool m) { auto_sc_mark = m; }
+    /* RAII guard used by IOFactory::genDocIO(): while alive, constructed
+     * IOBase objects stay out of the live io_table (they are documentation
+     * throwaways sharing id="doc", they must neither shadow nor collide
+     * with real IOs). Not reentrant, single threaded use only. */
+    class ScopedDocGen
+    {
+    public:
+        ScopedDocGen();
+        ~ScopedDocGen();
+        ScopedDocGen(const ScopedDocGen &) = delete;
+        ScopedDocGen &operator=(const ScopedDocGen &) = delete;
+    };
 
-    void setAutoScenarioPtr(AutoScenario *sc) { ascenario = sc; }
-    AutoScenario *getAutoScenarioPtr() { return ascenario; }
+    virtual bool LoadFromXml(pugi::xml_node node);
+    virtual bool SaveToXml(pugi::xml_node node);
 
     bool isEnabled() { return param["enabled"] == "true"; }
+
+    /* Id of the device whose element declared this IO, empty for an IO
+     * declared at room level. A member and not a param: it is the nesting
+     * in io.xml, never an attribute, and the API must not edit it. */
+    const std::string &getOwnerDevice() const { return ownerDevice; }
+    void setOwnerDevice(const std::string &id) { ownerDevice = id; }
 
     IODoc *getDoc() const {return ioDoc; }
 
@@ -118,6 +182,25 @@ public:
     bool isInOut() { return io_type == IO_INOUT; }
 
     virtual void EmitSignalIO();
+
+    /* True once the IO holds a value it was given: a change was signalled or
+     * a saved value restored. Before that, a sensor not read yet still shows
+     * its type default (0, ""), which must not be published as a reading. */
+    bool hasValue() const { return valueKnown; }
+
+    /* When the IO last received a value since the server started, a repeated
+     * one included; empty before. A value restored from the state cache is not
+     * a reading. Only the drivers that call markReading() for the readings
+     * they drop as unchanged report a steady sensor as alive. */
+    std::optional<std::chrono::steady_clock::time_point> lastReading() const { return readingAt; }
+
+    /* True when the driver dates every value it receives, a repeated one
+     * included. Otherwise a steady sensor looks silent: a thermostat or a
+     * proxy linked to it says so at load. */
+    virtual bool datesEveryReading() { return false; }
+
+    //Asks the device for a reading, when its protocol can (a KNX group read).
+    virtual void requestReading() {}
 
     virtual void hasChanged() { }
 
@@ -133,8 +216,17 @@ public:
 
     //used to get a better condition value in ConditionOutput rules
     //like if shutter is open or is light on
-    //Note: this is only used for TSTRING outputs
-    virtual bool check_condition_value(std::string cvalue, bool equal) { return false; }
+    //Note: this is only used for TSTRING outputs. The default compares the
+    //string state, as a standard condition does; a plain false here made every
+    //string output without an override (devices included) silently never match.
+    virtual bool check_condition_value(std::string cvalue, bool equal)
+    {
+        return hasComparableState() && (get_value_string() == cvalue) == equal;
+    }
+
+    //False for string IOs whose get_value_string() is not a state (players,
+    //cameras, screens): "!= x" would otherwise be true on every change.
+    virtual bool hasComparableState() { return true; }
 
     enum class StatusType
     {
@@ -153,7 +245,7 @@ public:
 
     bool hasStatusInfo() const
     {
-        return status_info.battery_level != 0.0 ||
+        return status_info.battery_level_set ||
                status_info.connected != StatusConnected::STATUS_NONE ||
                status_info.wireless_signal != 0.0 ||
                status_info.uptime != 0 ||
@@ -162,6 +254,48 @@ public:
     }
 
     Params getStatusInfo() const;
+
+protected:
+    void setValueKnown() { valueKnown = true; }
+    //Set while signalling a value the driver replays: known, not a reading.
+    bool replayed = false;
+    void markReading()
+    {
+        valueKnown = true;
+        readingAt = std::chrono::steady_clock::now();
+    }
+
+    /* T3.40 - lifetime token for the one-shots this IO arms.
+     *
+     * Any IO can be destroyed while the loop still holds a pending
+     * Timer::singleShot()/Idler::singleIdler(): ListeRoom::deleteIO()
+     * (reachable from the JSON API), Room::RemoveIO(), ~Room()/~ListeRoom()
+     * when the configuration is reloaded or the server stops. The uvw handle
+     * of a one-shot is anonymous, so ~IOBase() cannot cancel it, and IOBase
+     * deriving from sigc::trackable would not help either - it would only
+     * cover sigc::mem_fun, never a lambda that captures `this`.
+     *
+     * ⇒ arm through this (ioAlive.singleShot(...)/ioAlive.singleIdler(...))
+     * and the callback becomes a no-op once the IO is gone. Measured by
+     * tests/core/IoLifetimeTimer_test.
+     *
+     * ⚠️ DECLARED LAST ON PURPOSE, and that is only HALF of what it looks
+     * like. Members are destroyed in reverse declaration order, so being last
+     * makes the witness die FIRST among IOBase's own members: while ~IOBase()
+     * tears down param, ioDoc and status_info, the guard already answers
+     * "dead". What no declaration order can change is the other half: a BASE
+     * subobject is always destroyed after the whole derived one, so
+     * throughout ~Derived() and every derived member the guard still answers
+     * "alive".
+     *
+     * ⇒ that residual window is closed by an INVARIANT, not by this member:
+     * NO DESTRUCTOR IN THIS TREE PUMPS THE EVENT LOOP, so no pending one-shot
+     * can fire while a destructor runs. Measured, and kept measured, by
+     * IoLifetimeSourceGuardTest.NothingNewPumpsTheEventLoop - the whole of
+     * src/ gives the loop a turn in exactly three places, none of them a
+     * destructor: main.cpp and the two requestUrl() Lua bindings, which run
+     * in the script side process. */
+    LifetimeTag ioAlive;
 };
 
 }

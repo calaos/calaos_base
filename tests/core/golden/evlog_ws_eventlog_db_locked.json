@@ -1,0 +1,7 @@
+{
+  "data": {
+    "error": "history unavailable: database is locked"
+  },
+  "msg": "eventlog",
+  "msg_id": "eventlog_page:3:1"
+}

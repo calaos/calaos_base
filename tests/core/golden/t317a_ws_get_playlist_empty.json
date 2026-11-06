@@ -1,0 +1,9 @@
+{
+  "data": {
+    "count": "0",
+    "current_track": "0",
+    "items": []
+  },
+  "msg": "get_playlist",
+  "msg_id": "1"
+}

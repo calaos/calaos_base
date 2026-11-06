@@ -1,0 +1,13 @@
+{
+  "data": {
+    "data": {
+      "id": "e40d_doomed",
+      "room_name": "Cuisine",
+      "room_type": "cuisine"
+    },
+    "event_raw": "io_deleted id:e40d_doomed room_name:Cuisine room_type:cuisine",
+    "type": "2",
+    "type_str": "io_deleted"
+  },
+  "msg": "event"
+}

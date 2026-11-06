@@ -27,7 +27,9 @@
 namespace Calaos
 {
 
-class WODaliRVB : public OutputLightRGB
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WODaliRVB: public OutputLightRGB, public sigc::trackable
 {
 private:
     std::string host;
@@ -35,11 +37,13 @@ private:
 
     int red = -1, green = -1, blue = -1;
 
-    void WagoUDPCommandRed_cb(bool status, string command, string result);
-    void WagoUDPCommandGreen_cb(bool status, string command, string result);
-    void WagoUDPCommandBlue_cb(bool status, string command, string result);
-    void WagoUDPCommand_cb(bool status, string command, string result);
+    void WagoUDPCommandRed_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void WagoUDPCommandGreen_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void WagoUDPCommandBlue_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
+    void WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
 
+    bool readRefused(const std::vector<std::string> &tokens,
+                     const WagoTypes::UdpCommand &command, const char *channel);
     void checkReadState();
 
     virtual void setColorReal(const ColorValue &color, bool state);

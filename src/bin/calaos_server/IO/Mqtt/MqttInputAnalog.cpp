@@ -22,11 +22,7 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "MqttInputAnalog.h"
-#include "MqttBrokersList.h"
-#include "WebCtrl.h"
-#include "jansson.h"
 #include "IOFactory.h"
 #include "AnalogIO.h"
 
@@ -35,31 +31,42 @@ using namespace Calaos;
 REGISTER_IO(MqttInputAnalog)
 
 MqttInputAnalog::MqttInputAnalog(Params &p):
-    InputAnalog(p)
+    MqttIOBase(p, "MqttInputAnalog", _("Analog value read from a mqtt broker"))
 {
-    ioDoc->friendlyNameSet("MqttInputAnalog");
-    ioDoc->descriptionSet(_("Analog value read from a mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-    ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-    {
-        readValue();
+    subscribeTopicSub([this]()
+                      {
+        readMessage();
     });
 
-    ctrl->subscribeStatusTopics(this);
-
     cInfoDom("input") << "MqttInputAnalog::MqttInputAnalog()";
+}
+
+void MqttInputAnalog::readMessage()
+{
+    bool err;
+    ctrl->getValueDouble(get_params(), err);
+    //A message the broker replayed (retained) gives the value, but its sensor
+    //may be long dead: it is not a reading, even when the value changes.
+    replayed = ctrl->replayingRetained();
+    //readValue() signals a change only, yet the sensor is alive.
+    if (!err && !replayed)
+        markReading();
+    readValue();
+    replayed = false;
 }
 
 void MqttInputAnalog::readValue()
 {
     bool err;
-    double v;
-    v = ctrl->getValueDouble(get_params(), err);
-    if (!err && v != value)
+    double v = ctrl->getValueDouble(get_params(), err);
+    if (err)
+        return;
+    //Compared once converted: the input poll reads the last value again, and
+    //signalling it would date a reading.
+    const double converted = AnalogIO::convertValue(get_params(), v);
+    if (converted != value)
     {
-        value = AnalogIO::convertValue(get_params(), v);
+        value = converted;
         emitChange();
     }
 }

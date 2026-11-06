@@ -8,10 +8,12 @@ calaospython_PYTHON = \
     $(pythonsrcdir)/calaos_extern_proc/logger.py
 
 EXTRA_DIST = \
-    python/calaos_extern_proc/__init__.py \
-    python/calaos_extern_proc/extern_proc.py \
-    python/calaos_extern_proc/message.py \
-    python/calaos_extern_proc/logger.py
+    calaos_extern_proc/__init__.py \
+    calaos_extern_proc/extern_proc.py \
+    calaos_extern_proc/message.py \
+    calaos_extern_proc/logger.py \
+    __init__.py \
+    setup.py
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(prefix)/lib/python

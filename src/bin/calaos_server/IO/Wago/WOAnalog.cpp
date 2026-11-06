@@ -43,15 +43,15 @@ WOAnalog::WOAnalog(Params &p):
 
     host = get_param("host");
     Utils::from_string(get_param("var"), address);
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
     WagoMap::Instance(host, port);
 
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        WagoMap::Instance(host, port).read_words((UWord)address + 0x200, 1, sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
-    });
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WOAnalog::readBack));
 
     Calaos::StartReadRules::Instance().addIO();
 
@@ -62,7 +62,12 @@ WOAnalog::~WOAnalog()
 {
 }
 
-void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WOAnalog::readBack()
+{
+    WagoMap::Instance(host, port).read_words(WagoTypes::Address((UWord)address + 0x200), WagoTypes::Count(1), sigc::mem_fun(*this, &WOAnalog::WagoReadCallback));
+}
+
+void WOAnalog::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
     if (!status)
     {
@@ -79,7 +84,7 @@ void WOAnalog::WagoReadCallback(bool status, UWord addr, int count, vector<UWord
     Calaos::StartReadRules::Instance().ioRead();
 }
 
-void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
+void WOAnalog::WagoWriteCallback(bool status, WagoTypes::Address addr, WagoTypes::WordValue _value)
 {
     if (!status)
     {
@@ -87,7 +92,12 @@ void WOAnalog::WagoWriteCallback(bool status, UWord addr, UWord _value)
         return;
     }
 
-    value = _value;
+    /* ⚠️ T3.46 - the one line where the wrapper is undone (workaround W7).
+     * `value = addr.v` would type-check just as well; typing the signature
+     * removes the ORDER mistake, not this one. And the value that lands here
+     * is the literal 0 WagoMap.cpp sends, which is a defect of its own,
+     * reported at T3.46.md section 6.4 and deliberately NOT changed here. */
+    value = _value.v;
 
     emitChange();
 
@@ -98,8 +108,12 @@ void WOAnalog::set_value_real(double val)
 {
     host = get_param("host");
     Utils::from_string(get_param("var"), address);
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
-    WagoMap::Instance(host, port).write_single_word((UWord)address, val, sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
+    WagoMap::Instance(host, port).write_single_word(WagoTypes::Address((UWord)address), WagoTypes::WordValue(val),
+                                                     sigc::mem_fun(*this, &WOAnalog::WagoWriteCallback));
 }

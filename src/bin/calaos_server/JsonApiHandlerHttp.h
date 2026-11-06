@@ -44,7 +44,12 @@ public:
 
     virtual void processApi(const string &data, const Params &paramsGET);
 
+    //After change_cred: every get_video stream closes, its credentials are gone
+    static void endHouseholdStreams();
+
 private:
+    //Each one downloads and decodes a whole frame, in its own process
+    static int pictureProcesses;
 
     std::shared_ptr<uvw::ProcessHandle> exe_thumb;
     bool exe_thumb_running = false;
@@ -53,14 +58,50 @@ private:
     Params jsonParam;
 
     UrlDownloader *cameraDl = nullptr;
+    sigc::connection camConnData;
+    sigc::connection camConnComplete;
     bool camHeaderSent = false;
 
-    void sendJson(json_t *json);
+    /* Alive token for the asynchronous callbacks kept outside of this object
+     * (camera snapshots, timers, album cover): they capture a weak_ptr on it
+     * and bail out when the handler has been destroyed in the meantime.
+     */
+    std::shared_ptr<bool> handlerAlive { std::make_shared<bool>(true) };
+
+    /* E4.1s: the jansson overload is GONE. It was the last emitter of this
+     * transport that dumped with JSON_COMPACT | JSON_ENSURE_ASCII, and with it
+     * goes the last form-1 bytestream of the HTTP API. Everything now leaves
+     * through the nlohmann overload and its three emission invariants
+     * (E4.1b): sorted keys, ensure_ascii = true, error_handler_t::replace.
+     */
     void sendJson(const Json &json);
+    void sendLoginFailed();
+
+    //Source address of the client, "unknown" when there is no connection
+    string clientIp() const;
+
+    //Rejects width/rotate when they are not plain integers of a sane range
+    static bool checkPictureParams(const string &width, const string &rotate);
+    //argv of calaos_picture, built argument by argument
+    vector<string> buildPictureCommand(const string &url, const string &width, const string &rotate);
+    //Too many running: answers the client itself, finished never fires
+    void runPictureCommand(const vector<string> &args, std::function<void(int)> finished);
+
+    void releaseCameraDl();
+
+    //MCP connection info (URL path + bearer token), behind gateAdminOnly()
+    void sendMcpInfo();
+
+    //config_backup as a file download: the admin gate, then sendConfigBackup()
+    void processConfigBackup(const Json &request);
+    void sendConfigBackup(const string &ip);
 
     //processing functions
     void processGetHome();
-    void processGetState(json_t *jroot);
+    //E4.1s: the request document itself, not a second parse. A body that did
+    //not parse as an object is a NULL Json here, which is what a null json_t*
+    //meant to these three: fall back to the GET parameters.
+    void processGetState(const Json &jroot);
     void processGetStates();
     void processQuery();
     void processGetParam();
@@ -71,24 +112,25 @@ private:
     void processPolling();
     void processGetCover();
     void processGetCameraPic();
-    void processConfig(json_t *jroot);
-    void processGetIO(json_t *jroot);
+    void processConfig(const Json &jroot);
+    void processGetIO(const Json &jroot);
     void processGetTimerange();
-    void processSetTimerange(json_t *jroot);
-    void processAutoscenario(json_t *jroot);
+    void processSetTimerange(const Json &jroot);
+    //E4.1r: the document the dispatch already parsed, not a second parse.
+    void processAutoscenario(const Json &jroot);
     void processCamera();
     void processEventLog();
     void processEventPicture();
     void processRegisterPush();
 
-    void processAudio(json_t *jroot);
-    void processAudioDb(json_t *jroot);
-
-    void getNextPlaylistItem(AudioPlayer *player, json_t *jplayer, json_t *jplaylist, int it_current, int it_count);
+    //E4.1s: ONE document now. The json_t* twin that carried the dispatch is
+    //gone with the request parse it came from.
+    void processAudio(const Json &jrootDoc);
+    void processAudioDb(const Json &jrootDoc);
 
     void exeFinished(int exit_code);
 
-    void downloadCameraPicture(IPCam *camera);
+    void downloadCameraPicture(const string &cameraId);
 };
 
 #endif // JSONAPIV2_H

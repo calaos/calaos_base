@@ -22,27 +22,16 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebOutputString.h"
-#include "WebCtrl.h"
-#include "jansson.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
 REGISTER_IO(WebOutputString)
 
 WebOutputString::WebOutputString(Params &p):
-    OutputString(p)
-{
-    ioDoc->friendlyNameSet("WebOutputString");
-    ioDoc->descriptionSet(_("String output written to a web document or URL"));
-    docBase.initDoc(ioDoc);
-    docBase.initDoc(ioDoc, true);
-
-    cInfoDom("output") << "WebOutputString::WebOutputString()";
-}
-
-WebOutputString::~WebOutputString()
+    WebIOBase(p, "WebOutputString", _("String output written to a web document or URL"),
+              WebDoc::GetAndPost, "output")
 {
 }
 

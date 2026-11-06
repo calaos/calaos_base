@@ -34,20 +34,55 @@ RoonCtrl::RoonCtrl(const string &host, int port)
     process = new ExternProcServer("roon");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_roon";
 
+    //T3.28: built ONCE, here, and used by every launch. Before this ticket
+    //`args` was built after the connect() below and the handler relaunched
+    //calaos_roon with no arguments at all, so the first restart silently
+    //dropped a statically configured core and fell back to RoonDiscovery.
+    procArgs = RoonArgs::buildArgs(host, port);
+
     process->messageReceived.connect(sigc::mem_fun(*this, &RoonCtrl::processNewMessage));
 
-    process->processExited.connect([=]()
+    process->processExited.connect([this]()
     {
         //restart process when stopped
         cWarningDom("roon") << "process exited, restarting...";
-        process->startProcess(exe, "roon");
+        launch();
     });
 
-    string args;
-    if (!host.empty())
-        args += " --host " + host + " --port " + Utils::to_string(port);
+    launch();
+}
 
-    process->startProcess(exe, "roon", args);
+/*
+ * T3.28: THE ONLY PLACE THAT LAUNCHES calaos_roon.
+ *
+ * That is the whole point of the function. The first launch and the respawn
+ * cannot pass different arguments because there is only one call site left -
+ * a structural closure, not a convention. tests/core/RoonArgs_test.cpp keeps
+ * it that way with a source tripwire counting the spawn call sites of this
+ * file - hence the deliberate absence of that call's spelling anywhere else
+ * in this file, prose included.
+ *
+ * ⛔ T3.28b - THAT TRIPWIRE IS NO LONGER THE ONLY GUARD, AND THE REASON GIVEN
+ * FOR IT WAS FALSE. It used to end "because RoonCtrl itself is unreachable
+ * from make check: its constructor binds a unix socket and spawns a process
+ * (E4.1h)". The constructor does both of those things; neither is a wall.
+ * tests/core/RoonArgs_test.cpp and tests/core/RoonSpawnViaPlayer_test.cpp
+ * point CALAOS_BIN_PREFIX at a sandbox and read back what the kernel handed
+ * the child, on every `make check` - first launch AND respawn. The tripwire is
+ * kept as the second net because it answers a different question: HOW MANY
+ * launch sites this file has, which is the structural property above.
+ * See docs/refactoring/FINDINGS.md, F-LINK-1.
+ *
+ * ⛔ NOT IN SCOPE, and deliberately so: this respawn has NO BACKOFF, like six
+ * other controllers of the tree (FINDINGS.md, E4.5d, "Sept contrôleurs sur
+ * huit respawnent leur sous-processus sans aucun délai" - cited by title
+ * because the line number was already stale when it was written).
+ * Generalising
+ * WagoMap.h:165-172 is a separate, cross-cutting ticket.
+ */
+void RoonCtrl::launch()
+{
+    process->startProcess(exe, "roon", procArgs);
 }
 
 RoonCtrl::~RoonCtrl()
@@ -143,7 +178,7 @@ void RoonCtrl::processNewMessage(const string &msg)
     }
 }
 
-void RoonCtrl::subscribeZone(const string &zoneId, std::function<void(const RoonPlayerState &)> cb)
+void RoonCtrl::subscribeZone(const string &zoneId, sigc::slot<void, const RoonPlayerState &> cb)
 {
     cDebugDom("roon") << "RoonCtrl: subscribeZone: " << zoneId;
 
@@ -155,7 +190,13 @@ void RoonCtrl::subscribeZone(const string &zoneId, std::function<void(const Roon
         {"zone_id", zoneId}
     };
 
-    process->sendMessage(root.dump());
+    //E4.1b, and the SAME on the six other dumps of this file: error handler
+    //ONLY, no ensure_ascii. This wire is already in service in raw UTF-8 and
+    //E4.1 does not migrate it; adding ensure_ascii would change the bytes of a
+    //wire outside the epic's scope, which is exactly what invariant 3 forbids.
+    //replace changes nothing while the data is valid, and answers instead of
+    //terminating the process when a device sends a latin-1 byte.
+    process->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonCtrl::sendMessage(const string &msg)
@@ -171,12 +212,19 @@ RoonPlayer::RoonPlayer(Params &p):
 
     ioDoc->paramAdd("zone_id", _("Roon zone ID"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("host", _("Static Roon server IP address, empty to autodetect on network"), IODoc::TYPE_STRING, false);
-    ioDoc->paramAdd("port", _("Static Roon server port, empty to autodetect on network"), IODoc::TYPE_INT, 9330);
+    //T3.28: paramAddInt, NOT paramAdd. paramAdd's fourth parameter is
+    //`bool mandatory` (IODoc.h:46), so the 9330 that used to sit there was
+    //converted to `true` without a warning and `defaultval` stayed "" -
+    //IODoc.cpp:59 only adds a "default" key when it is non-empty. The
+    //installer was therefore told "port is REQUIRED and has no default", on a
+    //parameter whose own description says "empty to autodetect".
+    ioDoc->paramAddInt("port", _("Static Roon server port, empty to autodetect on network"),
+                       1, 65535, false, RoonArgs::DefaultPort);
 
     host = param["host"];
     zoneId = param["zone_id"];
     id = param["id"];
-    Utils::from_string(param["port"], port);
+    port = RoonArgs::portFromParams(param);
 
     if (zoneId.empty())
     {
@@ -188,7 +236,11 @@ RoonPlayer::RoonPlayer(Params &p):
     RoonCtrl::Instance(host, port);
 
     //wait for the process to start
-    Timer::singleShot(10, [this]()
+    //T3.40: RoonPlayer is an IOBase (through AudioPlayer), so
+    //ListeRoom::deleteIO() reaches it exactly like a shutter. Ten seconds is
+    //a very wide window, and this lambda reads host/zoneId out of the object.
+    //Armed through the IO's lifetime tag, see IOBase::ioAlive.
+    ioAlive.singleShot(10, [this]()
     {
         RoonCtrl::Instance(host, port)->subscribeZone(zoneId, sigc::mem_fun(*this, &RoonPlayer::state_update_cb));
     });
@@ -209,7 +261,7 @@ void RoonPlayer::Play()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Pause()
@@ -221,7 +273,7 @@ void RoonPlayer::Pause()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Stop()
@@ -233,7 +285,7 @@ void RoonPlayer::Stop()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Next()
@@ -245,7 +297,7 @@ void RoonPlayer::Next()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::Previous()
@@ -257,7 +309,7 @@ void RoonPlayer::Previous()
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::state_update_cb(const RoonPlayerState &state)
@@ -280,20 +332,23 @@ void RoonPlayer::state_update_cb(const RoonPlayerState &state)
              state.now_playing.seek_position.value_or(0) != playerState.now_playing.seek_position.value_or(0) ||
              state.now_playing.length.value_or(0) != playerState.now_playing.length.value_or(0))
     {
+        //Roon reports the seek position every second: only a real change of
+        //play state is an event for the rules.
+        const bool stateChanged = state.state != playerState.state;
         string stateplayer = "stop";
         if (state.state == "playing")
         {
-            set_status(AudioPlay);
+            if (stateChanged) set_status(AudioPlay);
             stateplayer = "play";
         }
         else if (state.state == "paused")
         {
-            set_status(AudioPause);
+            if (stateChanged) set_status(AudioPause);
             stateplayer = "pause";
         }
         else if (state.state == "stopped")
         {
-            set_status(AudioStop);
+            if (stateChanged) set_status(AudioStop);
             stateplayer = "stop";
         }
 
@@ -316,13 +371,18 @@ void RoonPlayer::state_update_cb(const RoonPlayerState &state)
     playerState = state;
 }
 
+//T3.40: the seven deferred answers below all defer a call on `this` to the
+//next loop turn. The delay is 0, but the window is not the delay: nothing
+//pumps the loop between arming the one-shot and a synchronous deleteIO()
+//coming from the JSON API, so the callback used to answer for a destroyed
+//player. All armed through the IO's lifetime tag, see IOBase::ioAlive.
 void RoonPlayer::get_volume(AudioRequest_cb callback, AudioPlayerData user_data)
 {
     AudioPlayerData data;
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_volume_cb(true, "", "", data);
     });
@@ -348,7 +408,7 @@ void RoonPlayer::set_volume(int vol)
         {"zone_id", zoneId}
     };
 
-    RoonCtrl::Instance(host, port)->sendMessage(root.dump());
+    RoonCtrl::Instance(host, port)->sendMessage(root.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void RoonPlayer::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_data)
@@ -357,7 +417,7 @@ void RoonPlayer::get_songinfo(AudioRequest_cb callback, AudioPlayerData user_dat
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_songinfo_cb(true, "", "", data);
     });
@@ -379,7 +439,7 @@ void RoonPlayer::get_current_time(AudioRequest_cb callback, AudioPlayerData user
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_current_time_cb(true, "", "", data);
     });
@@ -404,7 +464,7 @@ void RoonPlayer::get_status(AudioRequest_cb callback, AudioPlayerData user_data)
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_status_cb(true, "", "", data);
     });
@@ -429,7 +489,7 @@ void RoonPlayer::get_album_cover(AudioRequest_cb callback, AudioPlayerData user_
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_album_cover_cb(true, "", "", data);
     });
@@ -447,7 +507,7 @@ void RoonPlayer::get_playlist_current(AudioRequest_cb callback, AudioPlayerData 
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_playlist_current_cb(true, "", "", data);
     });
@@ -465,7 +525,7 @@ void RoonPlayer::get_playlist_size(AudioRequest_cb callback, AudioPlayerData use
     data.set_chain_data(new AudioPlayerData(user_data));
     data.callback = callback;
 
-    Timer::singleShot(0, [this, data]()
+    ioAlive.singleShot(0, [this, data]()
     {
         get_playlist_size_cb(true, "", "", data);
     });

@@ -21,6 +21,8 @@
 #ifndef S_IOFactory_H
 #define S_IOFactory_H
 
+#include <memory>
+
 #include <Calaos.h>
 #include <IOBase.h>
 #include <AudioPlayer.h>
@@ -53,15 +55,64 @@ private:
 
 public:
 
-    void readParams(TiXmlElement *node, Params &p);
+    void readParams(pugi::xml_node node, Params &p);
 
+    /* -------------------------------------------------------------------
+     * Ownership (E4.2b)
+     *
+     * Both overloads return a raw pointer that the caller OWNS, or nullptr
+     * when the type is unknown. It is deliberately not a unique_ptr:
+     *   - the registry it delegates to is `function<IOBase *(Params &)>`,
+     *     materialized by the REGISTER_IO macro in ~60 driver files, and
+     *   - the factory is the entry point of the ownership chain, not a
+     *     holder: the only two in-tree callers (ListeRoom::createIO() and
+     *     Room::LoadFromXml()) park the result in a unique_ptr on the spot
+     *     and hand it over to the Room that becomes its single owner.
+     * A freshly created IO has already registered itself in ListeRoom's
+     * io_table (IOBase's constructor), so dropping it means `delete`, which
+     * unregisters it again.
+     * ---------------------------------------------------------------- */
     IOBase *CreateIO(string type, Params &params);
-    IOBase *CreateIO(TiXmlElement *node);
+    IOBase *CreateIO(pugi::xml_node node);
+
+    /* The registry key CreateIO() resolves a driver class with, derived from
+     * the params alone - i.e. from what the configuration loader holds before
+     * any IO object exists.
+     *
+     * canCreate() is what the model asks before letting a write through
+     * (IOBase::set_param()/del_param()): a param stops being editable not
+     * because of its name but because the factory answers no without it. The
+     * two stay in step through registryKey(), so a param the factory starts
+     * reading is protected without anyone having to remember it.
+     */
+    static string registryKey(const Params &params);
+
+    /* A device (a params set carrying "impl") is keyed by this prefix plus
+     * its impl, not by its "type", which names its family. The prefix keeps
+     * an impl from ever shadowing an IO type name. See REGISTER_DEVICE. */
+    static constexpr const char *DEVICE_PREFIX = "device:";
+    bool canCreate(const Params &params) const;
 
     void RegisterClass(string type, function<IOBase *(Params &)> classFunc)
     {
         string orig = type;
         std::transform(type.begin(), type.end(), type.begin(), Utils::to_lower());
+
+        //Duplicate REGISTER_IO (same name, or names differing only in
+        //case) used to silently overwrite the previous registration.
+        //First registration wins, the collision is only logged: this runs
+        //from static initializers, an exception/abort here would kill the
+        //process before main().
+        auto it = ioFunctionRegistry.find(type);
+        if (it != ioFunctionRegistry.end())
+        {
+            cErrorDom("core") << "IOFactory: duplicate IO type registration '"
+                              << orig << "' collides with already registered '"
+                              << origNameMap[type]
+                              << "', keeping the first registration";
+            return;
+        }
+
         origNameMap[type] = orig;
         ioFunctionRegistry[type] = classFunc;
     }

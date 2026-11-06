@@ -33,3 +33,18 @@ def safe_value(text: str) -> str:
 def wrap_untrusted(value: str) -> dict:
     """Wrap an untrusted string so the LLM sees it as data, not instructions."""
     return {"untrusted_text": safe_value(str(value))}
+
+
+def safe_tree(value, depth: int = 6):
+    """Sanitise every string of a JSON value; numbers and booleans pass as is."""
+    if isinstance(value, str):
+        return safe_value(value)
+    if depth <= 0:
+        return None
+    if isinstance(value, dict):
+        return {safe_name(str(k)): safe_tree(v, depth - 1) for k, v in value.items()}
+    if isinstance(value, list):
+        return [safe_tree(v, depth - 1) for v in value]
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return safe_value(str(value))

@@ -34,8 +34,30 @@ class TcpHandle;
 namespace Calaos
 {
 
-typedef sigc::slot<void, bool, string, string, AudioPlayerData> SqueezeRequest_cb;
-typedef sigc::signal<void, bool, string, string, AudioPlayerData> SqueezeRequest_signal;
+/* One type per role for the two strings a Squeezebox reply carries. Both were
+ * a bare std::string, adjacent, and the one emission site hands them over
+ * positionally - permuting them produces the SAME TEXT, so no compiler, no
+ * flag and no analyser could ever have said a word about it. Every one of the
+ * callbacks below parses the second one, so a permutation feeds each parser
+ * the command that was sent instead of the answer that came back.
+ *
+ * One field, explicit, by value, no common base, no conversion back - drop any
+ * of those and the permutation type-checks again. Never by reference: sigc++
+ * takes const T & of its own. */
+struct SqueezeRequest
+{
+    string v;
+    explicit SqueezeRequest(const string &s): v(s) {}
+};
+
+struct SqueezeResult
+{
+    string v;
+    explicit SqueezeResult(const string &s): v(s) {}
+};
+
+typedef sigc::slot<void, bool, SqueezeRequest, SqueezeResult, AudioPlayerData> SqueezeRequest_cb;
+typedef sigc::signal<void, bool, SqueezeRequest, SqueezeResult, AudioPlayerData> SqueezeRequest_signal;
 
 class SqueezeboxCommand
 {
@@ -89,52 +111,52 @@ protected:
     void sendRequest(string request);
     void sendRequest(string request, SqueezeRequest_cb callback, AudioPlayerData user_data);
 
-    void get_songinfo_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_songinfo_cb2(bool status, string request, string result, AudioPlayerData data);
+    void get_songinfo_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_songinfo_cb2(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
     void get_songinfo_artist_cb(AudioPlayerData data);
     void get_songinfo_album_cb(AudioPlayerData data);
     void get_songinfo_title_cb(AudioPlayerData data);
     void get_songinfo_duration_cb(AudioPlayerData data);
     void get_songinfo_cover_cb(AudioPlayerData data);
 
-    void get_title_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_title2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_title_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_title2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_artist_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_artist2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_artist_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_artist2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_album_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_album_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
     void get_album_cover_json_cb(const string &result, int status, void *user_data);
     void get_album_cover_std(AudioPlayerData data);
-    void get_album_cover_std_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_album_cover_std2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_album_cover_std_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_album_cover_std2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_genre_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_current_time_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_duration_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_genre_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_current_time_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_duration_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_sleep_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_status_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_sync_status_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_sleep_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_status_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_sync_status_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_playlist_current_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_size_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_current_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_playlist_size_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_playlist_item_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_item2_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_item3_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_item_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_playlist_item2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_playlist_item3_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
     void get_playlist_item4_cb(AudioPlayerData data);
-    void get_playlist_item5_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_item5_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_playlist_info_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_info_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_playlist_album_cover_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_playlist_album_cover2_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_playlist_album_cover_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_playlist_album_cover2_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void get_album_cover_id_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_volume_cb(bool status, string request, string result, AudioPlayerData data);
-    void get_sync_list_cb(bool status, string request, string result, AudioPlayerData data);
+    void get_album_cover_id_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_volume_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void get_sync_list_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
 public:
     Squeezebox(Params &p);
@@ -221,6 +243,62 @@ public:
     void dataGetCon(string &msg);
     void dataGetNotif(string &msg);
     void processMessage(bool status, string msg);
+
+    /* Protocol helpers. Static and header-inline so they are unit-testable
+     * without linking the server binary (T3.5). */
+
+    //Reassemble a raw CLI chunk with the pending fragment buffer into
+    //complete messages. Returns false when the chunk carries no line
+    //terminator yet: it is appended to buffer and no message is produced.
+    //On true, tokens receives the complete messages and buffer is consumed.
+    static bool reassembleMessages(string &buffer, string msg, vector<string> &tokens)
+    {
+        if (msg.find('\n') == string::npos &&
+            msg.find('\r') == string::npos)
+        {
+            //We have not a complete paquet yet, buffurize it.
+            buffer += msg;
+            return false;
+        }
+
+        if (!buffer.empty())
+        {
+            //Prepend the pending fragment to the chunk that completes it.
+            //(the previous code overwrote msg with the buffer, discarding
+            //the just-arrived chunk carrying the terminating newline)
+            msg = buffer + msg;
+            buffer.clear();
+        }
+
+        //Trim trailing line terminators. Bounds check comes first:
+        //an all-newline msg used to read msg[-1].
+        int i = (int)msg.length() - 1;
+        while (i >= 0 && (msg[i] == '\n' || msg[i] == '\r' || msg[i] == '\0')) i--;
+        msg.erase(i + 1);
+
+        Utils::replace_str(msg, "\r\n", "\n");
+        Utils::replace_str(msg, "\r", "\n");
+
+        Utils::split(msg, tokens, "\n");
+
+        return true;
+    }
+
+    //Build the cover art URL for a track. An empty artwork id falls back to
+    //the current-song cover, which needs the playerid query parameter.
+    //(the previous code defaulted aid before testing it, so the ?playerid=
+    //branch was unreachable)
+    static string coverArtUrl(const string &host, int port_web, string aid, const string &playerid)
+    {
+        bool useCurrent = aid.empty();
+        if (useCurrent) aid = "current";
+
+        string aurl = "http://" + host + ":" + Utils::to_string(port_web) +
+                      "/music/" + aid + "/cover.jpg";
+        if (useCurrent) aurl += "?playerid=" + playerid;
+
+        return aurl;
+    }
 };
 
 }

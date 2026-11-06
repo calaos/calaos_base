@@ -20,19 +20,56 @@
  ******************************************************************************/
 #include "HttpServer.h"
 #include "WebSocket.h"
+#include "McpProxyHandler.h"
 #include "libuvw.h"
 
 HttpServer::HttpServer(int p):
     port(p)
 {
     auto listenAddr = Utils::get_config_option("listen_address");
-    if (listenAddr == "")
-        listenAddr = "0.0.0.0";
+
+    //Both fallbacks name the value they refused. An operator who narrowed the
+    //listen and got every interface instead can only tell from the log: the
+    //socket looks exactly like a deliberate 0.0.0.0.
+    string refused;
+    listenAddr = Calaos::listenAddressOrWildcard(listenAddr, refused);
+    if (!refused.empty())
+        cWarningDom("network") << "listen_address \"" << refused
+                               << "\" is not an IP address, "
+                               << Calaos::kWidenedListen;
 
     auto loop = uvw::Loop::getDefault();
     handleSrv = loop->resource<uvw::TcpHandle>();
-    handleSrv->bind(listenAddr, port);
+
+    bool bound = Calaos::bindListenAddress(*handleSrv, listenAddr, port);
+    if (!bound)
+    {
+        cWarningDom("network") << "listen_address \"" << listenAddr
+                               << "\" is not an address of this machine, "
+                               << Calaos::kWidenedListen;
+
+        //A second bind on the same handle would not do: libuv keeps the socket
+        //it opened for the refused family and reuses it whatever address comes
+        //next.
+        handleSrv->close();
+        handleSrv = loop->resource<uvw::TcpHandle>();
+        bound = Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port);
+    }
+
+    //libuv holds EADDRINUSE back from bind() and hands it to listen() instead,
+    //so a bind that answered yes can still have nowhere to land - a second
+    //server started on the same port is the ordinary way in. Same rule as the
+    //bind: subscribe first, or the failure is published to nobody and the line
+    //at the end of this constructor announces a port this process never got.
+    auto listenErr = handleSrv->on<uvw::ErrorEvent>(
+                         [&bound](const uvw::ErrorEvent &, uvw::TcpHandle &)
+                         { bound = false; });
     handleSrv->listen();
+    handleSrv->erase(listenErr);
+
+    if (!bound)
+        cErrorDom("network") << "port " << port << " cannot be bound, the API "
+                             << "is answering on no address at all";
 
     handleSrv->on<uvw::ListenEvent>([this](const uvw::ListenEvent &, uvw::TcpHandle &)
     {
@@ -52,7 +89,8 @@ HttpServer::HttpServer(int p):
     });
 
     cDebugDom("network") << "Init TCP Server";
-    cInfoDom("network")  << "Listening on port " << port;
+    if (bound)
+        cInfoDom("network")  << "Listening on port " << port;
 }
 
 HttpServer::~HttpServer()
@@ -63,10 +101,34 @@ HttpServer::~HttpServer()
 
 void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
 {
-    string ipAddr = client->peer().ip;
+    string ipAddr = Calaos::tcpPeerAddress(*client);
     cDebugDom("network")
             << "Got a new connection from address "
             << ipAddr;
+
+    //Refuse the connection instead of accumulating clients until the server
+    //runs out of file descriptors or memory. Nothing is evicted: an opened
+    //connection may be an authenticated websocket receiving events, it is not
+    //this code's place to decide it matters less than the new one.
+    if (connections.size() >= TransportLimits::maxConnections())
+    {
+        cWarningDom("network")
+                << "Refusing connection from address " << ipAddr << ", "
+                << connections.size() << " connections are already opened";
+
+        client->once<uvw::WriteEvent>([](const uvw::WriteEvent &, auto &h)
+        {
+            h.close();
+        });
+        client->once<uvw::ErrorEvent>([](const uvw::ErrorEvent &, auto &h)
+        {
+            h.close();
+        });
+
+        Calaos::McpProxyHandler::sendError(client, 503, "Too many connections\n");
+
+        return;
+    }
 
     WebSocket *conn = new WebSocket(client);
     connections.push_back(conn);
@@ -87,8 +149,13 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
         delete conn;
     });
 
-    client->on<uvw::DataEvent>([ipAddr, conn](const uvw::DataEvent &ev, auto &)
+    //conn is guarded by its alive token: the handle can still deliver a
+    //buffered DataEvent after the CloseEvent above deleted conn, and the raw
+    //pointer would dangle (was relying on libuv delivery order).
+    client->on<uvw::DataEvent>([ipAddr, conn, token = conn->aliveToken()](const uvw::DataEvent &ev, auto &)
     {
+        if (token.expired()) return;
+
         cDebugDom("network")
                 << "Got data from client at address "
                 << ipAddr;
@@ -96,6 +163,27 @@ void HttpServer::addConnection(const std::shared_ptr<uvw::TcpHandle> &client)
     });
 
     client->read();
+}
+
+bool HttpServer::trackClientIp(const string &ip)
+{
+    auto it = ipConnections.find(ip);
+    if (it != ipConnections.end() &&
+        it->second >= TransportLimits::maxConnectionsPerIp())
+        return false;
+
+    ipConnections[ip]++;
+    return true;
+}
+
+void HttpServer::releaseClientIp(const string &ip)
+{
+    auto it = ipConnections.find(ip);
+    if (it == ipConnections.end())
+        return;
+
+    if (--it->second == 0)
+        ipConnections.erase(it);
 }
 
 void HttpServer::disconnectAll()

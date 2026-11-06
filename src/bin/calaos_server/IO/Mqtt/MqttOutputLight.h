@@ -22,16 +22,13 @@
 #define __MQTT_OUTPUT_LIGHT_H__
 
 #include "OutputLight.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttOutputLight : public OutputLight
+class MqttOutputLight : public MqttIOBase<OutputLight>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     void readValue();
     virtual bool set_value_real(bool val) override;

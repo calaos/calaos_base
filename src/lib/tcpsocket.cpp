@@ -34,6 +34,52 @@
 #  define MSG_NOSIGNAL 0
 #endif
 
+namespace
+{
+
+/* select() restarted on EINTR, which the server gets routinely (SIGCHLD from
+ * every spawned process). The callers used to test `!select(...)`, so a -1
+ * return was read as "an fd is ready" and they went on inspecting an fd_set
+ * that select() leaves unspecified after a failure.
+ * `readfds` (and the timeout, which Linux rewrites with the time left) is
+ * restored before each retry, so an interruption restarts the wait with the
+ * full timeout instead of a truncated or garbage one: simpler than tracking a
+ * deadline, and erring on the side of waiting a bit longer rather than
+ * reporting a timeout that did not happen.
+ * Returns the number of ready fds, 0 on timeout, -1 on a real error (errno).
+ */
+int selectRetryEintr(int nfds, fd_set *readfds, struct timeval *timeout)
+{
+    fd_set savedFds = *readfds;
+    struct timeval savedTimeout;
+
+    if (timeout)
+        savedTimeout = *timeout;
+
+    for (;;)
+    {
+        int ret = select(nfds, readfds, NULL, NULL, timeout);
+
+        if (ret >= 0)
+            return ret;
+
+        if (errno != EINTR)
+            return -1;
+
+        *readfds = savedFds;
+        if (timeout)
+            *timeout = savedTimeout;
+    }
+}
+
+//Highest of the watched descriptors, +1, as select() expects it
+int selectNfds(int fd, int fdpipe)
+{
+    return ((fdpipe > fd) ? fdpipe : fd) + 1;
+}
+
+}
+
 TCPSocket::TCPSocket()
 {
     newfd = 0;
@@ -229,7 +275,15 @@ int TCPSocket::RecvFrom(char *msg, int msize, int timeout)
         tv.tv_sec = timeout / 1000;
         tv.tv_usec = (timeout - tv.tv_sec * 1000) * 1000;
 
-        if (!select(sockfd + 1, &events, NULL, NULL, &tv))
+        int ready = selectRetryEintr(sockfd + 1, &events, &tv);
+
+        if (ready < 0)
+        {
+            cErrorDom("network") << "select: " << strerror(errno);
+            return -1;
+        }
+
+        if (ready == 0)
         {
             //timeout !
             cDebugDom("network") << "Timeout!";
@@ -316,7 +370,18 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             tv.tv_sec = timeout / 1000;
             tv.tv_usec = (timeout - tv.tv_sec * 1000) * 1000;
 
-            if (!select(fd + 1, &events, NULL, NULL, &tv))
+            //fdpipe is watched too, it has to be counted in nfds: with a pipe
+            //descriptor above the socket one, select() never looked at it and
+            //the abort pipe could not interrupt the wait.
+            int ready = selectRetryEintr(selectNfds(fd, fdpipe), &events, &tv);
+
+            if (ready < 0)
+            {
+                cErrorDom("network") << "select: " << strerror(errno);
+                return false;
+            }
+
+            if (ready == 0)
             {
                 //timeout !
                 cDebugDom("network") << "Timeout!";
@@ -333,7 +398,6 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             }
         }
 
-        memset(buf, '\0', sizeof(buf));
         ret = Recv(&buf, sizeof(buf));
 
         if (ret <= 0)
@@ -342,7 +406,11 @@ bool TCPSocket::Recv(string & Message, int timeout, int fdpipe)
             return false;
         }
 
-        Message += buf;
+        //Append exactly the bytes recv() returned. buf is not guaranteed to
+        //be NUL-terminated (a full read fills all of it, so treating it as a
+        //C-string reads past the array) and treating it as one truncates any
+        //payload with an embedded NUL, silently dropping the remainder.
+        Message.append(buf, ret);
     }
 
     return true;
@@ -484,9 +552,11 @@ bool TCPSocket::Accept(int fdpipe)
     FD_SET(sockfd, &events);
     if (fdpipe > 0) FD_SET(fdpipe, &events);
 
-    if (!select(sockfd + 1, &events, NULL, NULL, NULL))
+    //Same as Recv(): fdpipe is watched, so it drives nfds when it is the
+    //highest descriptor, and a -1 return is an error, not a ready descriptor
+    if (selectRetryEintr(selectNfds(sockfd, fdpipe), &events, NULL) < 0)
     {
-        cDebugDom("network") << "Terminating.";
+        cErrorDom("network") << "select: " << strerror(errno);
         return false;
     }
 
@@ -579,6 +649,48 @@ vector<string> TCPSocket::getAllInterfaces()
 std::string TCPSocket::GetLocalIPFor(std::string ip_search)
 {
     string ip;
+
+    //An IPv6 correspondent has to be answered with an address it can reach,
+    //and neither branch below can produce one: the dotted quad is not routable
+    //to it, and the interface fallback reads SIOCGIFADDR, which only ever
+    //knows IPv4.
+    struct in6_addr a6;
+    if (inet_pton(AF_INET6, ip_search.c_str(), &a6) == 1)
+    {
+        int sock6 = socket(AF_INET6, SOCK_DGRAM, 0);
+        if (sock6 < 0)
+        {
+            cErrorDom("network") << "Can't create socket";
+            return ip;
+        }
+
+        struct sockaddr_in6 serv6;
+        memset(&serv6, 0, sizeof(serv6));
+        serv6.sin6_family = AF_INET6;
+        serv6.sin6_addr = a6;
+        serv6.sin6_port = htons(80);
+
+        if (connect(sock6, (const struct sockaddr *)&serv6, sizeof(serv6)) == 0)
+        {
+            struct sockaddr_in6 name6;
+            socklen_t namelen6 = sizeof(name6);
+            memset(&name6, 0, sizeof(name6));
+            getsockname(sock6, (struct sockaddr *)&name6, &namelen6);
+
+            char buffer6[100];
+            memset(&buffer6, 0, 100);
+            const char *p6 = inet_ntop(AF_INET6, &name6.sin6_addr, buffer6, 100);
+            if (p6)
+                ip = buffer6;
+            else
+                cErrorDom("network") << "Can't get IP: " << strerror(errno);
+        }
+
+        cDebugDom("network") << "Using local ip address: " << ip << " for ip: " << ip_search;
+        close(sock6);
+
+        return ip;
+    }
 
     //check if the string is a correct ip address
     struct sockaddr_in sa;

@@ -24,26 +24,44 @@
 #include <stdint.h>
 #include <Utils.h>
 
-namespace uvw {
-//Forward declare classes here to prevent long build time
-//because of uvw.hpp being header only
-class ProcessHandle;
-class PipeHandle;
-}
+class UrlDownloaderCurlConn;
+class UrlDownloaderCurlManager;
 
 //Url Downloader class
+//
+//Transport: libcurl multi interface driven by the libuv loop (T2.5), no
+//subprocess, no worker thread, no temporary file.
+//
+//Lifecycle contract (T2.10):
+// - cancel() interrupts a transfer at any point: the libcurl transfer is
+//   aborted (the connection drops), every signal is disconnected and no
+//   callback fires afterwards. A non-autodelete object is then safe to delete
+//   (or to keep around). An autodelete object frees itself after cancel().
+// - An autodelete object must NEVER be deleted from outside: it destroys
+//   itself (through an Idler) once the transfer completes or is cancelled, an
+//   external delete would race that. cancel() is the only external control.
+// - Deleting a non-autodelete object mid-transfer is safe: the destructor
+//   detaches the in-flight transfer (alive-token) before returning, so
+//   nothing can call back into freed memory.
 class UrlDownloader: public sigc::trackable
 {
 private:
     enum RequestType {HTTP_GET, HTTP_PUT, HTTP_POST, HTTP_DELETE};
 
-    std::shared_ptr<uvw::ProcessHandle> exeCurl;
-    std::shared_ptr<uvw::PipeHandle> pipe;
+    /* In-flight libcurl transfer, owned by UrlDownloaderCurlManager. nullptr
+     * when no transfer is running. Once handed back to the manager through
+     * abortTransfer() (cancel/destroy) it must never be touched again: the
+     * manager outlives it and disposes of it. */
+    UrlDownloaderCurlConn *m_conn = nullptr;
+
+    /* Alive token for async callbacks: the transfer holds a weak_ptr and
+     * never touches this object once it expired (same pattern as
+     * JsonApiHandlerHttp::handlerAlive). The destructor expires it first
+     * thing, before detaching the transfer. */
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     RequestType m_requestType = HTTP_POST;
 
-    string tempFilename;
-    string tmpHeader;
     int statusCode = 0; //http status code
 
     bool m_auth = false;
@@ -62,14 +80,41 @@ private:
     //data downloaded when no destination file is set
     string m_downloadedData;
 
-    bool isStarted = false;
-    bool hasFailedStarting = false;
+    //raw response headers of the last transfer (all blocks when redirected),
+    //parsed by getResponseHeaders()
+    string m_headerData;
+
     bool m_isRunning = false;
-    int exitStatus = 0;
-    bool pipeClosed = false;
+    bool m_cancelled = false;
+    bool destroyScheduled = false;
+
+    /* T2.17: TLS certificates are verified by default (libcurl defaults,
+     * system CA bundle). Local devices with self-signed certificates (IP
+     * cameras, Hue bridge) opt out per call with setInsecure(). */
+    bool m_insecure = false;
+
+    /* Cap on the internally accumulated response body (m_downloadedData).
+     * Streaming consumers (MJPEG) get every byte live through m_signalData,
+     * but the internal copy kept for m_signalCompleteData stops growing at
+     * this bound so an endless stream cannot eat the RAM. */
+    size_t m_bufferMaxSize = defaultBufferMaxSize;
+
+    /* Seconds without progress this transfer is allowed before libcurl aborts
+     * it. See setStallTimeout(). */
+    long m_stallTimeout = defaultStallTimeout;
+
+    //Bound on the whole transfer, in seconds; 0 leaves it unbounded.
+    long m_totalTimeout = 0;
+
+    bool m_quiet = false;
+    bool m_followRedirects = true;
 
     //Common function for starting download of url
     bool start();
+
+    //Detach and abort the in-flight libcurl transfer, if any (the manager
+    //disposes of it, guarded by the alive token)
+    void closeHandles();
 
     bool m_autodelete;
     bool downloadToFile = false;
@@ -78,7 +123,15 @@ private:
     void completeCb();
     void dataCb(const char *data, int size);
 
+    //Called by the manager when the transfer reached its end (success or
+    //error), after all libcurl state has been disposed of.
+    void transferDone(int code, std::string responseHeaders);
+
+    friend class UrlDownloaderCurlManager;
+
 public:
+    static constexpr size_t defaultBufferMaxSize = 16 * 1024 * 1024;
+
     // Constructor
     UrlDownloader(string url, bool autodelete = false);
 
@@ -91,6 +144,61 @@ public:
 
     bool isRunning() { return m_isRunning; }
 
+    /* T2.17: disable TLS certificate verification for THIS transfer only
+     * (explicit per-call opt-in, no global switch). Everything else verifies
+     * against the system CA bundle by default. */
+    void setInsecure() { m_insecure = true; }
+    bool isInsecure() const { return m_insecure; }
+
+    /* T2.19 (user decision, SUPERSEDES the T2.17 default for user URLs):
+     * every URL configured by the user (cameras, Hue bridge, Web IOs, Lua
+     * scripts, influxdb, audio devices...) skips certificate verification by
+     * DEFAULT — the installed base is self-signed HTTPS on the LAN, a
+     * verified default would break every existing installation. Hardening is
+     * a per-device opt-in with insecure="false". Only the hardcoded calaos.fr
+     * service URLs (NotifManager push...) keep verified transfers, by NOT
+     * going through these helpers.
+     *
+     * insecureParamEnabled() maps a device `insecure` parameter value to the
+     * effective policy, bounded and non-throwing: ONLY the exact string
+     * "false" hardens the device, anything else (absent/empty parameter
+     * included: grandfathered pre-T2.17 configs) means insecure. */
+    static bool insecureParamEnabled(const std::string &paramValue)
+    { return paramValue != "false"; }
+    void setInsecureFromParam(const std::string &paramValue)
+    { if (insecureParamEnabled(paramValue)) setInsecure(); }
+
+    /* Interrupts the transfer: aborts the libcurl transfer (the connection
+     * drops), disconnects every signal. No callback fires after this returns.
+     * Autodelete objects free themselves, non-autodelete ones become inert (a
+     * cancelled object cannot be restarted) and safe to delete. Idempotent. */
+    void cancel();
+
+    bool isCancelled() const { return m_cancelled; }
+
+    /* Bound for the internally accumulated response data handed to
+     * m_signalCompleteData. m_signalData always receives the full stream. */
+    void bufferMaxSizeSet(size_t max) { m_bufferMaxSize = max; }
+    size_t bufferMaxSizeGet() const { return m_bufferMaxSize; }
+
+    static constexpr long defaultStallTimeout = -1; //defer to url_stall_timeout
+    static constexpr long stallTimeoutNone = 0;     //no stall bound at all
+
+    /* Stall bound for THIS transfer, in seconds, overriding the
+     * url_stall_timeout setting. A speed floor bounds nothing on a transfer
+     * that has no end of its own, so such a caller passes stallTimeoutNone. */
+    void setStallTimeout(long seconds) { m_stallTimeout = seconds; }
+    long stallTimeoutGet() const { return m_stallTimeout; }
+
+    //Bound on the whole transfer (connection and answer), in seconds.
+    void setTimeout(long seconds) { m_totalTimeout = seconds; }
+
+    //A caller that reports its own failures: the start and failure lines go to DEBUG
+    void setQuiet(bool quiet) { m_quiet = quiet; }
+
+    //Follow 3xx answers (the default, like curl --location)
+    void setFollowRedirects(bool follow) { m_followRedirects = follow; }
+
     Params getResponseHeaders();
 
     bool httpDelete(string destination = "", string bodyData = "");
@@ -100,6 +208,9 @@ public:
 
     static void get(string url, string get_data = "");
     static void post(string url, string post_data = "");
+    //T2.17: fire-and-forget GET without certificate verification, for local
+    //self-signed devices (camera PTZ commands). Explicit per-call opt-in.
+    static void insecureGet(string url, string get_data = "");
 
     ~UrlDownloader();
 

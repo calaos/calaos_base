@@ -1,0 +1,118 @@
+From: Calaos <https://github.com/calaos/calaos_base>
+Subject: [PATCH] cpptui: allow the mandatory Ctrl+C interception to be disabled
+
+Local patch carried by Calaos against the vendored copy of jonoton/cpp-tui
+(upstream commit 9543ee3c056583eea1fc44491c6c240f0df0b570).
+
+Why
+---
+App::run() treats Ctrl+C as a "Mandatory Global Exit": the event is caught at
+the very top of the dispatch loop and sets running = false unconditionally,
+before registered keys (register_key), before the focused widget and before
+the exit keys ever see it. The single exception is when a widget currently
+holds a text selection, in which case Ctrl+C means Copy and falls through.
+
+That makes it impossible to write a TUI that must confirm before quitting:
+calaos_config edits the Calaos configuration, and Ctrl+C on a screen with
+unsaved changes has to open a "discard changes?" dialog rather than drop the
+edits on the floor. No amount of registering or focusing can observe Ctrl+C
+today.
+
+What
+----
+Adds an opt-out on App, defaulting to the existing behaviour:
+
+    void set_intercept_ctrl_c(bool intercept);   // default true
+    bool intercepts_ctrl_c() const;
+
+and guards the mandatory-exit branch with the flag. Upstream semantics are
+byte-for-byte unchanged for anyone who does not call the setter. When the flag
+is cleared, Ctrl+C simply continues down the normal dispatch path (contextual
+copy, registered keys, focused widget, exit keys), so a register_key callback
+or a focused widget can act on it. The Copy-on-selection special case is
+untouched in both modes: with interception on it is the existing
+handled_as_copy fall-through, with interception off the same contextual-copy
+step and the widgets' own is_copy() handling run as usual.
+
+Upstream status
+---------------
+Proposed upstream, see patches/UPSTREAM.md for the submission text. Drop this
+patch as soon as an equivalent knob is released upstream.
+
+Applying
+--------
+From the top of the calaos_base tree, against a pristine upstream header:
+
+    patch -p1 < src/lib/cpptui/patches/0001-allow-ctrl-c-interception-to-be-disabled.patch
+    # or
+    git apply src/lib/cpptui/patches/0001-allow-ctrl-c-interception-to-be-disabled.patch
+---
+diff --git a/src/lib/cpptui/cpptui.hpp b/src/lib/cpptui/cpptui.hpp
+--- a/src/lib/cpptui/cpptui.hpp
++++ b/src/lib/cpptui/cpptui.hpp
+@@ -16196,16 +16196,26 @@ class App {
+   }
+ 
+   /// @brief Unregister a registered key combination
+   void unregister_key(int key, bool ctrl = false, bool alt = false,
+                       bool shift = false) {
+     key_events_.erase({key, ctrl, alt, shift});
+   }
+ 
++  /// @brief Enable or disable the mandatory global exit on Ctrl+C
++  /// @param intercept True (the default) to always exit on Ctrl+C, false to
++  /// dispatch Ctrl+C like any other key, so a registered key or the focused
++  /// widget can handle it (e.g. to confirm before discarding unsaved work).
++  /// The Copy-on-selection behavior of Ctrl+C is unaffected either way.
++  void set_intercept_ctrl_c(bool intercept) { intercept_ctrl_c_ = intercept; }
++
++  /// @brief Check whether Ctrl+C is intercepted as a mandatory global exit
++  bool intercepts_ctrl_c() const { return intercept_ctrl_c_; }
++
+   // Dialog Stack
+   std::vector<std::shared_ptr<Dialog>> dialog_stack;
+ 
+   // Notification Overlay (for event dispatch)
+   std::shared_ptr<Notification> active_notification_;
+ 
+   /// @brief Register a notification widget for overlay event dispatch
+   void set_notification(std::shared_ptr<Notification> notif) {
+@@ -16515,17 +16525,17 @@ class App {
+           last_resize_req = now;
+           pending_resize_w = event.x;
+           pending_resize_h = event.y;
+           update_screen_size(event.x, event.y);
+         }
+ 
+         // 1. Mandatory Global Exit (Ctrl+C)
+         bool is_ctrl_c = (event.is_key_event()) && event.is_copy();
+-        if (is_ctrl_c) {
++        if (is_ctrl_c && intercept_ctrl_c_) {
+           // Check if focused widget has selection - if so, let it consume the
+           // event for Copy
+           bool handled_as_copy = false;
+ 
+           // Check active tooltip first
+           if (active_tooltip_ &&
+               active_tooltip_->selection_state_.has_selection()) {
+             handled_as_copy = true;
+@@ -16982,16 +16992,19 @@ class App {
+   std::vector<std::function<void()>> posted_callbacks_;
+ 
+   std::shared_ptr<Widget> focused_widget_;
+ 
+   // Hover State
+   std::shared_ptr<Widget> hovered_widget_;
+   std::shared_ptr<Tooltip> active_tooltip_;
+ 
++  // Mandatory global exit on Ctrl+C, see set_intercept_ctrl_c()
++  bool intercept_ctrl_c_ = true;
++
+   Buffer current_buffer_;
+   Buffer previous_buffer_;
+ 
+   void collect_focusables(std::shared_ptr<Widget> widget,
+                           std::vector<std::shared_ptr<Widget>> &out) {
+     if (!widget) return;
+     // VISIBILITY CHECK: Skip hidden widgets and those with zero dimensions
+     if (!widget->visible) return;

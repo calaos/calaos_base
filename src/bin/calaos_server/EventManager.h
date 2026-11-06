@@ -23,7 +23,7 @@
 
 #include "Timer.h"
 #include "Calaos.h"
-#include "Jansson_Addition.h"
+#include "Params.h"
 
 /*
  * This class handles all events that goes out of calaos_server, like IO changes
@@ -75,7 +75,17 @@ public:
     int getType() const { return evType; }
     const Params &getParam() const { return evParams; }
 
-    json_t *toJson() const;
+    /* E4.1l: nlohmann::json, standard - never ordered_json. The four members
+     * therefore travel SORTED (data, event_raw, type, type_str) where jansson
+     * emitted them in insertion order; the key order of this object is a
+     * declared, accepted delta of the epic (E4.1.md, invariant 1) and it is
+     * pinned on the bytes by tests/core/EventWireBytes_test.cpp.
+     * EVERY member is a JSON string, "type" included (the enum integer through
+     * Utils::to_string()): the oracle of the golden suite is type strict and
+     * an int that became a JSON number is a break of the wire contract.
+     * Inside "data", only the members given to createWithObjects() are typed.
+     */
+    Json toJson() const;
     string toString() const;
 
     static string typeToString(int type);
@@ -83,6 +93,8 @@ public:
 private:
     int evType = EventUnkown;
     Params evParams;
+    //Members of "data" that are real JSON, see EventManager::createWithObjects().
+    Json evObjects;
     bool logHistory = true;
 
     friend class EventManager;
@@ -104,6 +116,15 @@ public:
     static CalaosEvent create(int type, bool logHistory = true);
     static CalaosEvent create(int type, Params p, bool logHistory = true);
     static CalaosEvent create(int type, string ioId, Params p, bool logHistory = true);
+
+    /* Same, plus members of "data" that are real JSON (objects, numbers),
+     * such as the "device" object. They live beside the string Params: the
+     * event_raw member (toString()) and the history's io_state carry the
+     * strings only, while everything built on toJson() gets them too - the
+     * WS/poll_listen wire, the history's raw JSON, and the Lua process, whose
+     * decoder flattens a non-scalar to an empty string. */
+    static void createWithObjects(int type, string ioId, Params p, Json objects,
+                                  bool logHistory = true);
 
 private:
     EventManager();

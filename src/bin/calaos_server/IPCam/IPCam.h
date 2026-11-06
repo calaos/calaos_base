@@ -21,6 +21,9 @@
 #ifndef S_IPCam_H
 #define S_IPCam_H
 
+#include <map>
+#include <vector>
+
 #include "IOBase.h"
 #include "UrlDownloader.h"
 
@@ -32,9 +35,19 @@ class IPCam: public IOBase
 protected:
     Params caps;
 
-    string lastSnapshot;
-    std::function<void(const string &)> snapshotDataCb = {};
+    std::vector<std::function<void(const string &)>> snapshotWaiters;
     UrlDownloader *cameraSnapDl = nullptr;
+
+    void finishSnapshot(const string &data);
+
+private:
+    // Every width pending at once is a decode and a copy of the frame.
+    static constexpr size_t maxThumbnailWidths = 4;
+
+    std::map<int, std::vector<std::function<void(const string &)>>> thumbnailWaiters;
+
+    void resizeSnapshot(int width, const string &data);
+    void finishThumbnail(int width, const string &data);
 
 public:
     IPCam(Params &p);
@@ -65,12 +78,42 @@ public:
     virtual void activateCapabilities(std::string capability, std::string cmd, std::string value) { }
 
     virtual DATA_TYPE get_type() { return TSTRING; }
+    bool hasComparableState() override { return false; }
 
     virtual bool set_value(std::string val);
 
+    //Every caller gets an answer, empty when the camera gave none: callers
+    //arriving during a download wait for that download.
     virtual void downloadSnapshot(std::function<void(const string &)> dataCb);
 
-    virtual bool SaveToXml(TiXmlElement *node);
+    //Same frame, resized off the main loop. Callers asking for the same width
+    //meanwhile share one download and one decode. Falls back to the full frame.
+    void downloadThumbnail(int width, std::function<void(const string &)> dataCb);
+
+    //T2.19: effective TLS policy of this camera. insecure param defaults to
+    //true (self-signed HTTPS cameras, grandfathered configs), insecure="false"
+    //is the per-device hardening opt-in. EVERY transfer to a camera URL
+    //(snapshot, PTZ, mjpeg relay, rule attachment download) must honor it.
+    bool tlsInsecure() { return UrlDownloader::insecureParamEnabled(get_param("insecure")); }
+
+    //T2.19: fire-and-forget GET to a camera URL honoring the per-device
+    //insecure param (replaces the unconditional UrlDownloader::insecureGet
+    //calls of the camera drivers)
+    void camGet(const string &url)
+    {
+        if (tlsInsecure())
+            UrlDownloader::insecureGet(url);
+        else
+            UrlDownloader::get(url);
+    }
+
+    //Masks the userinfo password and the values of ten known credential query
+    //names. NOT a log reducer: it cannot see a secret carried by a path
+    //segment, and it returns the URL untouched when there is no query at all.
+    //Anything headed for a journal goes through Utils::urlForLog instead.
+    static std::string maskUrlCredentials(const std::string &url);
+
+    virtual bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

@@ -21,6 +21,14 @@
 #include <UDPServer.h>
 #include "libuvw.h"
 
+#include <sys/socket.h>
+#include <sys/stat.h>
+
+#include <chrono>
+#include <cstring>
+
+#include "IO/ExternProc.h"
+
 using namespace Calaos;
 
 UDPServer::UDPServer(int p):
@@ -34,33 +42,308 @@ UDPServer::UDPServer(int p):
 
 UDPServer::~UDPServer()
 {
+    if (rearmTimer)
+    {
+        rearmTimer->stop();
+        rearmTimer->close();
+    }
+
     handleSrv->stop();
     handleSrv->close();
+}
+
+double UDPServer::journalNow() const
+{
+    const auto since = std::chrono::steady_clock::now().time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::duration<double>>(since).count();
+}
+
+unsigned long UDPServer::countInJournalWindow(unsigned long &count,
+                                             double &windowStart)
+{
+    const double now = journalNow();
+
+    if (count == 0 || now - windowStart >= JOURNAL_WINDOW_SECONDS)
+    {
+        count = 0;
+        windowStart = now;
+    }
+
+    return ++count;
+}
+
+/* Reads back what the bind left behind, so that a later look can tell this
+ * socket from any other the same NUMBER may come to name.
+ */
+void UDPServer::rememberTheDescriptor()
+{
+    descriptorRemembered = false;
+
+    const int fd = (int)handleSrv->fileno();
+    if (fd < 0)
+        return;
+
+    struct stat st;
+    sockaddr_storage bound;
+    socklen_t len = sizeof(bound);
+    if (fstat(fd, &st) != 0 ||
+        getsockname(fd, reinterpret_cast<sockaddr *>(&bound), &len) != 0)
+        return;
+
+    ownedDevice = st.st_dev;
+    ownedInode = st.st_ino;
+    ownedAddress.assign(reinterpret_cast<const char *>(&bound), len);
+    descriptorRemembered = true;
+}
+
+/* Whether the number libuv polls still names the socket that was bound.
+ *
+ * VALIDITY is not the question, and answering it is what freezes the loop: a
+ * number closed elsewhere in this process goes to the next socket() that runs,
+ * and that one is valid, blocking and somebody else's. The inode answers
+ * identity outright; the bound address is the second half, against an inode
+ * counter that wraps.
+ */
+bool UDPServer::descriptorIsStillOurs() const
+{
+    if (!descriptorRemembered)
+        return false;
+
+    const int fd = (int)handleSrv->fileno();
+    if (fd < 0)
+        return false;
+
+    struct stat st;
+    if (fstat(fd, &st) != 0)
+        return false;
+
+    if (st.st_dev != ownedDevice || st.st_ino != ownedInode)
+        return false;
+
+    sockaddr_storage now;
+    socklen_t len = sizeof(now);
+    if (getsockname(fd, reinterpret_cast<sockaddr *>(&now), &len) != 0)
+        return false;
+
+    return len == ownedAddress.size() &&
+           memcmp(&now, ownedAddress.data(), len) == 0;
+}
+
+void UDPServer::scheduleRearm()
+{
+    if (!rearmTimer)
+    {
+        rearmTimer = uvw::Loop::getDefault()->resource<uvw::TimerHandle>();
+        rearmTimer->on<uvw::TimerEvent>([this](const uvw::TimerEvent &,
+                                               uvw::TimerHandle &)
+        {
+            considerListeningAgain();
+        });
+    }
+
+    /* The ramp the tree already holds for a child that will not stay up, read
+     * on the attempts already made: 0 - the next turn of the loop - then
+     * kRespawnDelayMin, then double; three attempts inside one millisecond
+     * outlast no real shortage. Only ever armed from the poll phase: libuv
+     * keeps draining its timer heap after a callback returns, so a timer
+     * restarted from inside its own callback runs AGAIN in the same phase,
+     * before the read it armed can fail.
+     */
+    const double hold =
+            ExternProcServer::respawnDelay((int)(REARM_ATTEMPTS - rearmsLeft));
+    rearmTimer->start(uvw::TimerHandle::Time{(uint64_t)(hold * 1000.0)},
+                      uvw::TimerHandle::Time{0});
+}
+
+void UDPServer::considerListeningAgain()
+{
+    if (receiver != Receiver::Retrying || rearmsLeft == 0)
+        return;
+
+    rearmsLeft--;
+
+    if (descriptorIsStillOurs())
+    {
+        //One attempt, and then nothing until it fails: a read that stays armed
+        //is a read that worked, and there is no event for one.
+        handleSrv->recv();
+        return;
+    }
+
+    /* A number taken away can be handed back - a controller elsewhere in this
+     * process closes one libuv owns and carries on - so a look that fails
+     * spends an attempt instead of ending everything. What it must never do is
+     * arm the read.
+     */
+    if (rearmsLeft == 0)
+        giveUpTheReceiver("the number it was polling no longer names the socket "
+                          "it bound, and arming a read on a stranger's socket "
+                          "hangs the whole loop");
+    else
+        scheduleRearm();
+}
+
+/* Said once, and it is the whole of what an operator gets.
+ *
+ * No field of the JSON API names the state of the receiver, and the heartbeat
+ * of main() is a Utils::Watchdog() that creates its file and never touches it
+ * again - so a box that has gone deaf keeps telling its supervisor it is well.
+ * This line is the only place the loss is ever stated.
+ */
+void UDPServer::giveUpTheReceiver(const string &why)
+{
+    receiver = Receiver::GaveUp;
+
+    if (rearmTimer)
+        rearmTimer->stop();
+
+    cErrorDom("network") << "no longer listening on port " << port
+                         << ", " << why
+                         << ": discovery (CALAOS_DISCOVER), Wago inputs "
+                            "(WAGO INT) and KNX inputs (WAGO KNX) stop here "
+                            "until the server is restarted";
 }
 
 void UDPServer::createUdpSocket()
 {
     auto loop = uvw::Loop::getDefault();
-    handleSrv = loop->resource<uvw::UDPHandle>();
 
-    handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+    auto subscribe = [this]()
     {
-        string s(ev.data.get(), ev.length);
-        this->processRequest(s, ev.sender.ip, ev.sender.port);
-    });
+        handleSrv->on<uvw::UDPDataEvent>([this](const uvw::UDPDataEvent &ev, auto &)
+        {
+            //A datagram read is the only positive news the loop ever gives
+            //about the receiver, so it is where a recovery is learnt.
+            if (receiver != Receiver::Listening)
+            {
+                receiver = Receiver::Listening;
+                if (rearmTimer)
+                    rearmTimer->stop();
+                cWarningDom("network") << "listening again on port " << port
+                                       << " after "
+                                       << (REARM_ATTEMPTS - rearmsLeft)
+                                       << " attempt(s)";
+            }
 
-    handleSrv->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
-    {
-        h.stop();
-        cErrorDom("network") << "UDP server error: " << ev.what();
-    });
+            string s(ev.data.get(), ev.length);
+            this->processRequest(s, Calaos::unmappedLiteral(ev.sender.ip),
+                                 ev.sender.port);
+        });
+
+        handleSrv->on<uvw::SendEvent>([this](const uvw::SendEvent &, uvw::UDPHandle &)
+        {
+            if (!pendingSends.empty())
+                pendingSends.pop_front();
+        });
+    };
 
     auto listenAddr = Utils::get_config_option("listen_address");
-    if (listenAddr == "")
-        listenAddr = "0.0.0.0";
 
-    handleSrv->bind(listenAddr, port, uvw::UDPHandle::Bind::REUSEADDR);
+    string refused;
+    listenAddr = Calaos::listenAddressOrWildcard(listenAddr, refused);
+    if (!refused.empty())
+        cWarningDom("network") << "listen_address \"" << refused
+                               << "\" is not an IP address, "
+                               << Calaos::kWidenedListen;
+
+    handleSrv = loop->resource<uvw::UDPHandle>();
+    pendingSends.clear();
+    subscribe();
+
+    if (!Calaos::bindListenAddress(*handleSrv, listenAddr, port,
+                                   uvw::UDPHandle::Bind::REUSEADDR))
+    {
+        cWarningDom("network") << "listen_address \"" << listenAddr
+                               << "\" is not an address of this machine, "
+                               << Calaos::kWidenedListen;
+
+        //A second bind on the same handle would not do: libuv keeps the socket
+        //it opened for the refused family. The subscriptions go with the handle.
+        handleSrv->close();
+        handleSrv = loop->resource<uvw::UDPHandle>();
+        pendingSends.clear();
+        subscribe();
+        Calaos::bindListenAddress(*handleSrv, "0.0.0.0", port,
+                                  uvw::UDPHandle::Bind::REUSEADDR);
+    }
+
+    /* Only now, and never before the binds above: a bind that fails is recovered
+     * a few lines up, and this listener would announce a loss that did not
+     * happen.
+     *
+     * uvw republishes the failure of a send request on the HANDLE, as the very
+     * ErrorEvent a failed receive uses, so the callback cannot tell the two
+     * apart on its own: the datagrams still owed a completion do it. A refused
+     * send is one correspondent's business and must cost nothing else; stopping
+     * the handle costs every input the box has, so the one case that still does
+     * it says what it takes away. A receive that fails while a send is
+     * outstanding is charged to the send - the only ambiguity left, and it errs
+     * towards listening on.
+     */
+    handleSrv->on<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, uvw::UDPHandle &h)
+    {
+        if (!pendingSends.empty())
+        {
+            const string peer = pendingSends.front();
+            pendingSends.pop_front();
+
+            /* The first few one by one, then one line per doubling. Who is on
+             * the network decides how many answers are refused, so a line per
+             * refusal lets it decide how many lines the journal gets; n cost
+             * log2(n) lines here. No count is ever the last one, so a failure
+             * that lasts keeps being said at a rate that falls - where "the
+             * first N, then nothing" goes mute for good.
+             */
+            const unsigned long refusedInWindow =
+                    countInJournalWindow(refusedSends, refusedWindowStart);
+            if (refusedInWindow <= REFUSALS_SAID_IN_FULL ||
+                (refusedInWindow & (refusedInWindow - 1)) == 0)
+                cErrorDom("network") << "UDP send to " << peer << " failed: "
+                                     << ev.what() << ", still listening on port "
+                                     << port << " (" << refusedInWindow
+                                     << " refused so far, one line per doubling)";
+            return;
+        }
+
+        h.stop();
+
+        //One of our own attempts, and its failure is what asks for the next
+        //one. Silent: coming back costs the journal nothing per attempt.
+        if (receiver == Receiver::Retrying)
+        {
+            if (rearmsLeft == 0)
+                giveUpTheReceiver(Utils::to_string(REARM_ATTEMPTS) +
+                                  " attempts to listen again all failed");
+            else
+                scheduleRearm();
+            return;
+        }
+
+        cErrorDom("network") << "UDP server error: " << ev.what();
+
+        if (receiver == Receiver::GaveUp)
+            return;
+
+        receiver = Receiver::Retrying;
+        rearmsLeft = REARM_ATTEMPTS;
+        scheduleRearm();
+    });
+
     handleSrv->recv();
+    rememberTheDescriptor();
+}
+
+void UDPServer::sendTo(const string &ip, unsigned int remotePort,
+                       const string &packet)
+{
+    pendingSends.push_back(ip + ":" + Utils::to_string(remotePort));
+
+    /* Given to uvw, not lent. packet is a local of processRequest(), and a send
+     * posted behind another one is read a whole turn of the loop later: lending
+     * it sent the contents of a freed buffer to the peer that asked, which for
+     * CALAOS_DISCOVER is anything on the network and needs no credentials.
+     */
+    Calaos::sendDatagram(*handleSrv, ip, remotePort, packet);
 }
 
 void UDPServer::processRequest(const string &request, const string &remoteIp, unsigned int remotePort)
@@ -77,12 +360,27 @@ void UDPServer::processRequest(const string &request, const string &remoteIp, un
             string packet = "CALAOS_IP ";
             packet += ip;
 
-            handleSrv->send(remoteIp, remotePort, (char *)packet.c_str(), packet.length());
+            sendTo(remoteIp, remotePort, packet);
             cDebugDom("network") << "Sending answer: " << packet;
         }
         else
         {
-            cErrorDom("network") << "No interface found corresponding to network : " << remoteIp;
+            /* Same shape as the refused-send ramp above, and for the same
+             * reason: the source of the datagram is chosen by whoever speaks
+             * on the network and discovery needs no credentials, so one line
+             * per datagram lets it decide how long the journal is. The
+             * doubling is a rule, not a threshold - the first is always
+             * written, n cost log2(n), and no count is ever the last one.
+             */
+            const unsigned long unanswerable =
+                    countInJournalWindow(unanswerableDiscovers,
+                                         unanswerableWindowStart);
+            if ((unanswerable & (unanswerable - 1)) == 0)
+                cErrorDom("network") << "No interface found corresponding to "
+                                        "network : " << remoteIp << " ("
+                                     << unanswerable
+                                     << " unanswerable so far, one line per "
+                                        "doubling)";
         }
     }
     else if (request.compare(0, 9, "WAGO INT ") == 0)

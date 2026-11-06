@@ -28,6 +28,14 @@ REGISTER_IO(Foscam)
 Foscam::Foscam(Params &p):
     IPCam(p)
 {
+    //T3.3 security note: the Foscam CGI API only authenticates through
+    //&usr=…&pwd=… query parameters over plain HTTP, so the credentials
+    //travel in cleartext on the wire — this is a camera firmware limitation,
+    //not something calaos can fix. Deploy these cameras on a trusted/isolated
+    //network segment or behind an HTTPS reverse proxy. On the calaos side,
+    //never log these URLs without Utils::urlForLog().
+    //(The user-visible ioDoc description is left untouched on purpose: the
+    //string is translated in po/, which this ticket does not own.)
     ioDoc->descriptionBaseSet(_("Foscam IP Camera/Encoder. Camera can be viewed directly inside calaos and used in rules."));
     ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
     ioDoc->paramAdd("zoom_step", "", IODoc::TYPE_STRING, false,"1");
@@ -96,7 +104,7 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         url += "?cmd=" + valcmd;
         url += "&usr=" + param["username"] + "&pwd=" + param["password"];
 
-        UrlDownloader::get(url);
+        camGet(url);
 
         urlStop = "http://" + param["host"] + ":" + param["port"];
         urlStop += "/cgi-bin/CGIProxy.fcgi";
@@ -110,9 +118,16 @@ void Foscam::activateCapabilities(std::string cap, std::string cmd, std::string 
         int zstep = 0;
         Utils::from_string(param["zoom_step"], zstep);
         float moveDelay = 0.100 * (1 + zstep);
+        //T2.19: resolve the TLS policy now — the delayed lambda must not
+        //capture `this` (the camera may be gone when the timer fires, the
+        //old static insecureGet call had no lifetime dependency either)
+        bool insecure = tlsInsecure();
         Timer::singleShot(moveDelay, [=]()
         {
-            UrlDownloader::get(urlStop);
+            if (insecure)
+                UrlDownloader::insecureGet(urlStop);
+            else
+                UrlDownloader::get(urlStop);
         });
     }
 }

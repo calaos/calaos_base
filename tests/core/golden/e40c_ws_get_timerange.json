@@ -1,0 +1,61 @@
+{
+  "data": {
+    "months": "110000000001",
+    "ranges": [
+      {
+        "day": "1",
+        "end_hour": "12",
+        "end_min": "45",
+        "end_offset": "1",
+        "end_sec": "5",
+        "end_type": "0",
+        "start_hour": "8",
+        "start_min": "30",
+        "start_offset": "1",
+        "start_sec": "15",
+        "start_type": "0"
+      },
+      {
+        "day": "1",
+        "end_hour": "23",
+        "end_min": "59",
+        "end_offset": "1",
+        "end_sec": "59",
+        "end_type": "0",
+        "start_hour": "1",
+        "start_min": "20",
+        "start_offset": "-1",
+        "start_sec": "30",
+        "start_type": "2"
+      },
+      {
+        "day": "3",
+        "end_hour": "0",
+        "end_min": "10",
+        "end_offset": "1",
+        "end_sec": "20",
+        "end_type": "1",
+        "start_hour": "6",
+        "start_min": "0",
+        "start_offset": "1",
+        "start_sec": "0",
+        "start_type": "0"
+      },
+      {
+        "day": "7",
+        "end_hour": "21",
+        "end_min": "22",
+        "end_offset": "1",
+        "end_sec": "23",
+        "end_type": "0",
+        "start_hour": "2",
+        "start_min": "3",
+        "start_offset": "1",
+        "start_sec": "4",
+        "start_type": "3"
+      }
+    ]
+  },
+  "msg": "get_timerange",
+  "msg_id": "e40c-tr"
+}

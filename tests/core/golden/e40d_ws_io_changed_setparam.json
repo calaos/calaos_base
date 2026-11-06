@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data": {
+      "id": "e40_string",
+      "io_style": "temperature"
+    },
+    "event_raw": "io_changed id:e40_string io_style:temperature",
+    "type": "3",
+    "type_str": "io_changed"
+  },
+  "msg": "event"
+}

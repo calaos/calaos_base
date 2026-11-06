@@ -31,30 +31,16 @@ using namespace Calaos;
 
 bool WebSocketHeaders::parse(const std::map<string, string> &headers)
 {
-    auto findHeader = [&headers](const string &key) -> string
-    {
-        // Try different case variations
-        auto it = headers.find(key);
-        if (it != headers.end())
-            return it->second;
+    using HA = HMACAuthenticator;
 
-        string lower_key = key;
-        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), ::tolower);
-        it = headers.find(lower_key);
-        if (it != headers.end())
-            return it->second;
-
-        return "";
-    };
-
-    authorization = findHeader("Authorization");
-    auth_timestamp = findHeader("X-Auth-Timestamp");
-    auth_nonce = findHeader("X-Auth-Nonce");
-    auth_hmac = findHeader("X-Auth-HMAC");
-    user_agent = findHeader("User-Agent");
-    origin = findHeader("Origin");
-    device_version = findHeader("X-Device-Version");
-    device_hardware_id = findHeader("X-Device-Hardware-Id");
+    authorization = HA::findHeader(headers, "Authorization");
+    auth_timestamp = HA::findHeader(headers, "X-Auth-Timestamp");
+    auth_nonce = HA::findHeader(headers, "X-Auth-Nonce");
+    auth_hmac = HA::findHeader(headers, "X-Auth-HMAC");
+    user_agent = HA::findHeader(headers, "User-Agent");
+    origin = HA::findHeader(headers, "Origin");
+    device_version = HA::findHeader(headers, "X-Device-Version");
+    device_hardware_id = HA::findHeader(headers, "X-Device-Hardware-Id");
 
     return isValid();
 }
@@ -118,25 +104,10 @@ bool HMACAuthenticator::authenticateHttpRequest(const std::map<string, string> &
                                               const string &client_ip,
                                               RemoteUI* &authenticated_remote_ui)
 {
-    auto findHeader = [&headers](const string &key) -> string
-    {
-        auto it = headers.find(key);
-        if (it != headers.end())
-            return it->second;
-
-        string lower_key = key;
-        std::transform(lower_key.begin(), lower_key.end(), lower_key.begin(), ::tolower);
-        it = headers.find(lower_key);
-        if (it != headers.end())
-            return it->second;
-
-        return "";
-    };
-
-    string authorization = findHeader("Authorization");
-    string timestamp = findHeader("X-Auth-Timestamp");
-    string nonce = findHeader("X-Auth-Nonce");
-    string hmac = findHeader("X-Auth-HMAC");
+    string authorization = findHeader(headers, "Authorization");
+    string timestamp = findHeader(headers, "X-Auth-Timestamp");
+    string nonce = findHeader(headers, "X-Auth-Nonce");
+    string hmac = findHeader(headers, "X-Auth-HMAC");
 
     if (authorization.empty() || timestamp.empty() || nonce.empty() || hmac.empty())
     {

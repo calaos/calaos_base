@@ -23,14 +23,33 @@
 
 using namespace Calaos;
 
+/* T3.34: the prefix length used to be written twice, once in the compare()
+ * and once in the erase(), and only "impulse down " got them wrong (13 then
+ * 11), which silently truncated the duration into "n <ms>". Naming the
+ * prefix once is what makes that mistake unwritable. */
+static const std::string kImpulseUpPrefix = "impulse up ";
+static const std::string kImpulseDownPrefix = "impulse down ";
+
+/* There is no readConfig() here: these four got a value only inside
+ * set_value(), so anything calling Stop(), Up() or Down() outside an action
+ * branched on whatever the storage held. Stop()'s impulse branch drives both
+ * relays of the shutter true at once, which a non-impulse motor must never be
+ * handed.
+ * Each value is the one the running code produces when the parameter is
+ * absent, so a configured shutter behaves exactly as before: -1 (not 0) is
+ * how "no impulse" is spelled, and 0 is a legal impulse_time meaning it too. */
 OutputShutter::OutputShutter(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
+    time(0),
     sens(SHUTTER_STOP),
     old_sens(SHUTTER_UP),
     timer_end(NULL),
     timer_impulse(NULL),
     timer_up(NULL),
     timer_down(NULL),
+    is_impulse_action(false),
+    impulse_action_time(0),
+    impulse_time(-1),
     state_volet("true")
 {
     ioDoc->descriptionBaseSet(_("Simple shutter. This shutter supports open/close states, as well as impulse shutters."));
@@ -107,16 +126,28 @@ bool OutputShutter::set_value(std::string val)
     {
         Stop();
     }
-    else if (val.compare(0, 11, "impulse up ") == 0)
+    else if (Utils::strStartsWith(val, kImpulseUpPrefix))
     {
-        val.erase(0, 11);
+        val.erase(0, kImpulseUpPrefix.length());
+        /* T3.25a: the duration is READ here, so it is refused here.
+         * Utils::from_string() publishes a SATURATED value on an out of range
+         * input and answers false; ignoring that answer handed ImpulseUp()
+         * INT_MAX, which is above the full travel of any shutter - so no stop
+         * was armed at all and a nudge became a complete open or close, with
+         * a success on the wire. The API boundary cannot hold this line:
+         * set_state writes any value of any IO and would have to refuse text.
+         */
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int v;
         from_string(val, v);
         ImpulseUp(v);
     }
-    else if (val.compare(0, 13, "impulse down ") == 0)
+    else if (Utils::strStartsWith(val, kImpulseDownPrefix))
     {
-        val.erase(0, 11);
+        val.erase(0, kImpulseDownPrefix.length());
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int v;
         from_string(val, v);
         ImpulseDown(v);
@@ -219,10 +250,32 @@ void OutputShutter::Up()
         //We check if down time is bigger than impulse_action_time before firing
         //the timer.
 
-        if (impulse_action_time + impulse_time < time * 1000)
+        //T3.34: both operands come from outside. impulse_action_time is the
+        //duration the client asked for (Utils::from_string saturates an
+        //out-of-range value to INT_MAX), and impulse_time is -1 when the
+        //shutter simply has no impulse_time parameter. The int sum therefore
+        //overflows (UB) at the top of the range, and goes negative at the
+        //bottom; a negative delay reaches Timer::singleShot() as
+        //static_cast<uint64_t>(-1.0), which libuv clamps to "never" -- measured:
+        //the handle stays armed on the loop for good, holding this IO, once per
+        //command. Compute in double and never ask for a negative delay.
+        const double _impulseEnd = (double)impulse_action_time + (double)impulse_time;
+        if (_impulseEnd < (double)time * 1000.)
         {
-            double _t = (double)(impulse_action_time + impulse_time) / 1000.;
-            Timer::singleShot(_t, sigc::mem_fun(*this, &OutputShutter::Stop));
+            double _t = _impulseEnd / 1000.;
+            if (_t < 0.) _t = 0.;
+            Timer::singleShot(_t, sigc::slot<void>(
+                [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
+            {
+                //T3.34: this one-shot is parked on the event loop with a raw
+                //`this` (IOBase is not a sigc::trackable, and nothing
+                //cancels the anonymous handle). Honouring the requested
+                //duration makes the window as long as the client asked for
+                //instead of the bare impulse_time, so the callback checks
+                //that the IO is still alive before touching it.
+                if (alive.expired()) return;
+                Stop();
+            }));
         }
     }
     else
@@ -269,10 +322,32 @@ void OutputShutter::Down()
         //We check if down time is bigger than impulse_action_time before firing
         //the timer.
 
-        if (impulse_action_time + impulse_time < time * 1000)
+        //T3.34: both operands come from outside. impulse_action_time is the
+        //duration the client asked for (Utils::from_string saturates an
+        //out-of-range value to INT_MAX), and impulse_time is -1 when the
+        //shutter simply has no impulse_time parameter. The int sum therefore
+        //overflows (UB) at the top of the range, and goes negative at the
+        //bottom; a negative delay reaches Timer::singleShot() as
+        //static_cast<uint64_t>(-1.0), which libuv clamps to "never" -- measured:
+        //the handle stays armed on the loop for good, holding this IO, once per
+        //command. Compute in double and never ask for a negative delay.
+        const double _impulseEnd = (double)impulse_action_time + (double)impulse_time;
+        if (_impulseEnd < (double)time * 1000.)
         {
-            double _t = (double)(impulse_action_time + impulse_time) / 1000.;
-            Timer::singleShot(_t, sigc::mem_fun(*this, &OutputShutter::Stop));
+            double _t = _impulseEnd / 1000.;
+            if (_t < 0.) _t = 0.;
+            Timer::singleShot(_t, sigc::slot<void>(
+                [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
+            {
+                //T3.34: this one-shot is parked on the event loop with a raw
+                //`this` (IOBase is not a sigc::trackable, and nothing
+                //cancels the anonymous handle). Honouring the requested
+                //duration makes the window as long as the client asked for
+                //instead of the bare impulse_time, so the callback checks
+                //that the IO is still alive before touching it.
+                if (alive.expired()) return;
+                Stop();
+            }));
         }
     }
     else

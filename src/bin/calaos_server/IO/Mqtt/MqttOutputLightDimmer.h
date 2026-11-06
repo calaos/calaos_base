@@ -22,16 +22,13 @@
 #define __MQTT_OUTPUT_LIGHT_DIMMER_H__
 
 #include "OutputLightDimmer.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttOutputLightDimmer : public OutputLightDimmer
+class MqttOutputLightDimmer : public MqttIOBase<OutputLightDimmer>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     void readValue();
     virtual bool set_value_real(int val) override;

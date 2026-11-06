@@ -23,6 +23,7 @@
 #endif
 
 #include "ExternProc.h"
+#include "OWFSUtils.h"
 
 #if HAVE_LIBOWCAPI
 # include <owcapi.h>
@@ -181,14 +182,8 @@ list<string> OWProcess::scanDevices()
 
     for (const string &s: tok)
     {
-        if ((s[0] > '0' && s[0] < '9') ||
-            (s[0] > 'A' && s[0] < 'F'))
-        {
-            if (s[s.length() - 1] == '/') //remove trailing /
-                listDevices.push_back(s.substr(0, s.length() - 1));
-            else
-                listDevices.push_back(s);
-        }
+        if (OWFSUtils::entryIsDevice(s))
+            listDevices.push_back(OWFSUtils::entryToDeviceName(s));
     }
 
     return listDevices;
@@ -211,7 +206,9 @@ void OWProcess::readTimeout()
                         });
     }
 
-    sendMessage(jdata.dump());
+    //E4.1b: error handler ONLY, no ensure_ascii - this wire is already in
+    //service in raw UTF-8 and E4.1 does not migrate it.
+    sendMessage(jdata.dump(-1, ' ', false, Json::error_handler_t::replace));
 }
 
 void OWProcess::messageReceived(const string &msg)
@@ -308,9 +305,8 @@ int OWProcess::procMain()
 {
     //force a read+send the first time
     readTimeout();
-    run(1000);
 
-    return 0;
+    return run(1000)? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(OWProcess)

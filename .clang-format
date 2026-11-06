@@ -1,0 +1,76 @@
+# clang-format configuration for calaos_base
+#
+# Goal: encode the conventions documented in AGENTS.md ("Coding Conventions")
+# closely enough that `clang-format --dry-run` on a PR's changed lines will
+# not flag correctly-styled new code, WITHOUT forcing a mass reformat of the
+# existing tree (see docs/refactoring/T0.5.md). The CI `format-check` job
+# only runs clang-format on files/lines touched by a PR.
+#
+# Values were chosen empirically: iterate, run `clang-format` (not -i) on a
+# handful of representative existing files (ListeRule.cpp, JsonApi.cpp,
+# Rules/ActionStd.cpp, JsonApi.h, Rule.h, src/lib/Utils.cpp) and check that
+# the diff stays small. Residual diff is dominated by genuine pre-existing
+# inconsistencies in the tree (missing spaces after `;` in `for` loops,
+# `char* x` vs `char *x`, ad hoc indentation, ternary spacing, ...) that any
+# correct formatter would also flag.
+
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++20
+
+# --- Indentation ---
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+NamespaceIndentation: None
+IndentCaseLabels: false
+
+# --- Braces: Allman ("{" on its own line) everywhere ---
+BreakBeforeBraces: Allman
+
+# --- No forced line wrapping: the codebase does not wrap consistently at
+# any particular column (line lengths observed up to ~350 chars), so
+# ColumnLimit: 0 tells clang-format to respect the input's own line-break
+# decisions instead of reflowing long lines/call arguments. This is the
+# single biggest factor in keeping the diff on existing code small. ---
+ColumnLimit: 0
+
+# --- Constructor initializer lists:
+#   MyClass::MyClass():
+#       Base(a, b),
+#       member_1(3),
+#       member_2(nullptr)
+#   {
+#   }
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: Never
+ConstructorInitializerIndentWidth: 4
+SpaceBeforeCtorInitializerColon: false
+SpaceBeforeInheritanceColon: false
+SpaceBeforeRangeBasedForLoopColon: false
+
+# --- Single-line bodies stay unbraced and on one line; multi-line bodies
+# are always braced (clang-format never adds braces, so this is about not
+# forcibly expanding/collapsing what's already there). Trivial one-line
+# getters/setters in headers (common in this codebase) are kept compact. ---
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: All
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortLambdasOnASingleLine: None
+LambdaBodyIndentation: OuterScope
+
+# --- Misc spacing/pointer style to match observed usage ---
+Cpp11BracedListStyle: false
+BinPackArguments: true
+BinPackParameters: true
+SpaceAfterCStyleCast: false
+PointerAlignment: Right
+ReferenceAlignment: Right
+SortIncludes: false
+SpacesInLineCommentPrefix:
+  Minimum: 0
+  Maximum: -1

@@ -19,74 +19,265 @@
  **
  ******************************************************************************/
 #include "IOBase.h"
+#include "IOFactory.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
 #include "DataLogger.h"
 #include "Utils.h"
 #include "NotifManager.h"
 #include "CalaosConfig.h"
+#include "IOChangeHub.h"
 
 using namespace Calaos;
 
 //Default timer value before value is considered bad (4 hours)
 double const IOBase::TimerChangedWarning = 60 * 60 * 4;
 
+bool IOBase::docGenerationMode = false;
+
+IOBase::ScopedDocGen::ScopedDocGen()
+{
+    IOBase::docGenerationMode = true;
+}
+
+IOBase::ScopedDocGen::~ScopedDocGen()
+{
+    IOBase::docGenerationMode = false;
+}
+
 IOBase::IOBase(Params &p, int iotype):
     param(p),
-    auto_sc_mark(false),
     io_type(iotype)
 {
     ioDoc = new IODoc();
-    ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true, string(), true);
-    ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true);
-    ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false, "true");
-    ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false, "true");
-    ioDoc->paramAdd("gui_type", _("Internal graphical type for all calaos objects. Set automatically, read-only parameter."), IODoc::TYPE_STRING, false, string(), true);
-    ioDoc->paramAdd("io_type", _("IO type, can be \"input\", \"output\", \"inout\""), IODoc::TYPE_STRING, true, string(), true);
-    ioDoc->paramAdd("log_history", _("If enabled, write an entry in the history event log for this IO"), IODoc::TYPE_BOOL, false, "false");
-    ioDoc->paramAdd("logged", _("If enabled, and if influxdb is enabled in local_config send the value to influxdb for this IO"), IODoc::TYPE_BOOL, false, "false");
+    ioDoc->paramAdd("id", _("Unique ID identifying the Input/Output in calaos-server"), IODoc::TYPE_STRING, true, string(), true, _("Identifier"));
+    ioDoc->paramAdd("name", _("Name of Input/Output."), IODoc::TYPE_STRING, true, string(), false, _("Name"));
+    ioDoc->paramAdd("visible", _("Display the Input/Output on all user interfaces if set. Default to true"), IODoc::TYPE_BOOL, false, "true", false, _("Visible"));
+    ioDoc->paramAdd("enabled", _("Enable the Input/Output. The default value is true. This parameter is added if it's not found in the configuration."), IODoc::TYPE_BOOL, false, "true", false, _("Enabled"));
+    ioDoc->paramAdd("gui_type", _("Internal graphical type for all calaos objects. Set automatically, read-only parameter."), IODoc::TYPE_STRING, false, string(), true, _("Display type"));
+    ioDoc->paramAdd("io_type", _("IO type, can be \"input\", \"output\", \"inout\""), IODoc::TYPE_STRING, true, string(), true, _("IO type"));
+    ioDoc->paramAdd("log_history", _("If enabled, write an entry in the history event log for this IO"), IODoc::TYPE_BOOL, false, "false", false, _("History log"));
+    ioDoc->paramAdd("logged", _("If enabled, and if influxdb is enabled in local_config send the value to influxdb for this IO"), IODoc::TYPE_BOOL, false, "false", false, _("InfluxDB"));
 
     if (!param.Exists("enabled"))
         param.Add("enabled", "true");
 
     param.Add("io_type", io_type == IO_INPUT?"input":io_type == IO_OUTPUT?"output":"inout");
 
-    ListeRoom::Instance().addIOHash(this);
+    //Documentation throwaway IOs (IOFactory::genDocIO()) must not enter the
+    //live io_table: they all share id="doc" and are deleted right away.
+    if (!docGenerationMode)
+    {
+        ListeRoom::Instance().addIOHash(this);
+        hashRegistered = true;
+    }
 }
 
 IOBase::~IOBase()
 {
-    ListeRoom::Instance().delIOHash(this);
+    if (hashRegistered)
+        ListeRoom::Instance().delIOHash(this);
     delete ioDoc;
+}
+
+namespace
+{
+
+//U+XXXX rather than the byte itself: naming it keeps a control character out
+//of the log line that complains about it.
+std::string codePointName(int byte)
+{
+    static const char HEX[] = "0123456789ABCDEF";
+    std::string name = "U+00";
+    name += HEX[(byte >> 4) & 0xf];
+    name += HEX[byte & 0xf];
+    return name;
+}
+
+/* A param is structural when the configuration loader needs it to rebuild the
+ * IO at all - and that is asked of IOFactory, not of a list of names, so a
+ * param the factory starts reading is covered without anyone remembering it.
+ * Only the TRANSITION is refused: an IO the factory could not have built in
+ * the first place (one assembled by hand outside the loader) must not become
+ * frozen because of it.
+ * Cost: one copy of a small map per write. Deliberate - a guard that knew
+ * which key matters would be the name list again.
+ */
+bool wouldStrandTheIo(const Params &before, const Params &after)
+{
+    if (!IOFactory::Instance().canCreate(before))
+        return false;
+
+    //"impl" moves the IO between a device and a plain IO, which the loader
+    //refuses to build from the other's element.
+    return !IOFactory::Instance().canCreate(after) ||
+           before.Exists("impl") != after.Exists("impl");
+}
+
+} //namespace
+
+bool IOBase::set_param(std::string opt, std::string val)
+{
+    /* io.xml is XML 1.0, and the C0 controls the grammar has no spelling for
+     * are refused here, at the model boundary. The zero byte is the worst of
+     * them - it ends the C string XmlUtils::setAttribute() resolves the name
+     * with, so "name\0squat" lands on the neighbouring attribute and renames
+     * the IO - but the others are not harmless either: pugixml writes them as
+     * `&#01;`, which only pugixml has to read back, and the owner of the file
+     * can no longer open it with his own tools.
+     * The refusal is HERE and not in the writer: the writer also re-records
+     * what an older Calaos wrote, and such a configuration must stay saveable.
+     */
+    const int badOpt = XmlUtils::firstUnwritableByte(opt);
+    const int badVal = XmlUtils::firstUnwritableByte(val);
+    if (badOpt >= 0)
+    {
+        //The name is not echoed - it is the thing carrying the byte.
+        cErrorDom("iobase") << "set_param(): refusing a parameter on IO '"
+                            << param["id"] << "': its name carries the control "
+                            << "character " << codePointName(badOpt)
+                            << ", which XML 1.0 cannot write into io.xml";
+        return false;
+    }
+    if (badVal >= 0)
+    {
+        cErrorDom("iobase") << "set_param(): refusing the parameter '" << opt
+                            << "' on IO '" << param["id"] << "': its value "
+                            << "carries the control character "
+                            << codePointName(badVal)
+                            << ", which XML 1.0 cannot write into io.xml";
+        return false;
+    }
+
+    if (opt == "id")
+    {
+        if (param.Exists("id"))
+        {
+            if (param["id"] == val)
+                return true; //no-op, not an error
+
+            //Refuse: io_table is keyed on "id", changing it here would
+            //leave a stale hash entry (lookups by the new id fail, and the
+            //destructor could no longer unregister -> dangling pointer).
+            //This is reachable from the JSON API "setparam" call.
+            cErrorDom("iobase") << "set_param(): refusing to change id '"
+                                << param["id"] << "' to '" << val
+                                << "', the IO id is immutable once created "
+                                << "(use renameId() to rename an IO)";
+            return false;
+        }
+
+        //id set for the first time after construction (unusual: all the
+        //normal creation paths put "id" in the constructor Params). Go
+        //through renameId() so the io_table entry follows the key change.
+        return renameId(val);
+    }
+
+    Params candidate = param;
+    candidate.Add(opt, val);
+    if (wouldStrandTheIo(param, candidate))
+    {
+        cErrorDom("iobase") << "set_param(): refusing to set '" << opt
+                            << "' on IO '" << param["id"]
+                            << "': the configuration loader would no longer "
+                            << "find a driver for this IO, and the equipment "
+                            << "would be missing from the installation at the "
+                            << "next start";
+        return false;
+    }
+
+    param.Add(opt, val);
+    return true;
+}
+
+bool IOBase::del_param(std::string opt)
+{
+    if (opt == "id")
+    {
+        cErrorDom("iobase") << "del_param(): refusing to delete the id '"
+                            << param["id"] << "', the IO id is immutable "
+                            << "(io_table is keyed on it)";
+        return false;
+    }
+
+    Params candidate = param;
+    candidate.Delete(opt);
+    if (wouldStrandTheIo(param, candidate))
+    {
+        cErrorDom("iobase") << "del_param(): refusing to delete '" << opt
+                            << "' on IO '" << param["id"]
+                            << "': the configuration loader would no longer "
+                            << "find a driver for this IO, and the equipment "
+                            << "would be missing from the installation at the "
+                            << "next start";
+        return false;
+    }
+
+    param.Delete(opt);
+    return true;
+}
+
+bool IOBase::renameId(const std::string &newId)
+{
+    string oldId = param["id"];
+
+    if (newId == oldId)
+        return true; //no-op
+
+    if (newId.empty())
+    {
+        cErrorDom("iobase") << "renameId(): refusing to rename '" << oldId
+                            << "' to an empty id";
+        return false;
+    }
+
+    if (hashRegistered && ListeRoom::Instance().get_io(newId))
+    {
+        cErrorDom("iobase") << "renameId(): refusing to rename '" << oldId
+                            << "' to '" << newId
+                            << "', an IO with this id already exists";
+        return false;
+    }
+
+    if (hashRegistered)
+        ListeRoom::Instance().delIOHash(this);
+
+    param.Add("id", newId);
+
+    if (hashRegistered)
+        ListeRoom::Instance().addIOHash(this);
+
+    return true;
 }
 
 void IOBase::EmitSignalIO()
 {
     cDebugDom("iobase") << get_param("id");
+    if (replayed)
+        valueKnown = true;
+    else
+        markReading();
+    //Also notifies the IOChangeHub subscribers, from inside the rule march so
+    //that their writes are serialized with the rule actions.
     ListeRule::Instance().ExecuteRuleSignal(get_param("id"));
     DataLogger::Instance().log(this);
 }
 
-bool IOBase::LoadFromXml(TiXmlElement *node)
+bool IOBase::LoadFromXml(pugi::xml_node node)
 {
     VAR_UNUSED(node);
     return true;
 }
 
-bool IOBase::SaveToXml(TiXmlElement *node)
+bool IOBase::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode;
-    if (isInput())
-        cnode = new TiXmlElement("calaos:input");
-    else
-        cnode = new TiXmlElement("calaos:output");
-    node->LinkEndChild(cnode);
+    pugi::xml_node cnode = node.append_child(isInput()?"calaos:input":"calaos:output");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
     return true;
@@ -98,9 +289,28 @@ void IOBase::setStatusInfo(StatusType type, double value)
     {
         case StatusType::BatteryLevel:
         {
+            //0% is a valid reading: record it and report it (getStatusInfo()
+            //keys on battery_level_set, not on the value being non-zero).
             status_info.battery_level = value;
+            status_info.battery_level_set = true;
 
             // If battery level is less than 30%, we send a notification if enabled
+
+            //global notification settings
+            bool g_notif_mail_enabled = Utils::get_config_option("notif/battery_mail_enabled") == "true";
+            bool g_notif_push_enabled = Utils::get_config_option("notif/battery_push_enabled") == "true";
+
+            //IO specific notification settings
+            bool io_notif_enabled = get_param("notif_battery") == "true";
+
+            //Nothing to do unless the battery is low, this IO opted in, and
+            //at least one channel can actually send. In particular the
+            //throttle timestamp below must never be recorded when no
+            //notification is sent, otherwise enabling a channel later
+            //swallows the first real notification for up to 24h.
+            if (value >= 30.0 || !io_notif_enabled ||
+                (!g_notif_mail_enabled && !g_notif_push_enabled))
+                break;
 
             //get last time the notification was sent
             string id = get_param("id") + "_" + get_param("type");
@@ -126,14 +336,7 @@ void IOBase::setStatusInfo(StatusType type, double value)
             // Check if 24 hours (86400 seconds) have passed
             bool enough_time_passed = (current_time - last_notif_time) >= 86400;
 
-            //global notification settings
-            bool g_notif_mail_enabled = Utils::get_config_option("notif/battery_mail_enabled") == "true";
-            bool g_notif_push_enabled = Utils::get_config_option("notif/battery_push_enabled") == "true";
-
-            //IO specific notification settings
-            bool io_notif_enabled = get_param("notif_battery") == "true";
-
-            if (value < 30.0 && io_notif_enabled && enough_time_passed)
+            if (enough_time_passed)
             {
                 if (g_notif_mail_enabled)
                 {
@@ -151,7 +354,12 @@ void IOBase::setStatusInfo(StatusType type, double value)
                     );
                 }
 
-                cachedParams["last_battery_notif_time"] = Utils::to_string(current_time);
+                //A channel sent (or at least attempted): record the time.
+                //Params::operator[] is read-only (returns by value), so the
+                //previous `cachedParams[...] = ...` assigned into a
+                //temporary and the throttle timestamp was NEVER stored:
+                //Add() is the correct way, and makes the 24h throttle work.
+                cachedParams.Add("last_battery_notif_time", Utils::to_string(current_time));
                 Config::Instance().SaveValueParams(id, cachedParams, false);
             }
 
@@ -188,7 +396,11 @@ void IOBase::setStatusInfo(StatusType type, StatusConnected value)
     {
         case StatusType::Connected:
         {
+            const bool changed = status_info.connected != value;
             status_info.connected = value;
+            //A device linked to this IO publishes it in its state (climate's connected).
+            if (changed)
+                IOChangeHub::Instance().notify(get_param("id"));
 
             //global notification settings
             bool g_notif_mail_enabled = Utils::get_config_option("notif/io_connected_mail_enabled") == "true";
@@ -242,7 +454,10 @@ void IOBase::setStatusInfo(StatusType type, uint64_t value)
 Params IOBase::getStatusInfo() const
 {
     Params status;
-    if (status_info.battery_level > 0.0) status.Add("battery_level", Utils::to_string(status_info.battery_level));
+    //battery_level_set and not a >0.0 check: 0% is a valid reading and must
+    //be reported (consistent with the low-battery notification, which fires
+    //for any reading below 30%).
+    if (status_info.battery_level_set) status.Add("battery_level", Utils::to_string(status_info.battery_level));
     if (status_info.connected != StatusConnected::STATUS_NONE)
         status.Add("connected", status_info.connected == StatusConnected::STATUS_CONNECTED ? "true" : "false");
     if (status_info.wireless_signal > 0.0) status.Add("wireless_signal", Utils::to_string(status_info.wireless_signal));

@@ -23,6 +23,13 @@
 
 using namespace Calaos;
 
+/* T3.34: the prefix length used to be written twice, once in the compare()
+ * and once in the erase(), and only "impulse down " got them wrong (13 then
+ * 11), which silently truncated the duration into "n <ms>". Naming the
+ * prefix once is what makes that mistake unwritable. */
+static const std::string kImpulseUpPrefix = "impulse up ";
+static const std::string kImpulseDownPrefix = "impulse down ";
+
 OutputShutterSmart::OutputShutterSmart(Params &p):
     IOBase(p, IOBase::IO_OUTPUT),
     total_time(0),
@@ -36,7 +43,6 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     timer_impulse(NULL),
     timer_up(NULL),
     timer_down(NULL),
-    timer_calib(NULL),
     calibrate(false)
 {
     ioDoc->descriptionBaseSet(_("Smart shutter. This shutter calculates the position of the shutter based on the time it takes to open and close. It then allows to set directly the shutter at a specified position."));
@@ -57,8 +63,7 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
     ioDoc->actionAdd("up 5", _("Open the shutter by X percent"));
     ioDoc->actionAdd("down 5", _("Close the shutter by X percent"));
     ioDoc->actionAdd("calibrate", _("Start calibration on shutter. This opens fully the shutter and resets all internal position values. Use this if shutter sync is lost."));
-    ioDoc->actionAdd("set_state true", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
-    ioDoc->actionAdd("set_state false", _("Update internal shutter state without starting real action. This is useful when having updating the shutter state from an external source."));
+    ioDoc->actionAdd("set_state 50", _("Update internal shutter position, in percent, without starting real action. This is useful when having updating the shutter state from an external source."));
 
     set_param("gui_type", "shutter_smart");
 
@@ -159,16 +164,28 @@ bool OutputShutterSmart::set_value(std::string val)
     {
         Stop();
     }
-    else if (val.compare(0, 11, "impulse up ") == 0)
+    else if (Utils::strStartsWith(val, kImpulseUpPrefix))
     {
-        val.erase(0, 11);
+        val.erase(0, kImpulseUpPrefix.length());
+        /* T3.25a: the duration is READ here, so it is refused here.
+         * Utils::from_string() publishes a SATURATED value on an out of range
+         * input and answers false; ignoring that answer handed ImpulseUp()
+         * INT_MAX, which is above the full travel of any shutter - so no stop
+         * was armed at all and a nudge became a complete open or close, with
+         * a success on the wire. The API boundary cannot hold this line:
+         * set_state writes any value of any IO and would have to refuse text.
+         */
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int v;
         from_string(val, v);
         ImpulseUp(v);
     }
-    else if (val.compare(0, 13, "impulse down ") == 0)
+    else if (Utils::strStartsWith(val, kImpulseDownPrefix))
     {
-        val.erase(0, 11);
+        val.erase(0, kImpulseDownPrefix.length());
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int v;
         from_string(val, v);
         ImpulseDown(v);
@@ -176,6 +193,16 @@ bool OutputShutterSmart::set_value(std::string val)
     else if (val.compare(0, 4, "set ") == 0)
     {
         val.erase(0, 4);
+        /* Same rule as the impulse grammars above, on the ones that carry a
+         * percentage: the argument is READ here, so it is refused here.
+         * Utils::from_string() publishes a SATURATED value on an out of range
+         * input and answers false; ignoring that answer aimed the shutter at a
+         * position no travel can reach, so the end timer landed hundreds of
+         * days away and the relay stayed energized with nothing left to stop
+         * it. The saturated number also survives as the command state whenever
+         * Up()/Down() return early, and updateCache() outlives a restart. */
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int percent;
         double new_position;
         from_string(val, percent);
@@ -192,6 +219,8 @@ bool OutputShutterSmart::set_value(std::string val)
     else if (val.compare(0, 3, "up ") == 0)
     {
         val.erase(0, 3);
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int percent;
         double new_position;
         from_string(val, percent);
@@ -205,6 +234,8 @@ bool OutputShutterSmart::set_value(std::string val)
     else if (val.compare(0, 5, "down ") == 0)
     {
         val.erase(0, 5);
+        if (!Utils::is_of_type<int>(val))
+            return false;
         int percent;
         double new_position;
         from_string(val, percent);
@@ -229,25 +260,30 @@ bool OutputShutterSmart::set_value(std::string val)
                                            (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerImpulse) );
         }
 
-        timer_calib = new Timer((double)total_time,
-                                     (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerCalibrate) );
+        timer_calib = std::make_unique<Timer>((double)total_time,
+                                              (sigc::slot<void>)sigc::mem_fun(*this, &OutputShutterSmart::TimerCalibrate));
     }
     else if (Utils::strStartsWith(val, "set_state "))
     {
         val.erase(0, 10);
 
-        if (Utils::is_of_type<int>(val))
-        {
-            int percent;
-            Utils::from_string(val, percent);
-            if (percent < 0) percent = 0;
-            if (percent > 100) percent = 100;
-            cmd_state = "set " + Utils::to_string(percent);
+        /* Answering true while doing nothing is a third answer where the five
+         * other grammars of this class have two, and it is what let the two
+         * forms this IO used to document - set_state true, set_state false -
+         * be accepted and silently ignored. The documented form is a
+         * percentage; anything else is refused like everywhere else. */
+        if (!Utils::is_of_type<int>(val))
+            return false;
 
-            double new_position = (double)percent * (double)time_up / 100.;
-            writePosition(new_position);
-            sens = SHUTTER_STOP;
-        }
+        int percent;
+        Utils::from_string(val, percent);
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+        cmd_state = "set " + Utils::to_string(percent);
+
+        double new_position = (double)percent * (double)time_up / 100.;
+        writePosition(new_position);
+        sens = SHUTTER_STOP;
 
         updateCache();
     }
@@ -322,10 +358,32 @@ void OutputShutterSmart::Up(double new_value)
 
         double _t = pos;
         if (new_value > 0) _t -= new_value;
-        if (impulse_action_time + impulse_time < _t * 1000)
+        //T3.34: both operands come from outside. impulse_action_time is the
+        //duration the client asked for (Utils::from_string saturates an
+        //out-of-range value to INT_MAX), and impulse_time is -1 when the
+        //shutter simply has no impulse_time parameter. The int sum therefore
+        //overflows (UB) at the top of the range, and goes negative at the
+        //bottom; a negative delay reaches Timer::singleShot() as
+        //static_cast<uint64_t>(-1.0), which libuv clamps to "never" -- measured:
+        //the handle stays armed on the loop for good, holding this IO, once per
+        //command. Compute in double and never ask for a negative delay.
+        const double _impulseEnd = (double)impulse_action_time + (double)impulse_time;
+        if (_impulseEnd < (double)(_t * 1000))
         {
-            double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
-            Timer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
+            double _timer = _impulseEnd / 1000.;
+            if (_timer < 0.) _timer = 0.;
+            Timer::singleShot(_timer, sigc::slot<void>(
+                [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
+            {
+                //T3.34: this one-shot is parked on the event loop with a raw
+                //`this` (IOBase is not a sigc::trackable, and nothing
+                //cancels the anonymous handle). Honouring the requested
+                //duration makes the window as long as the client asked for
+                //instead of the bare impulse_time, so the callback checks
+                //that the IO is still alive before touching it.
+                if (alive.expired()) return;
+                Stop();
+            }));
         }
     }
     else
@@ -399,10 +457,32 @@ void OutputShutterSmart::Down(double new_value)
 
         double _t = (double)total_time - pos;
         if (new_value > 0) _t -= new_value;
-        if (impulse_action_time + impulse_time < _t * 1000)
+        //T3.34: both operands come from outside. impulse_action_time is the
+        //duration the client asked for (Utils::from_string saturates an
+        //out-of-range value to INT_MAX), and impulse_time is -1 when the
+        //shutter simply has no impulse_time parameter. The int sum therefore
+        //overflows (UB) at the top of the range, and goes negative at the
+        //bottom; a negative delay reaches Timer::singleShot() as
+        //static_cast<uint64_t>(-1.0), which libuv clamps to "never" -- measured:
+        //the handle stays armed on the loop for good, holding this IO, once per
+        //command. Compute in double and never ask for a negative delay.
+        const double _impulseEnd = (double)impulse_action_time + (double)impulse_time;
+        if (_impulseEnd < (double)(_t * 1000))
         {
-            double _timer = (double)(impulse_action_time + impulse_time) / 1000.;
-            Timer::singleShot(_timer, sigc::mem_fun(*this, &OutputShutterSmart::Stop));
+            double _timer = _impulseEnd / 1000.;
+            if (_timer < 0.) _timer = 0.;
+            Timer::singleShot(_timer, sigc::slot<void>(
+                [this, alive = std::weak_ptr<bool>(impulseStopTag)]()
+            {
+                //T3.34: this one-shot is parked on the event loop with a raw
+                //`this` (IOBase is not a sigc::trackable, and nothing
+                //cancels the anonymous handle). Honouring the requested
+                //duration makes the window as long as the client asked for
+                //instead of the bare impulse_time, so the callback checks
+                //that the IO is still alive before touching it.
+                if (alive.expired()) return;
+                Stop();
+            }));
         }
     }
     else
@@ -621,11 +701,7 @@ void OutputShutterSmart::TimerCalibrate()
     setOutputUp(false);
     setOutputDown(false);
 
-    if (timer_calib)
-    {
-        delete timer_calib;
-        timer_calib = NULL;
-    }
+    timer_calib.reset();
 
     writePosition(0.);
 

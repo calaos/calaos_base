@@ -1,0 +1,34 @@
+{
+  "data": {
+    "broken": "false",
+    "category": "other",
+    "cycle": "true",
+    "disabled_missing_io": "false",
+    "enabled": "false",
+    "final_step": {
+      "actions": []
+    },
+    "id": "io_0",
+    "missing_ios": "",
+    "name": "Soirée",
+    "room_name": "E4.0c room",
+    "room_type": "salon",
+    "schedule": "as_0_schedule",
+    "steps": [
+      {
+        "actions": [
+          {
+            "io": "e40c_bool",
+            "resolved": "true",
+            "value": "true"
+          }
+        ],
+        "pause": "2.5",
+        "step_id": "s2"
+      }
+    ],
+    "visible": "false"
+  },
+  "msg": "autoscenario",
+  "msg_id": "e40c-sched"
+}

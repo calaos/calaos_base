@@ -74,6 +74,20 @@ mbus_rqst(mbus_struct *mbus, mbus_ubyte len)
     return -1;
   }
 
+  /* The body length comes from the frame and is an mbus_ubyte, so it reaches
+   * 255, while only MBUS_DATA_LEN (254) bytes remain after the header - and
+   * buf is the last member, so the extra byte landed past the structure.
+   * Refused rather than trimmed: the unread bytes leave the stream out of step
+   * either way, and the only caller reconnects and retries once, which
+   * resynchronises it; trimming would keep that desynchronisation and hand the
+   * command layer a truncated body to believe. */
+  if ((int)MBUS_HDR(mbus->buf, MBUS_LENGTH_L) > MBUS_DATA_LEN)
+  {
+    DBG(__FILE__, __LINE__,
+        "mbus_rqst(): response body does not fit the buffer");
+    return -1;
+  }
+
   /* receive response body from server */
   if (mbus_sock_read(mbus->sd,
                      mbus->buf + MBUS_HDR_LEN,

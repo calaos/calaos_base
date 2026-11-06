@@ -52,19 +52,19 @@ bool ActionTouchscreen::Execute()
     return true;
 }
 
-bool ActionTouchscreen::LoadFromXml(TiXmlElement *pnode)
+bool ActionTouchscreen::LoadFromXml(pugi::xml_node pnode)
 {
-    if (pnode->Attribute("action"))
+    if (pnode.attribute("action"))
     {
-        if (string(pnode->Attribute("action")) == "view_camera")
+        if (string(pnode.attribute("action").as_string()) == "view_camera")
             action = TypeActionCamera;
     }
 
     switch (action)
     {
     case TypeActionCamera:
-        if (pnode->Attribute("camera"))
-            cameraId = pnode->Attribute("camera");
+        if (pnode.attribute("camera"))
+            cameraId = pnode.attribute("camera").as_string();
         break;
     default:
         break;
@@ -73,21 +73,20 @@ bool ActionTouchscreen::LoadFromXml(TiXmlElement *pnode)
     return true;
 }
 
-bool ActionTouchscreen::SaveToXml(TiXmlElement *node)
+bool ActionTouchscreen::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *action_node = new TiXmlElement("calaos:action");
-    action_node->SetAttribute("type", "touchscreen");
+    pugi::xml_node action_node = node.append_child("calaos:action");
+    XmlUtils::setAttribute(action_node, "type", "touchscreen");
     switch (action)
     {
     case TypeActionCamera:
-        action_node->SetAttribute("action", "view_camera");
-        action_node->SetAttribute("camera", cameraId);
+        XmlUtils::setAttribute(action_node, "action", "view_camera");
+        XmlUtils::setAttribute(action_node, "camera", cameraId);
         break;
     default:
         cWarningDom("rule.action.touchscreen") << "Unknown action type!";
         break;
     }
-    node->LinkEndChild(action_node);
 
     return true;
 }

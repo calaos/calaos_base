@@ -45,13 +45,13 @@ WITemp::WITemp(Params &p):
     host = get_param("host");
 
     Utils::from_string(get_param("var"), address);
+    /* T3.25 (review). _or_keep: Exists() proves the key is THERE, not that it
+     * carries a number. A "port" that is present and blank made a plain
+     * from_string() write 0 over the Modbus default of 502. */
     if (get_params().Exists("port"))
-        Utils::from_string(get_param("port"), port);
+        Utils::from_string_or_keep(get_param("port"), port);
 
-    WagoMap::Instance(host, port).onWagoConnected.connect([=]()
-    {
-        readValue();
-    });
+    WagoMap::Instance(host, port).onWagoConnected.connect(sigc::mem_fun(*this, &WITemp::readValue));
 
     Calaos::StartReadRules::Instance().addIO();
 
@@ -62,7 +62,7 @@ WITemp::~WITemp()
 {
 }
 
-void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> &values)
+void WITemp::WagoReadCallback(bool status, WagoTypes::Address addr, WagoTypes::Count count, vector<UWord> &values)
 {
     if (!status)
     {
@@ -79,11 +79,17 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
     double val = value;
 
     if (!values.empty())
-        val = (short int)values[0] / 10.0;
+    {
+        //Compared once converted: the raw register never equals a converted
+        //value, and each answer would signal the rules again.
+        val = AnalogIO::convertValue(get_params(), (short int)values[0] / 10.0);
+        //An unchanged value is not signalled, but the sensor is alive.
+        markReading();
+    }
 
     if (val != value)
     {
-        value = AnalogIO::convertValue(get_params(), val);
+        value = val;
         emitChange();
     }
 
@@ -96,5 +102,6 @@ void WITemp::WagoReadCallback(bool status, UWord addr, int count, vector<UWord> 
 
 void WITemp::readValue()
 {
-    WagoMap::Instance(host, port).read_words((UWord)address, 1, sigc::mem_fun(*this, &WITemp::WagoReadCallback));
+    WagoMap::Instance(host, port).read_words(WagoTypes::Address((UWord)address), WagoTypes::Count(1),
+                                              sigc::mem_fun(*this, &WITemp::WagoReadCallback));
 }

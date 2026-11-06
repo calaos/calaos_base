@@ -22,21 +22,25 @@
 #define __MQTT_INPUT_ANALOG_H__
 
 #include "InputAnalog.h"
-#include "MqttCtrl.h"
+#include "MqttIOBase.h"
 
 namespace Calaos
 {
 
-class MqttInputAnalog : public InputAnalog
+class MqttInputAnalog : public MqttIOBase<InputAnalog>
 {
-private:
-    MqttCtrl *ctrl;
-
 protected:
     virtual void readValue() override;
 
 public:
     MqttInputAnalog(Params &p);
+
+    bool datesEveryReading() override { return true; }
+
+private:
+    /* A message, as opposed to the input poll reading the last one again:
+     * a reading even when its value is unchanged. */
+    void readMessage();
 };
 
 }

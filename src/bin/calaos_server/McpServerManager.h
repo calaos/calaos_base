@@ -23,6 +23,7 @@
 
 #include "Calaos.h"
 #include "Timer.h"
+#include "McpLogLevel.h"
 
 namespace uvw {
 class ProcessHandle;
@@ -56,6 +57,8 @@ private:
 
     std::string stdoutBuf;
     std::string stderrBuf;
+    McpLogLevel::Classifier stdoutLevel{McpLogLevel::Level::Info};
+    McpLogLevel::Classifier stderrLevel{McpLogLevel::Level::Warning};
 
     bool started = false;
     bool shuttingDown = false;
@@ -67,7 +70,7 @@ private:
     void ensureTokens();
     void spawnSidecar();
     void scheduleRestart();
-    void flushStreamBuffer(std::string &buf, bool toStderr);
+    void flushStreamBuffer(std::string &buf, McpLogLevel::Classifier &levels);
 
 public:
     static McpServerManager &Instance();
@@ -85,9 +88,20 @@ public:
     // the get_mcp_info JSON API action.
     const std::string &bearerToken() const { return mcpToken; }
 
+    // New mcp_token, persisted, then a sidecar restart so that it serves it:
+    // clients configured with the old token are refused from then on.
+    bool regenerateBearerToken();
+
     // Service token used by the Python sidecar to authenticate to JsonApi
     // as a scoped service account. Never sent to external clients.
     const std::string &getServiceToken() const { return serviceToken; }
+
+    // Secret the /mcp relay puts on the client identity it writes, and that
+    // the sidecar checks before believing it. Derived from the service token
+    // rather than stored on its own so that no new secret has to travel: both
+    // ends already hold that token and no MCP client ever sees it. Empty when
+    // the service token is missing, which makes the sidecar trust nothing.
+    std::string proxyCredential() const;
 };
 
 }

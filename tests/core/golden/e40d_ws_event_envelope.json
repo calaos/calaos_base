@@ -1,0 +1,12 @@
+{
+  "data": {
+    "data": {
+      "id": "e40_bool_out",
+      "state": "true"
+    },
+    "event_raw": "io_changed id:e40_bool_out state:true",
+    "type": "3",
+    "type_str": "io_changed"
+  },
+  "msg": "event"
+}

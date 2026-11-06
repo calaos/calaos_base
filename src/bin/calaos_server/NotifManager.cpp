@@ -24,9 +24,70 @@
 #include "Prefix.h"
 #include "libuvw.h"
 
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
+
+#include <algorithm>
+
 using namespace Calaos;
 
 static const char *TAG = "notif";
+
+namespace
+{
+
+string toHex(const string &bytes)
+{
+    static const char *hex = "0123456789abcdef";
+    string out(bytes.size() * 2, '0');
+    for (size_t i = 0; i < bytes.size(); i++)
+    {
+        const unsigned char c = (unsigned char)bytes[i];
+        out[2 * i] = hex[c >> 4];
+        out[2 * i + 1] = hex[c & 0x0f];
+    }
+    return out;
+}
+
+//Lowercase only, as register_push stores it. Reserved first so that the key
+//never sits in a buffer the final cleanse does not reach.
+bool fromHex(const string &hex, string &out)
+{
+    auto nibble = [](char c)
+    {
+        return c >= '0' && c <= '9' ? c - '0' : (c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1);
+    };
+    out.clear();
+    if (hex.size() % 2)
+        return false;
+    out.reserve(hex.size() / 2);
+    for (size_t i = 0; i < hex.size(); i += 2)
+    {
+        const int hi = nibble(hex[i]), lo = nibble(hex[i + 1]);
+        if (hi < 0 || lo < 0)
+            return false;
+        out.push_back((char)(hi << 4 | lo));
+    }
+    return true;
+}
+
+bool hmacSha256(const string &key, const string &message, unsigned char out[32])
+{
+    unsigned int len = 0;
+    return HMAC(EVP_sha256(), key.data(), (int)key.size(), (const unsigned char *)message.data(), message.size(), out, &len) &&
+           len == 32;
+}
+
+} //namespace
+
+string NotifManager::pushServiceUrl = "https://push.calaos.fr/api/push";
+
+void NotifManager::setPushServiceUrl(const string &url)
+{
+    pushServiceUrl = url;
+}
 
 NotifManager::NotifManager()
 {
@@ -40,6 +101,28 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
 
     //Get a temporary filename
     string tmpFile = Utils::getTmpFilename("tmp", "_mail_body");
+
+    /* calaos_mail is spawned with --delete below, so it is the one unlinking
+     * the body file and the attachment once the mail is out: this function
+     * takes ownership of both. Every path leaving without spawning it has to
+     * drop them, or they stay in /tmp forever (a tmpfs on the box).
+     */
+    auto dropTempFiles = [&tmpFile, &attachmentFile]()
+    {
+        if (!tmpFile.empty())
+            FileUtils::unlink(tmpFile);
+        if (!attachmentFile.empty())
+            FileUtils::unlink(attachmentFile);
+    };
+
+    if (tmpFile.empty())
+    {
+        //getTmpFilename() already logged why. calaos_mail reads the body from a
+        //file, there is nothing to send without it.
+        cCriticalDom(TAG) << "No temporary file for the mail body, cannot send mail !";
+        dropTempFiles();
+        return;
+    }
 
     //Write body message to a temp file
     std::ofstream ofs;
@@ -71,6 +154,7 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
         if (mail_recipients.empty())
         {
             cCriticalDom(TAG) << "No recipient email configured, cannot send mail !";
+            dropTempFiles();
             return; // Cannot send mail without recipient
         }
     }
@@ -101,9 +185,15 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
 
     auto exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     exe->once<uvw::ExitEvent>([exe](const uvw::ExitEvent &ev, auto &) { exe->close(); });
-    exe->once<uvw::ErrorEvent>([exe](const uvw::ErrorEvent &ev, auto &)
+    exe->once<uvw::ErrorEvent>([exe, tmpFile, attachmentFile = string(attachmentFile)](const uvw::ErrorEvent &ev, auto &)
     {
         cWarningDom(TAG) << "Process error: " << ev.what();
+
+        //calaos_mail never ran, nobody else will delete its files
+        FileUtils::unlink(tmpFile);
+        if (!attachmentFile.empty())
+            FileUtils::unlink(attachmentFile);
+
         exe->close();
     });
 
@@ -112,123 +202,327 @@ void NotifManager::sendMailNotification(const string &subject, const string &mes
     exe->spawn(arr.at(0), arr.data());
 }
 
-void NotifManager::sendPushNotification(const string &message, const string &notifPicUuid, std::function<void(void)> callbackSent)
+string NotifManager::buildPushBody(const vector<PushToken> &tokens, const string &message,
+                                   const string &notifPicUuid, bool development)
 {
-    cDebugDom(TAG) << "Sending push notification with message: " << message;
-
     auto nmsg = message;
     if (nmsg == "")
         nmsg = "Calaos Notification";
 
-    HistLogger::Instance().getPushTokens(
-            [=](bool success, string errorMsg, const vector<PushToken> &tokens)
+    vector<PushToken> androidTokens;
+    vector<PushToken> androidDataTokens;
+    vector<PushToken> iosTokens;
+
+    for (const auto &t: tokens)
     {
+        if (t.hw_type == HistLogger::PUSH_HW_IOS)
+            iosTokens.push_back(t);
+        else if (t.hw_type == HistLogger::PUSH_HW_ANDROID && t.format == HistLogger::PUSH_FORMAT_DATA)
+            androidDataTokens.push_back(t);
+        else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
+            androidTokens.push_back(t);
+    }
+
+    Json jarr = Json::array();
+    // Apple iOS -----------------------
+    if (!iosTokens.empty())
+    {
+        Json tokArray = Json::array();
+        for (const auto &t: iosTokens)
+            tokArray.push_back(t.token);
+
+        Json notif = {
+            { "tokens", tokArray },
+            { "message", nmsg },
+            { "topic", "fr.calaos.CalaosMobile" }
+        };
+        notif["platform"] = 1;
+
+        //gorush reads only the snake_case key. Always set: the iOS service
+        //extension (app badge) is run by iOS only for mutable-content.
+        notif["mutable_content"] = true;
+
+        if (!notifPicUuid.empty())
+        {
+            notif["data"] = { { "event_uuid", notifPicUuid } };
+        }
+
+        if (development)
+            notif["development"] = true;
+
+        jarr.push_back(notif);
+    }
+
+    // Google Android -----------------------
+    if (!androidTokens.empty())
+    {
+        Json tokArray = Json::array();
+        for (const auto &t: androidTokens)
+            tokArray.push_back(t.token);
+
+        Json notif = {
+            { "tokens", tokArray },
+            { "message", nmsg },
+            { "title", "Calaos" },
+            { "priority", "high" },
+            { "sound", "default" }
+        };
+        notif["platform"] = 2;
+
+        //force priority to high to make sure the notification is displayed
+        notif["notification"] = {
+            { "title", "Calaos" },
+            { "body", nmsg },
+            { "sound", "default" }
+        };
+
+        if (!notifPicUuid.empty())
+        {
+            notif["data"] = {
+                { "event_uuid", notifPicUuid },
+                { "body", nmsg },
+                { "message", nmsg },
+                { "title", "Calaos" }
+            };
+        }
+        else
+        {
+            notif["data"] = {
+                { "body", nmsg },
+                { "message", nmsg },
+                { "title", "Calaos" }
+            };
+        }
+
+        jarr.push_back(notif);
+    }
+
+    // Google Android, data-only -----------------------
+    //No title/message/notification/sound: gorush would turn any of them into a
+    //notification that Android displays itself while the app is in the
+    //background, without calling onMessageReceived(). android.priority is the
+    //FCM delivery priority (the top-level one is not mapped for Android), a
+    //normal data message is deferred while the phone dozes.
+    if (!androidDataTokens.empty())
+    {
+        Json tokArray = Json::array();
+        for (const auto &t: androidDataTokens)
+            tokArray.push_back(t.token);
+
+        Json notif = {
+            { "tokens", tokArray },
+            { "android", { { "priority", "high" } } },
+            { "data", { { "body", nmsg }, { "message", nmsg }, { "title", "Calaos" } } }
+        };
+        notif["platform"] = 2;
+
+        if (!notifPicUuid.empty())
+            notif["data"]["event_uuid"] = notifPicUuid;
+
+        jarr.push_back(notif);
+    }
+
+    if (jarr.empty())
+        return string();
+
+    //The message comes from rules.xml and never went through a JSON parser:
+    //a bare dump() throws type_error.316 on invalid UTF-8.
+    Json jnotif = { { "notifications", jarr } };
+    return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+void NotifManager::sendPushNotification(const string &message, const string &notifPicUuid, std::function<void(void)> callbackSent,
+                                        std::function<void(bool)> callbackDone)
+{
+    cDebugDom(TAG) << "Sending push notification with message: " << message;
+
+    HistLogger::Instance().getPushTokens(
+        [=, this](bool success, string errorMsg, const vector<PushToken> &tokens)
+        {
         if (!success)
         {
             cCriticalDom(TAG) << "Unable to send push notification: " << errorMsg;
+            if (callbackDone)
+                callbackDone(false);
             return;
         }
 
-        vector<PushToken> androidTokens;
-        vector<PushToken> iosTokens;
-
-        for (const auto &t: tokens)
-        {
-            if (t.hw_type == HistLogger::PUSH_HW_IOS)
-                iosTokens.push_back(t);
-            else if (t.hw_type == HistLogger::PUSH_HW_ANDROID)
-                androidTokens.push_back(t);
-        }
-
-        Json jarr = Json::array();
-        // Apple iOS -----------------------
-        if (!iosTokens.empty())
-        {
-            Json tokArray = Json::array();
-            for (const auto &t: iosTokens)
-                tokArray.push_back(t.token);
-
-            Json notif = {
-                { "tokens", tokArray },
-                { "platform", 1 },
-                { "message", nmsg },
-                { "topic", "fr.calaos.CalaosMobile" }
-            };
-
-            if (!notifPicUuid.empty())
-            {
-                notif["mutable-content"] = true;
-                notif["mutable_content"] = true;
-                notif["data"] = {{ "event_uuid", notifPicUuid }};
-            }
-
-            if (Utils::get_config_option("notif_development") == "true")
-                notif["development"] = true;
-
-            jarr.push_back(notif);
-        }
-
-        // Google Android -----------------------
-        if (!androidTokens.empty())
-        {
-            Json tokArray = Json::array();
-            for (const auto &t: androidTokens)
-                tokArray.push_back(t.token);
-
-            Json notif = {
-                { "tokens", tokArray },
-                { "platform", 2 },
-                { "message", nmsg },
-                { "title", "Calaos" },
-                { "priority", "high" },
-                { "sound", "default" }
-            };
-
-            //force priority to high to make sure the notification is displayed
-            notif["notification"] = {
-                { "title", "Calaos" },
-                { "body", nmsg },
-                { "sound", "default" }
-            };
-
-            if (!notifPicUuid.empty())
-            {
-                notif["data"] = {
-                    { "event_uuid", notifPicUuid },
-                    { "body", nmsg },
-                    { "message", nmsg },
-                    { "title", "Calaos" }
-                };
-            }
-            else
-            {
-                notif["data"] = {
-                    { "body", nmsg },
-                    { "message", nmsg },
-                    { "title", "Calaos" }
-                };
-            }
-
-            jarr.push_back(notif);
-        }
-
-        Json jnotif = {{ "notifications", jarr }};
-
-        if (jarr.empty())
+        string body = buildPushBody(tokens, message, notifPicUuid,
+                                    Utils::get_config_option("notif_development") == "true");
+        if (body.empty())
         {
             cInfoDom(TAG) << "No token registered. Cannot send push.";
+            if (callbackDone)
+                callbackDone(true);
             return;
         }
 
-        cDebugDom(TAG) << "Sending notif to service:";
-        cDebugDom(TAG) << jnotif.dump();
-
-        UrlDownloader *u = new UrlDownloader("https://push.calaos.fr/api/push", true);
-        u->m_signalComplete.connect([this, callbackSent](int statusCode)
-        {
-            cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
-            callbackSent();
-        });
-        u->httpPost(string(), jnotif.dump());
+        //The body carries the device tokens, it is never logged.
+        cDebugDom(TAG) << "Sending notif to service for " << tokens.size() << " token(s)";
+        post(body, callbackSent, callbackDone);
     });
+}
+
+string NotifManager::adminCodePurpose(const string &action)
+{
+    //Closed: the daemon's message never reaches a keyed phone
+    static const std::map<string, string> purposes = {
+        { "console_open", "open the web console" },
+        { "admin_password", "change the admin password" },
+        { "approver_enroll", "add an approver phone" },
+        { "approver_remove", "remove an approver phone" },
+        { "approver_confirm", "enroll this phone as the admin approver" },
+        { "network_config", "change the network configuration" },
+    };
+    const auto it = purposes.find(action);
+    return it == purposes.end() ? string() : it->second;
+}
+
+bool NotifManager::sealAdminCode(const string &keyHex, const AdminCode &code, const string &nonce, string &ctHex, string &tagHex)
+{
+    const bool digits = code.code.size() == 6 && std::all_of(code.code.begin(), code.code.end(), [](char c)
+                                                             {
+        return c >= '0' && c <= '9';
+                        });
+    string key;
+    if (!digits || nonce.size() != 16 || !fromHex(keyHex, key) || key.size() != 32)
+    {
+        OPENSSL_cleanse(&key[0], key.size());
+        return false;
+    }
+
+    //docs/08_http_api.md, "Code push chiffré": the phones replay these bytes
+    unsigned char ks[32], mac[32];
+    if (!hmacSha256(key, "calaos-admin-code/enc" + code.codeId + nonce, ks))
+    {
+        //LCOV_EXCL_START only reached when OpenSSL has no SHA-256
+        OPENSSL_cleanse(&key[0], key.size());
+        return false;
+        //LCOV_EXCL_STOP
+    }
+    string ct(6, '\0');
+    for (size_t i = 0; i < ct.size(); i++)
+        ct[i] = (char)(code.code[i] ^ ks[i]);
+    const bool ok = hmacSha256(key, "calaos-admin-code/mac" + code.codeId + nonce + code.action + code.expires + ct, mac);
+
+    ctHex = toHex(ct);
+    tagHex = toHex(string((const char *)mac, 16));
+    OPENSSL_cleanse(&key[0], key.size());
+    OPENSSL_cleanse(ks, sizeof(ks));
+    return ok;
+}
+
+string NotifManager::buildAdminCodeBody(const PushToken &token, const AdminCode &code, const string &nonce, bool development)
+{
+    const string purpose = adminCodePurpose(code.action);
+    string ct, tag;
+    if (purpose.empty() || !sealAdminCode(token.push_key, code, nonce, ct, tag))
+        return string();
+
+    const string notice = "Calaos admin code to " + purpose + ". Open the Calaos app to read it.";
+    Json data = {
+        { "admin_code_id", code.codeId },
+        { "admin_code_action", code.action },
+        { "admin_code_expires", code.expires },
+        { "admin_code_nonce", toHex(nonce) },
+        { "admin_code_ct", ct },
+        { "admin_code_tag", tag },
+    };
+
+    Json notif;
+    if (token.hw_type == HistLogger::PUSH_HW_IOS)
+    {
+        notif = { { "tokens", Json::array({ token.token }) }, { "message", notice }, { "topic", "fr.calaos.CalaosMobile" }, { "data", data } };
+        notif["platform"] = 1;
+        notif["mutable_content"] = true;
+        if (development)
+            notif["development"] = true;
+    }
+    else if (token.hw_type == HistLogger::PUSH_HW_ANDROID)
+    {
+        //Data only whatever its push_format: a notification message would be
+        //shown by Android without the app storing the payload
+        data["title"] = "Calaos";
+        data["body"] = notice;
+        data["message"] = notice;
+        notif = { { "tokens", Json::array({ token.token }) }, { "android", { { "priority", "high" } } }, { "data", data } };
+        notif["platform"] = 2;
+    }
+    else
+    {
+        return string();
+    }
+
+    Json jnotif = { { "notifications", Json::array({ notif }) } };
+    return jnotif.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+void NotifManager::sendAdminCodeTo(const string &token, const AdminCode &code,
+                                   std::function<void(bool sent, const string &sealedKey)> callbackDone)
+{
+    HistLogger::Instance().getPushTokens(
+        [this, token, code, callbackDone](bool success, string errorMsg, const vector<PushToken> &tokens)
+        {
+        //The platform, the format and the key come from register_push: a token
+        //this server does not know cannot be addressed
+        const auto one = std::find_if(tokens.begin(), tokens.end(), [&token](const PushToken &t)
+                                      {
+            return t.token == token;
+        });
+        const bool known = one != tokens.end();
+        //An older daemon gives no code to seal: its message is what the phone always got
+        const bool sealed = known && !one->push_key.empty() && !code.action.empty();
+        const bool development = Utils::get_config_option("notif_development") == "true";
+
+        string body;
+        if (sealed)
+        {
+            unsigned char nonce[16];
+            if (RAND_bytes(nonce, sizeof(nonce)) == 1)
+                body = buildAdminCodeBody(*one, code, string((const char *)nonce, sizeof(nonce)), development);
+        }
+        else if (known)
+        {
+            body = buildPushBody({ *one }, code.message, string(), development);
+        }
+
+        if (body.empty())
+        {
+            const string why = !success ? errorMsg : (known ? string("no push could be built for this phone") : string("the phone is not registered with this server any more"));
+            cWarningDom(TAG) << "Push not sent: " << why;
+            if (callbackDone)
+                callbackDone(false, string());
+            return;
+        }
+
+        cDebugDom(TAG) << "Sending " << (sealed ? "an encrypted" : "a") << " code push to service for one token";
+        const string sealedKey = sealed ? one->push_key : string();
+        post(body, {}, [callbackDone, sealedKey](bool sent)
+             {
+            if (callbackDone)
+                callbackDone(sent, sealedKey);
+        });
+    });
+}
+
+void NotifManager::post(const string &body, std::function<void(void)> callbackSent, std::function<void(bool)> callbackDone)
+{
+    UrlDownloader *u = new UrlDownloader(pushServiceUrl, true);
+    u->m_signalComplete.connect([callbackSent, callbackDone](int statusCode)
+                                {
+        cDebugDom(TAG) << "Push notif sent with code: " << statusCode;
+        //Optional: calling an empty one throws std::bad_function_call
+        if (callbackSent)
+            callbackSent();
+        if (callbackDone)
+            callbackDone(statusCode >= 200 && statusCode < 300);
+    });
+    if (!u->httpPost(string(), body))
+    {
+        //LCOV_EXCL_START only reached when libcurl cannot create a handle
+        u->cancel();
+        if (callbackDone)
+            callbackDone(false);
+        //LCOV_EXCL_STOP
+    }
 }

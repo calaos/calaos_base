@@ -1,0 +1,20 @@
+{
+  "data": {
+    "items": [
+      {
+        "count": "5",
+        "id": "alb_marker",
+        "name": "I am a row too",
+        "year": "1969"
+      },
+      {
+        "id": "alb_29",
+        "name": "Vespertine",
+        "year": "2001"
+      }
+    ],
+    "total_count": "5"
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}

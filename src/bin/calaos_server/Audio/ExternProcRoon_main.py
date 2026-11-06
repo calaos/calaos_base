@@ -140,7 +140,7 @@ class RoonClient(ExternProcClient):
 
     def roon_state_received(self, event, changed_ids):
         """ Callback for Roon state changes """
-        print("Event: %s" % event)
+        cDebugDom("roon")("Event: %s", event)
         for zone_id in changed_ids:
             if zone_id not in self.roon_api.zones:
                 # Zone has been removed?
@@ -148,7 +148,9 @@ class RoonClient(ExternProcClient):
 
             zone = self.roon_api.zones[zone_id]
 
-            print(zone["now_playing"].get("seek_position", 0))
+            # now_playing is absent when the zone is stopped/idle
+            cDebugDom("roon")("Seek position: %s",
+                              zone.get("now_playing", {}).get("seek_position", 0))
 
             if zone_id in self.subscribed_zones:
                 # Send the zone state to the extern process using json
@@ -191,28 +193,29 @@ class RoonClient(ExternProcClient):
             zid = message.get("zone_id")
             volume = message.get("volume")
 
-            # get output_id from first output of zone
-            outputs = self.roon_api.zones[zid].get("outputs")
-            output_id = None
-            if outputs:
-                output_id = outputs[0].get("output_id")
-
-            if zid and output_id and zid in self.roon_api.zones:
-                self.roon_api.set_volume_percent(output_id, volume)
+            # Validate the zone id before indexing zones: an unknown zone
+            # would raise and kill the extern-proc run loop.
+            if zid and zid in self.roon_api.zones:
+                # get output_id from first output of zone
+                outputs = self.roon_api.zones[zid].get("outputs")
+                output_id = outputs[0].get("output_id") if outputs else None
+                if output_id:
+                    self.roon_api.set_volume_percent(output_id, volume)
+                else:
+                    cErrorDom("roon")(f"No output found for zone {zid}")
             elif zid:
                 cErrorDom("roon")(f"Zone ID {zid} not found in Roon")
             else:
                 cErrorDom("roon")("No zone_id in message")
 
     def parse_cover_url(self, zone):
-        try:
-            now_playing_data = zone["now_playing"]
-            image_id = now_playing_data.get("image_key")
-            cover_url = self.roon_api.get_image(image_id)
-        except KeyError:
-            pass
-        else:
-            zone["cover_url"] = cover_url
+        image_id = zone.get("now_playing", {}).get("image_key")
+        if image_id:
+            try:
+                zone["cover_url"] = self.roon_api.get_image(image_id)
+            except Exception as e:
+                # Never let a cover lookup failure crash the state callback
+                cWarningDom("roon")("Failed to get cover url: %s", str(e))
 
         return zone
 

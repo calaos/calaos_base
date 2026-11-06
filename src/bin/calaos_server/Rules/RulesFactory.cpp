@@ -22,14 +22,44 @@
 
 using namespace Calaos;
 
-Condition *RulesFactory::CreateCondition(TiXmlElement *node)
+/******************************************************************************
+ * The two rejection causes (E4.2e)
+ * ===============================
+ * A `<calaos:condition>`/`<calaos:action>` node can be refused for two very
+ * different reasons, and the caller used to get the same undifferentiated NULL
+ * for both:
+ *
+ *  1. THE NODE IS NOT USABLE - unknown `type` attribute, missing mandatory
+ *     child (`<calaos:script>`, `<calaos:mail>`...). This is a corrupt/foreign
+ *     config, it is dropped exactly as it always was: LoadFromXml() answers
+ *     false, this factory destroys the half-built object and returns NULL, and
+ *     Rule::LoadFromXml() simply does not add it. The rule stays ENABLED.
+ *
+ *  2. THE NODE IS FINE BUT AN IO IT NAMES DOES NOT EXIST. This is NOT a broken
+ *     config, it is a config describing an IO that was deleted, renamed, or
+ *     whose driver was removed. Since E4.2e the loaders keep the object with
+ *     its reference and its parameters intact and only flag it
+ *     (Condition/Action::hasMissingIo()), so:
+ *       - the factory returns a NON-NULL object here,
+ *       - Rule::AddCondition()/AddAction() see the flag and DISABLE the whole
+ *         rule (an amputated rule is a more permissive rule),
+ *       - SaveToXml() writes the reference back untouched, so rewriting the
+ *         config does not destroy what the user wrote.
+ *
+ * So the distinction is carried by the returned pointer itself: NULL means
+ * cause 1, non-NULL + hasMissingIo() means cause 2. No signature had to change
+ * and no caller of CreateCondition()/CreateAction() had to learn a new
+ * protocol to keep its old behaviour.
+ ******************************************************************************/
+
+Condition *RulesFactory::CreateCondition(pugi::xml_node node)
 {
     Condition *condition = NULL;
 
     /* read type */
     string type = "";
-    if (node->Attribute("type"))
-        type = node->Attribute("type");
+    if (node.attribute("type"))
+        type = node.attribute("type").as_string();
 
     /* Standard condition */
     if (type == "standard" || type == "")
@@ -56,20 +86,26 @@ Condition *RulesFactory::CreateCondition(TiXmlElement *node)
     }
 
     if (condition && !condition->LoadFromXml(node))
+    {
+        //Cause 1 only (see the header comment): the node itself is unusable.
+        //A missing IO does NOT come here any more, it comes back as a non-null
+        //condition flagged with hasMissingIo().
+        delete condition;
         return NULL;
+    }
 
     return condition;
 }
 
 
-Action *RulesFactory::CreateAction(TiXmlElement *node)
+Action *RulesFactory::CreateAction(pugi::xml_node node)
 {
     Action *action = NULL;
 
     /* read type */
     string type = "";
-    if (node->Attribute("type"))
-        type = node->Attribute("type");
+    if (node.attribute("type"))
+        type = node.attribute("type").as_string();
 
     /* Standard action */
     if (type == "standard" || type == "")
@@ -102,7 +138,11 @@ Action *RulesFactory::CreateAction(TiXmlElement *node)
     }
 
     if (action && !action->LoadFromXml(node))
+    {
+        //Same as CreateCondition(): cause 1 only
+        delete action;
         return NULL;
+    }
 
     return action;
 }

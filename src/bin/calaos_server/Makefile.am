@@ -5,11 +5,9 @@ AM_CPPFLAGS =                                                 \
         -DOTA_FIRMWARE_PATH=\"$(datadir)/calaos/firmwares\"   \
         -DLIBMBUS                                             \
         -DPACKAGE_BIN_DIR=\"$(bindir)\"                       \
-        -DPACKAGE_DATA_DIR=\"$(datadir)/calaos\"              \
         -DPACKAGE_DATA_DIR=\"$(pkgdatadir)\"                  \
         -DPACKAGE_LIB_DIR=\"$(libdir)\"                       \
         -DPACKAGE_LOCALE_DIR=\"$(datadir)/locale\"            \
-        -DTIXML_USE_STL                                       \
         -DLUA_USE_DLOPEN                                      \
         -DXPLLIB_NOSOCK                                       \
         -DXPLLIB_NOLOG                                        \
@@ -21,7 +19,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink      \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/Scripts      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
@@ -34,8 +31,6 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server                 \
         -I$(top_srcdir)/src/lib                               \
         -I$(top_srcdir)/src/lib/LuaScript                     \
-        -I$(top_srcdir)/src/lib/TinyXML                       \
-        -I$(top_srcdir)/src/lib/cJSON                         \
         -I$(top_srcdir)/src/lib/llhttp/include                \
         -I$(top_srcdir)/src/lib/libquickmail                  \
         -I$(top_srcdir)/src/lib/uri_parser                    \
@@ -74,14 +69,29 @@ calaos_server_SOURCES = \
         Audio/AudioPlayerData.h                         \
         Audio/Squeezebox.cpp                            \
         Audio/Squeezebox.h                              \
+        Audio/SqueezeboxWire.h                          \
         Audio/SqueezeboxDB.cpp                          \
         Audio/SqueezeboxDB.h                            \
+        Audio/RoonArgs.h                                \
         Audio/RoonPlayer.cpp                            \
         Audio/RoonPlayer.h                              \
         Calaos.cpp                                      \
         Calaos.h                                        \
         CalaosConfig.cpp                                \
         CalaosConfig.h                                  \
+        CameraTokens.cpp                                \
+        CameraTokens.h                                  \
+        ServerInfo.h                                    \
+        ConsoleTunnel.cpp                               \
+        ConsoleTunnel.h                                 \
+        AdminConfig.cpp                                 \
+        AdminConfig.h                                   \
+        AdminEvents.cpp                                 \
+        AdminEvents.h                                   \
+        AdminState.cpp                                  \
+        AdminState.h                                    \
+        DaemonClient.cpp                                \
+        DaemonClient.h                                  \
         DataLogger.cpp                                  \
         DataLogger.h                                    \
         EventManager.cpp                                \
@@ -91,16 +101,28 @@ calaos_server_SOURCES = \
         HttpCodes.h                                     \
         HttpServer.cpp                                  \
         HttpServer.h                                    \
+        McpLogLevel.h                                   \
         McpProxyHandler.cpp                             \
         McpProxyHandler.h                               \
+        McpRequestFilter.h                              \
         McpServerManager.cpp                            \
         McpServerManager.h                              \
+        OriginPolicy.cpp                                \
+        OriginPolicy.h                                  \
         IO/AnalogIO.cpp                                 \
         IO/AnalogIO.h                                   \
+        IO/AnalogBounds.h                               \
+        IO/ClimateBase.cpp                              \
+        IO/ClimateBase.h                                \
         IO/ExternProc.cpp                               \
         IO/ExternProc.h                                 \
+        IO/Device.cpp                                   \
+        IO/Device.h                                     \
+        IO/DeviceTemplates.cpp                          \
+        IO/DeviceTemplates.h                            \
         IO/Gpio/GpioCtrl.cpp                            \
         IO/Gpio/GpioCtrl.h                              \
+        IO/Gpio/GpioInputBase.h                         \
         IO/Gpio/GpioInputSwitch.cpp                     \
         IO/Gpio/GpioInputSwitch.h                       \
         IO/Gpio/GpioInputSwitchLongPress.cpp            \
@@ -109,6 +131,7 @@ calaos_server_SOURCES = \
         IO/Gpio/GpioInputSwitchTriple.h                 \
         IO/Gpio/GpioOutputShutter.cpp                   \
         IO/Gpio/GpioOutputShutter.h                     \
+        IO/Gpio/GpioOutputShutterBase.h                     \
         IO/Gpio/GpioOutputShutterSmart.cpp              \
         IO/Gpio/GpioOutputShutterSmart.h                \
         IO/Gpio/GpioOutputSwitch.cpp                    \
@@ -117,6 +140,7 @@ calaos_server_SOURCES = \
         IO/IODoc.h                                      \
         IO/IOFactory.cpp                                \
         IO/IOFactory.h                                  \
+        IO/JsonPath.h                                   \
         IO/InPlageHoraire.cpp                           \
         IO/InPlageHoraire.h                             \
         IO/InputAnalog.cpp                              \
@@ -137,34 +161,17 @@ calaos_server_SOURCES = \
         IO/InputTimer.h                                 \
         IO/IntValue.cpp                                 \
         IO/IntValue.h                                   \
+        IO/InternalThermostat.cpp                       \
+        IO/InternalThermostat.h                         \
         IO/Hue/HueOutputLightRGB.h                      \
         IO/Hue/HueOutputLightRGB.cpp                    \
+        IO/Hue/HueWire.h                                \
         IO/KNX/KNXCtrl.h                                \
         IO/KNX/KNXCtrl.cpp                              \
         IO/KNX/KNXBase.cpp                              \
         IO/KNX/KNXBase.h                                \
-        IO/KNX/KNXInputAnalog.h                         \
-        IO/KNX/KNXInputAnalog.cpp                       \
-        IO/KNX/KNXInputSwitch.h                         \
-        IO/KNX/KNXInputSwitch.cpp                       \
-        IO/KNX/KNXInputSwitchLongPress.h                \
-        IO/KNX/KNXInputSwitchLongPress.cpp              \
-        IO/KNX/KNXInputSwitchTriple.h                   \
-        IO/KNX/KNXInputSwitchTriple.cpp                 \
-        IO/KNX/KNXInputTemp.h                           \
-        IO/KNX/KNXInputTemp.cpp                         \
-        IO/KNX/KNXOutputAnalog.h                        \
-        IO/KNX/KNXOutputAnalog.cpp                      \
-        IO/KNX/KNXOutputLight.h                         \
-        IO/KNX/KNXOutputLight.cpp                       \
-        IO/KNX/KNXOutputLightDimmer.h                   \
-        IO/KNX/KNXOutputLightDimmer.cpp                 \
-        IO/KNX/KNXOutputLightRGB.h                      \
-        IO/KNX/KNXOutputLightRGB.cpp                    \
-        IO/KNX/KNXOutputShutter.h                       \
-        IO/KNX/KNXOutputShutter.cpp                     \
-        IO/KNX/KNXOutputShutterSmart.h                  \
-        IO/KNX/KNXOutputShutterSmart.cpp                \
+        IO/KNX/KNXIo.h                                  \
+        IO/KNX/KNXIo.cpp                                \
         IO/LAN/PingInputSwitch.cpp                      \
         IO/LAN/PingInputSwitch.h                        \
         IO/LAN/WOLOutputBool.cpp                        \
@@ -173,6 +180,7 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttBrokerslist.cpp                     \
         IO/Mqtt/MqttCtrl.h                              \
         IO/Mqtt/MqttCtrl.cpp                            \
+        IO/Mqtt/MqttIOBase.h                            \
         IO/Mqtt/MqttInputAnalog.h                       \
         IO/Mqtt/MqttInputAnalog.cpp                     \
         IO/Mqtt/MqttInputString.h                       \
@@ -183,6 +191,8 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttInputTemp.cpp                       \
         IO/Mqtt/MqttOutputAnalog.h                      \
         IO/Mqtt/MqttOutputAnalog.cpp                    \
+        IO/Mqtt/MqttOutputString.h                      \
+        IO/Mqtt/MqttOutputString.cpp                    \
         IO/Mqtt/MqttOutputLight.h                       \
         IO/Mqtt/MqttOutputLight.cpp                     \
         IO/Mqtt/MqttOutputLightDimmer.h                 \
@@ -191,44 +201,16 @@ calaos_server_SOURCES = \
         IO/Mqtt/MqttOutputLightRGB.cpp                  \
         IO/Mqtt/MqttOutputShutter.h                     \
         IO/Mqtt/MqttOutputShutter.cpp                   \
+        IO/Mqtt/MqttWire.h                              \
         IO/Reolink/ReolinkCtrl.h                        \
         IO/Reolink/ReolinkCtrl.cpp                      \
+        IO/Reolink/ReolinkTypes.h                       \
+        IO/Reolink/ReolinkWire.h                        \
         IO/Reolink/ReolinkInputSwitch.h                 \
         IO/Reolink/ReolinkInputSwitch.cpp               \
-        IO/MySensors/MySensors.h                        \
-        IO/MySensors/MySensors.cpp                      \
-        IO/MySensors/MySensorsControllerList.cpp        \
-        IO/MySensors/MySensorsControllerList.h          \
-        IO/MySensors/MySensorsController.cpp            \
-        IO/MySensors/MySensorsController.h              \
-        IO/MySensors/MySensorsInputAnalog.h             \
-        IO/MySensors/MySensorsInputAnalog.cpp           \
-        IO/MySensors/MySensorsOutputLight.h             \
-        IO/MySensors/MySensorsOutputLight.cpp           \
-        IO/MySensors/MySensorsInputString.h             \
-        IO/MySensors/MySensorsInputString.cpp           \
-        IO/MySensors/MySensorsOutputString.h            \
-        IO/MySensors/MySensorsOutputString.cpp          \
-        IO/MySensors/MySensorsInputSwitch.h             \
-        IO/MySensors/MySensorsInputSwitch.cpp           \
-        IO/MySensors/MySensorsInputSwitchLongPress.h    \
-        IO/MySensors/MySensorsInputSwitchLongPress.cpp  \
-        IO/MySensors/MySensorsInputSwitchTriple.h       \
-        IO/MySensors/MySensorsInputSwitchTriple.cpp     \
-        IO/MySensors/MySensorsInputTemp.h               \
-        IO/MySensors/MySensorsInputTemp.cpp             \
-        IO/MySensors/MySensorsOutputAnalog.h            \
-        IO/MySensors/MySensorsOutputAnalog.cpp          \
-        IO/MySensors/MySensorsOutputDimmer.h            \
-        IO/MySensors/MySensorsOutputDimmer.cpp          \
-        IO/MySensors/MySensorsOutputLightRGB.h          \
-        IO/MySensors/MySensorsOutputLightRGB.cpp        \
-        IO/MySensors/MySensorsOutputShutter.h           \
-        IO/MySensors/MySensorsOutputShutter.cpp         \
-        IO/MySensors/MySensorsOutputShutterSmart.h      \
-        IO/MySensors/MySensorsOutputShutterSmart.cpp    \
         IO/OLA/OLACtrl.cpp                              \
         IO/OLA/OLACtrl.h                                \
+        IO/OLA/OLAWire.h                                \
         IO/OLA/OLAOutputLightDimmer.cpp                 \
         IO/OLA/OLAOutputLightDimmer.h                   \
         IO/OLA/OLAOutputLightRGB.cpp                    \
@@ -253,8 +235,11 @@ calaos_server_SOURCES = \
         IO/OutputShutterSmart.h                         \
         IO/OutputString.cpp                             \
         IO/OutputString.h                               \
+        IO/ProxyClimate.cpp                             \
+        IO/ProxyClimate.h                               \
         IO/Scenario.cpp                                 \
         IO/Scenario.h                                   \
+        IO/ThinIo.h                                     \
         IO/Wago/WIAnalog.cpp                            \
         IO/Wago/WIAnalog.h                              \
         IO/Wago/WIDigitalBP.cpp                         \
@@ -277,10 +262,15 @@ calaos_server_SOURCES = \
         IO/Wago/WOVolet.h                               \
         IO/Wago/WOVoletSmart.cpp                        \
         IO/Wago/WOVoletSmart.h                          \
+        IO/Wago/WagoBits.h                              \
+        IO/Wago/WagoConfigParse.h                       \
         IO/Wago/WagoCtrl.cpp                            \
         IO/Wago/WagoCtrl.h                              \
         IO/Wago/WagoMap.cpp                             \
+        IO/Wago/WagoIOBase.h                            \
         IO/Wago/WagoMap.h                               \
+        IO/Wago/WagoTypes.h                             \
+        IO/Wago/WagoWire.h                              \
         IO/Wago/libmbus/mbus.c                          \
         IO/Wago/libmbus/mbus.h                          \
         IO/Wago/libmbus/mbus_cmd.c                      \
@@ -307,14 +297,18 @@ calaos_server_SOURCES = \
         IO/Web/WebDocBase.cpp                           \
         IOBase.cpp                                      \
         IOBase.h                                        \
+        IOChangeHub.cpp                                 \
+        IOChangeHub.h                                   \
         IPCam/Axis.cpp                                  \
         IPCam/Axis.h                                    \
         IPCam/Foscam.cpp                                \
         IPCam/Foscam.h                                  \
-        IPCam/Gadspot.cpp                               \
-        IPCam/Gadspot.h                                 \
         IPCam/IPCam.cpp                                 \
         IPCam/IPCam.h                                   \
+        IPCam/JpegThumbnail.cpp                         \
+        IPCam/JpegThumbnail.h                           \
+        IPCam/PictureResizer.cpp                        \
+        IPCam/PictureResizer.h                          \
         IPCam/Planet.cpp                                \
         IPCam/Planet.h                                  \
         IPCam/StandardMjpeg.cpp                         \
@@ -323,6 +317,8 @@ calaos_server_SOURCES = \
         IPCam/SynoSurveillanceStation.h                 \
         JsonApi.cpp                                     \
         JsonApi.h                                       \
+        JsonApiAdmin.cpp                                \
+        JsonField.h                                     \
         JsonApiHandlerHttp.h                            \
         JsonApiHandlerHttp.cpp                          \
         JsonApiHandlerWS.h                              \
@@ -342,6 +338,7 @@ calaos_server_SOURCES = \
         Rule.h                                          \
         Rules/Action.cpp                                \
         Rules/Action.h                                  \
+        Rules/ActionCameraDownload.h                    \
         Rules/ActionMail.cpp                            \
         Rules/ActionMail.h                              \
         Rules/ActionScript.cpp                          \
@@ -366,6 +363,8 @@ calaos_server_SOURCES = \
         Rules/RulesFactory.h                            \
         Scenario/AutoScenario.cpp                       \
         Scenario/AutoScenario.h                         \
+        Scenario/AutoScenarioDef.cpp                    \
+        Scenario/AutoScenarioDef.h                      \
         UDPServer.cpp                                   \
         UDPServer.h                                     \
         WebSocket.cpp                                   \
@@ -394,11 +393,13 @@ calaos_server_SOURCES = \
         HistLogger.h                                    \
         NotifManager.h                                  \
         NotifManager.cpp                                \
+        version.h                                       \
         main.cpp
 
 calaos_server_LDADD =                                   \
         @CALAOS_COMMON_LIBS@                            \
         @CALAOS_SERVER_LIBS@                            \
+        @JPEG_LIBS@                                     \
         @INTLLIBS@                                      \
         @PTHREAD_CFLAGS@                                \
         $(top_builddir)/src/lib/libcalaos_common.la
@@ -412,6 +413,7 @@ calaos_script_SOURCES = \
         LuaScript/ScriptManager.cpp \
         LuaScript/ScriptBindings.h \
         LuaScript/ScriptBindings.cpp \
+        LuaScript/ScriptWire.h \
         IO/ExternProc.cpp \
         IO/ExternProc.h
 
@@ -424,6 +426,7 @@ bin_PROGRAMS += calaos_wago
 calaos_wago_SOURCES = \
         IO/ExternProc.cpp                   \
         IO/ExternProc.h                     \
+        IO/Wago/WagoBits.h                  \
         IO/Wago/WagoCtrl.cpp                \
         IO/Wago/libmbus/mbus.c              \
         IO/Wago/libmbus/mbus.h              \
@@ -431,6 +434,8 @@ calaos_wago_SOURCES = \
         IO/Wago/libmbus/mbus_conf.h         \
         IO/Wago/libmbus/mbus_rqst.c         \
         IO/Wago/libmbus/mbus_sock.c         \
+        IO/Wago/WagoTypes.h                 \
+        IO/Wago/WagoWire.h                  \
         IO/Wago/WagoExternProc_main.cpp
 
 calaos_wago_LDADD = \
@@ -441,6 +446,7 @@ bin_PROGRAMS += calaos_1wire
 calaos_1wire_SOURCES = \
         IO/ExternProc.cpp               \
         IO/ExternProc.h                 \
+        IO/OneWire/OWFSUtils.h          \
         IO/OneWire/OWExternProc_main.cpp
 
 calaos_1wire_LDADD = \
@@ -452,6 +458,7 @@ bin_PROGRAMS += calaos_ola
 calaos_ola_SOURCES = \
         IO/ExternProc.cpp               \
         IO/ExternProc.h                 \
+        IO/OLA/OLAWire.h                \
         IO/OLA/OLAExternProc_main.cpp
 
 calaos_ola_LDADD = \
@@ -480,7 +487,7 @@ bin_PROGRAMS += calaos_mqtt
 calaos_mqtt_SOURCES = \
 IO/ExternProc.cpp               \
 IO/ExternProc.h                 \
-IO/Mqtt/MqttExternProc_main.h   \
+IO/Mqtt/MqttWire.h              \
 IO/Mqtt/MqttExternProc_main.cpp
 
 calaos_mqtt_LDADD = \
@@ -499,20 +506,35 @@ BUILT_SOURCES =
 CLEANFILES =
 EXTRA_DIST =
 
+# T3.48: reference material that lives next to the code it documents. Not
+# compiled, so no primary carries it, and it never reached the tarball.
+EXTRA_DIST += \
+        Audio/hifi_rose_API.md          \
+        IO/io_types.txt                 \
+        RemoteUI/remote-ui.md
+
 if HAVE_PYTHON_ROON
 bin_SCRIPTS += Audio/calaos_roon
 externalprocess_PYTHON += Audio/ExternProcRoon_main.py
-BUILT_SOURCES += Audio/calaos_roon
-CLEANFILES += Audio/calaos_roon
 EXTRA_DIST += Audio/calaos_roon.in
+# Audio/calaos_roon is generated by AC_CONFIG_FILES, so automake emits its
+# regeneration rule only in the top-level Makefile (under the top-relative name)
+# and removes it at distclean via CONFIG_CLEAN_FILES. It must therefore not be
+# listed in CLEANFILES (clean must not delete configure output) nor in
+# BUILT_SOURCES. bin_SCRIPTS still makes it a prerequisite of all-am here, so
+# provide the matching local rule delegating to config.status.
+Audio/calaos_roon: $(top_builddir)/config.status $(top_srcdir)/src/bin/calaos_server/Audio/calaos_roon.in
+	cd $(top_builddir) && $(SHELL) ./config.status src/bin/calaos_server/Audio/calaos_roon
 endif
 
 if HAVE_PYTHON_REOLINK
 bin_SCRIPTS += IO/Reolink/calaos_reolink
 externalprocess_PYTHON += IO/Reolink/ExternProcReolink_main.py
-BUILT_SOURCES += IO/Reolink/calaos_reolink
-CLEANFILES += IO/Reolink/calaos_reolink
 EXTRA_DIST += IO/Reolink/calaos_reolink.in
+# Same as Audio/calaos_roon above: configure-generated, so no CLEANFILES /
+# BUILT_SOURCES entry, but a local regeneration rule is needed for all-am.
+IO/Reolink/calaos_reolink: $(top_builddir)/config.status $(top_srcdir)/src/bin/calaos_server/IO/Reolink/calaos_reolink.in
+	cd $(top_builddir) && $(SHELL) ./config.status src/bin/calaos_server/IO/Reolink/calaos_reolink
 endif
 
 # Common hooks for Python scripts
@@ -524,10 +546,5 @@ if HAVE_PYTHON_REOLINK
 	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
 endif
 
-clean-local:
-if HAVE_PYTHON_ROON
-	rm -f Audio/calaos_roon
-endif
-if HAVE_PYTHON_REOLINK
-	rm -f IO/Reolink/calaos_reolink
-endif
+# No clean-local removing Audio/calaos_roon or IO/Reolink/calaos_reolink here:
+# they are configure output, removed at distclean by the top-level Makefile.

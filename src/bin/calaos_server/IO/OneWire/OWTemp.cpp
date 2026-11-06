@@ -67,12 +67,24 @@ void OWTemp::readValue()
     if (v.empty() || !Utils::is_of_type<double>(v))
         return;
 
+    //The poll reads the last value of the 1-Wire process again: only a value
+    //it sent since is a reading, unchanged or not.
+    const uint64_t n = OwCtrl::Instance(ow_args)->readingCount(ow_id);
+    if (n != readingsSeen)
+    {
+        readingsSeen = n;
+        markReading();
+    }
+
     double val;
     Utils::from_string(v, val);
     val = Utils::roundValue(val, precision);
-    if (val != value)
+    //Compared once converted: the input poll reads the last value again, and
+    //signalling it would date a reading.
+    const double converted = AnalogIO::convertValue(get_params(), val);
+    if (converted != value)
     {
-        value = AnalogIO::convertValue(get_params(), val);
+        value = converted;
         emitChange();
         cDebugDom("input") << ow_id << ": value: " << val;
     }

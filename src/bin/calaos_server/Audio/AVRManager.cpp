@@ -32,19 +32,14 @@ AVRManager::AVRManager()
 {
 }
 
-AVRManager::~AVRManager()
-{
-    for (unsigned int i = 0;i < avrs.size();i++)
-        delete avrs[i];
-
-    avrs.clear();
-}
-
 AVRManager &AVRManager::Instance()
 {
-    static AVRManager inst;
+    //Never destroyed: the first receiver IO builds it after ListeRoom, and
+    //~ListeRoom() destroys the IOs that hand their receiver back to it. Each
+    //receiver is deleted by the last IO using it.
+    static AVRManager *inst = new AVRManager();
 
-    return inst;
+    return *inst;
 }
 
 AVReceiver *AVRManager::Create(Params &p)
@@ -79,6 +74,10 @@ AVReceiver *AVRManager::Create(Params &p)
 
 void AVRManager::Delete(AVReceiver *obj)
 {
+    //Create() returns NULL for an unknown model and IOAVReceiver's dtor
+    //calls Delete() unconditionally: NULL must be a no-op here.
+    if (!obj) return;
+
     bool found = false;
     for (unsigned int i = 0;i < avrs.size() && !found;i++)
     {
@@ -89,7 +88,7 @@ void AVRManager::Delete(AVReceiver *obj)
         }
     }
 
-    if (obj->ref_count <= 0)
+    if (found && obj->ref_count <= 0)
     {
         avrs.erase(std::remove(avrs.begin(), avrs.end(), obj), avrs.end());
         delete obj;

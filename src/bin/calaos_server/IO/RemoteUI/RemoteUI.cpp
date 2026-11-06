@@ -19,9 +19,13 @@
  **
  ******************************************************************************/
 #include "RemoteUI.h"
+#include "CalaosConfig.h"
 #include "IOFactory.h"
+#include "RemoteUI/HMACAuthenticator.h"
 #include "RemoteUI/RemoteUISecurityLimits.h"
 #include "RemoteUIManager.h"
+#include "ListeRoom.h"
+#include "IO/Device.h"
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
@@ -31,6 +35,86 @@
 static const char *TAG = "remote_ui";
 
 using namespace Calaos;
+
+namespace
+{
+
+/*
+ * T3.15 — reading back the <calaos:device_info> of the configs written by the
+ * broken writer.
+ *
+ * Until this ticket SaveToXml() attached the element to the node it received,
+ * which is the ROOM node (Room::SaveToXml() hands its own element to every IO
+ * it owns), and it did so BEFORE appending <calaos:remote_ui>. The element
+ * therefore came out as the immediate PREVIOUS SIBLING of the device it
+ * describes, where LoadFromXml() — which has always looked inside
+ * <calaos:remote_ui>, as the format documents — never found it.
+ *
+ * Room::LoadFromXml() ignores every element whose name it does not know, so
+ * those orphans are still sitting in the io.xml of anyone whose device_info
+ * had ever been read once. Nothing else in the format ever writes a
+ * <calaos:device_info> under a room, so "the element immediately preceding
+ * this <calaos:remote_ui>" identifies its owner with no ambiguity: it works
+ * for a room holding several devices (the writer interleaved them
+ * device_info(A), remote_ui(A), device_info(B), remote_ui(B)), and a
+ * remote_ui preceded by anything else — another IO, or nothing at all —
+ * adopts nothing.
+ *
+ * This is a one shot migration: the value is re-saved in its right place, so
+ * the orphan disappears with the next save (Room::SaveToXml() rebuilds the
+ * room element from the model, it does not patch the old document).
+ */
+pugi::xml_node legacyRoomDeviceInfo(const pugi::xml_node &remote_ui_node)
+{
+    for (pugi::xml_node prev = remote_ui_node.previous_sibling(); prev; prev = prev.previous_sibling())
+    {
+        //Whitespace/comments between two elements are not the predecessor
+        if (prev.type() != pugi::node_element)
+            continue;
+
+        if (string(prev.name()) == "calaos:device_info")
+            return prev;
+
+        //The nearest preceding element is something else: no orphan for us
+        return pugi::xml_node();
+    }
+
+    return pugi::xml_node();
+}
+
+//The four names the device converts as a size: it reads `w` or `width`, `h`
+//or `height`, and a guard on the short pair alone leaves the alias open.
+bool isWidgetSizeAttribute(const string &name)
+{
+    return name == "w" || name == "h" || name == "width" || name == "height";
+}
+
+//What the user needs to find the offending line in io.xml. Every field is
+//optional: the widget is being dropped precisely because something is missing.
+string describeWidget(const Json &widget, const Json &page)
+{
+    auto text = [](const Json &j, const char *key) -> string
+    {
+        return j.contains(key) && j[key].is_string() ? j[key].get<string>() : string();
+    };
+
+    string type = text(widget, "type");
+    string desc = "widget" + (type.empty() ? string() : " '" + type + "'");
+
+    string io_id = text(widget, "io_id");
+    if (!io_id.empty())
+        desc += " on io " + io_id;
+
+    string page_name = text(page, "name");
+    if (page_name.empty())
+        page_name = text(page, "id");
+    if (!page_name.empty())
+        desc += " of page '" + page_name + "'";
+
+    return desc;
+}
+
+}
 
 REGISTER_IO(RemoteUI)
 
@@ -82,35 +166,44 @@ void RemoteUI::readConfig()
     is_provisioned = !get_param("device_secret").empty() && !get_param("auth_token").empty();
 }
 
-bool RemoteUI::LoadFromXml(TiXmlElement *node)
+bool RemoteUI::LoadFromXml(pugi::xml_node node)
 {
     if (!IOBase::LoadFromXml(node))
         return false;
 
     // Load device_info
-    TiXmlElement *device_info_elem = node->FirstChildElement("calaos:device_info");
+    pugi::xml_node device_info_elem = node.child("calaos:device_info");
+
+    if (!device_info_elem)
+    {
+        //T3.15: adopt the orphan left under the room node by the writer this
+        //ticket fixes, so the information survives the upgrade instead of
+        //being dropped at the first save.
+        device_info_elem = legacyRoomDeviceInfo(node);
+        if (device_info_elem)
+            cInfoDom(TAG) << "RemoteUI(" << get_param("id") << "): migrating a <calaos:device_info> "
+                             "found under the room node, it will be saved inside <calaos:remote_ui>";
+    }
+
     if (device_info_elem)
     {
         device_info = Json::object();
 
-        TiXmlAttribute *attr = device_info_elem->FirstAttribute();
-        while (attr)
-        {
-            device_info[attr->Name()] = attr->ValueStr();
-            attr = attr->Next();
-        }
+        for (pugi::xml_attribute attr: device_info_elem.attributes())
+            device_info[attr.name()] = string(attr.value());
     }
 
     // Load pages
-    TiXmlElement *pages_elem = node->FirstChildElement("calaos:pages");
+    pugi::xml_node pages_elem = node.child("calaos:pages");
     if (pages_elem)
     {
         pages = Json::array();
 
+        vector<string> dropped_widgets;
         size_t page_count = 0;
-        for (TiXmlElement *page_elem = pages_elem->FirstChildElement("calaos:page");
+        for (pugi::xml_node page_elem = pages_elem.child("calaos:page");
              page_elem;
-             page_elem = page_elem->NextSiblingElement("calaos:page"))
+             page_elem = page_elem.next_sibling("calaos:page"))
         {
             // Check max pages limit
             if (page_count >= RemoteUISecurityLimits::MAX_PAGES_PER_REMOTEUI)
@@ -124,19 +217,15 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
 
             Json page = Json::object();
 
-            TiXmlAttribute *attr = page_elem->FirstAttribute();
-            while (attr)
-            {
-                page[attr->Name()] = attr->ValueStr();
-                attr = attr->Next();
-            }
+            for (pugi::xml_attribute attr: page_elem.attributes())
+                page[attr.name()] = string(attr.value());
 
             // Load widgets for this page
             Json widgets = Json::array();
             size_t widget_count = 0;
-            for (TiXmlElement *widget_elem = page_elem->FirstChildElement("calaos:widget");
+            for (pugi::xml_node widget_elem = page_elem.child("calaos:widget");
                  widget_elem;
-                 widget_elem = widget_elem->NextSiblingElement("calaos:widget"))
+                 widget_elem = widget_elem.next_sibling("calaos:widget"))
             {
                 // Check max widgets per page limit
                 if (widget_count >= RemoteUISecurityLimits::MAX_WIDGETS_PER_PAGE)
@@ -150,31 +239,81 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
 
                 Json widget = Json::object();
 
-                attr = widget_elem->FirstAttribute();
-                while (attr)
+                //The device runs its six geometry conversions under a single
+                //catch (const json::exception &), which does not cover the
+                //std::invalid_argument of std::stoi(""): one unreadable size
+                //and it loses every page, not one widget. A size that was
+                //never written is a different thing - it has always been
+                //optional here, and the device defaults it to 1.
+                bool unreadable_size = false;
+
+                for (pugi::xml_attribute attr: widget_elem.attributes())
                 {
                     // Convert numeric attributes
-                    string attr_name = attr->Name();
-                    string attr_value = attr->ValueStr();
+                    string attr_name = attr.name();
+                    string attr_value = attr.value();
 
                     if (attr_name == "x" || attr_name == "y")
-                        widget[attr_name] = std::stoi(attr_value);
+                    {
+                        //Leaving the attribute OUT hands the widget to the
+                        //check below, this loader's existing answer to a widget
+                        //without coordinates. Keeping the raw string would
+                        //satisfy that check and put a string where the device
+                        //expects a number.
+                        int coord = 0;
+                        if (Utils::from_string_or_keep(attr_value, coord))
+                            widget[attr_name] = coord;
+                    }
+                    else if (isWidgetSizeAttribute(attr_name))
+                    {
+                        //Kept as a string: that is what the wire has carried
+                        //since the first firmware, which reads these through an
+                        //is_string() branch. Only the reading is new.
+                        int size = 0;
+                        if (Utils::from_string_or_keep(attr_value, size))
+                            widget[attr_name] = attr_value;
+                        else
+                            unreadable_size = true;
+                    }
                     else
                         widget[attr_name] = attr_value;
-
-                    attr = attr->Next();
                 }
 
-                //Only add widget if it has a type and x/y positions
+                //Only add widget if it has a type, x/y positions, and no size
+                //it declared but nobody can read
                 if (widget.contains("type") &&
-                    widget.contains("x") && widget.contains("y"))
+                    widget.contains("x") && widget.contains("y") &&
+                    !unreadable_size)
                     widgets.push_back(widget);
                 else
-                    cWarningDom(TAG) << "RemoteUI(" << get_param("id") << "): Ignoring widget with missing required attributes";
+                {
+                    string what = describeWidget(widget, page);
+                    dropped_widgets.push_back(what);
+                    cWarningDom(TAG) << "RemoteUI(" << get_param("id")
+                                     << "): Ignoring " << what
+                                     << ", it needs a type, whole number x/y, and "
+                                        "whole number sizes if it declares any";
+                }
             }
 
             page["widgets"] = widgets;
             pages.push_back(page);
+        }
+
+        //A dropped widget does not come back: the next SaveConfigIO() writes
+        //the page without it. Same deferred mail/push channel the rest of the
+        //configuration load uses, so a screen cannot lose a button in silence.
+        if (!dropped_widgets.empty())
+        {
+            string report = "Screen '" + get_param("id") + "' lost " +
+                            Utils::to_string(dropped_widgets.size()) +
+                            " widget(s) whose io.xml declaration is incomplete. They are "
+                            "gone from the screen and will be gone from io.xml at the "
+                            "next save:";
+            for (const string &w: dropped_widgets)
+                report += "\n- " + w;
+
+            Config::Instance().reportConfigAlert(report);
         }
     }
 
@@ -183,39 +322,44 @@ bool RemoteUI::LoadFromXml(TiXmlElement *node)
     return true;
 }
 
-bool RemoteUI::SaveToXml(TiXmlElement *node)
+bool RemoteUI::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *cnode = new TiXmlElement("calaos:remote_ui");
+    pugi::xml_node cnode = node.append_child("calaos:remote_ui");
 
     for (int i = 0;i < get_params().size();i++)
     {
         string key, value;
         get_params().get_item(i, key, value);
-        cnode->SetAttribute(key, value);
+        XmlUtils::setAttribute(cnode, key, value);
     }
 
-    // Save device_info
+    //T3.15: the device_info goes INSIDE <calaos:remote_ui>, next to the pages,
+    //because that is where LoadFromXml() reads it and what the format
+    //documents (RemoteUI/remote-ui.md). It used to be appended to `node` — the
+    //ROOM element — which made it a sibling of the device it describes and
+    //therefore write-only: nothing ever read it back.
+    //Only string values are written, as they always were: the loader turns
+    //every attribute into a string, so this is exactly the closure of what can
+    //be loaded, and the round trip is lossless.
     if (!device_info.empty())
     {
-        TiXmlElement *device_info_elem = new TiXmlElement("calaos:device_info");
+        pugi::xml_node device_info_elem = cnode.append_child("calaos:device_info");
 
         for (auto it = device_info.begin(); it != device_info.end(); ++it)
         {
             if (it.value().is_string())
-                device_info_elem->SetAttribute(it.key(), it.value().get<string>());
+                XmlUtils::setAttribute(device_info_elem, it.key(), it.value().get<string>());
         }
-
-        node->LinkEndChild(device_info_elem);
     }
 
     // Save pages
     if (!pages.empty() && pages.is_array())
     {
-        TiXmlElement *pages_elem = new TiXmlElement("calaos:pages");
+        pugi::xml_node pages_elem = cnode.append_child("calaos:pages");
 
         for (const auto &page : pages)
         {
-            TiXmlElement *page_elem = new TiXmlElement("calaos:page");
+            pugi::xml_node page_elem = pages_elem.append_child("calaos:page");
 
             for (auto it = page.begin(); it != page.end(); ++it)
             {
@@ -223,7 +367,7 @@ bool RemoteUI::SaveToXml(TiXmlElement *node)
                     continue;
 
                 if (it.value().is_string())
-                    page_elem->SetAttribute(it.key(), it.value().get<string>());
+                    XmlUtils::setAttribute(page_elem, it.key(), it.value().get<string>());
             }
 
             // Save widgets
@@ -231,27 +375,19 @@ bool RemoteUI::SaveToXml(TiXmlElement *node)
             {
                 for (const auto &widget : page["widgets"])
                 {
-                    TiXmlElement *widget_elem = new TiXmlElement("calaos:widget");
+                    pugi::xml_node widget_elem = page_elem.append_child("calaos:widget");
 
                     for (auto it = widget.begin(); it != widget.end(); ++it)
                     {
                         if (it.value().is_string())
-                            widget_elem->SetAttribute(it.key(), it.value().get<string>());
+                            XmlUtils::setAttribute(widget_elem, it.key(), it.value().get<string>());
                         else if (it.value().is_number_integer())
-                            widget_elem->SetAttribute(it.key(), std::to_string(it.value().get<int>()));
+                            XmlUtils::setAttribute(widget_elem, it.key(), std::to_string(it.value().get<int>()));
                     }
-
-                    page_elem->LinkEndChild(widget_elem);
                 }
             }
-
-            pages_elem->LinkEndChild(page_elem);
         }
-
-        cnode->LinkEndChild(pages_elem);
     }
-
-    node->LinkEndChild(cnode);
 
     return true;
 }
@@ -367,13 +503,12 @@ bool RemoteUI::validateHMAC(const string &token, const string &timestamp, const 
          reinterpret_cast<const unsigned char*>(message.c_str()), message.length(),
          result, &result_len);
 
-    std::ostringstream oss;
-    for (unsigned int i = 0; i < result_len; ++i)
-    {
-        oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(result[i]);
-    }
-
-    return oss.str() == hmac;
+    //Constant-time comparison of the supplied MAC against the computed raw
+    //bytes: the previous std::string operator== short-circuited on the first
+    //differing byte, leaking through timing how many leading characters of an
+    //attacker-supplied MAC were correct. Length is guarded first, then
+    //CRYPTO_memcmp is used over the raw HMAC bytes.
+    return HMACAuthenticator::constantTimeHexEquals(hmac, result, result_len);
 }
 
 void RemoteUI::extractReferencedIOs()
@@ -397,12 +532,37 @@ void RemoteUI::extractReferencedIOs()
         }
     }
 
+    writable_ios = referenced_ios;
+
+    std::set<string> expanded;
+    for (const string &id: referenced_ios)
+    {
+        if (Device *dev = ListeRoom::Instance().findIOAs<Device>(id))
+        {
+            for (IOBase *owned: dev->ownedIos())
+                expanded.insert(owned->get_param("id"));
+            for (const Device::Link &l: dev->getLinks())
+            {
+                if (!l.io.empty())
+                    expanded.insert(l.io);
+                if (!l.command_io.empty())
+                    expanded.insert(l.command_io);
+            }
+        }
+    }
+    referenced_ios.insert(expanded.begin(), expanded.end());
+
     cDebugDom(TAG) << "RemoteUI(" << get_param("id") << "): Extracted " << referenced_ios.size() << " referenced IOs";
 }
 
 bool RemoteUI::hasReferencedIO(const string &io_id) const
 {
     return referenced_ios.find(io_id) != referenced_ios.end();
+}
+
+bool RemoteUI::hasWritableIO(const string &io_id) const
+{
+    return writable_ios.find(io_id) != writable_ios.end();
 }
 
 Json RemoteUI::getProvisioningResponse()
@@ -441,14 +601,29 @@ Json RemoteUI::getRemoteUIIOStatesMessage(const std::map<string, Json> &io_state
     return data;
 }
 
+void RemoteUI::putIfSet(Json &data, const string &key, const string &value)
+{
+    if (!value.empty())
+        data[key] = value;
+}
+
+void RemoteUI::putBrightnessIfSet(Json &data)
+{
+    //A param the server cannot read is no more a level than an absent one:
+    //both leave the key out, and the device falls back on its own default.
+    int brightness = 0;
+    if (Utils::from_string_or_keep(get_param("brightness"), brightness))
+        data["brightness"] = brightness;
+}
+
 Json RemoteUI::getRemoteUIConfigMessage()
 {
     Json config;
-    config["name"] = get_param("name");
-    config["room"] = get_param("room");
-    config["theme"] = get_param("theme");
-    config["brightness"] = std::stoi(get_param("brightness"));
-    config["timeout"] = std::stoi(get_param("timeout"));
+    putIfSet(config, "name", get_param("name"));
+    putIfSet(config, "room", get_param("room"));
+    putIfSet(config, "theme", get_param("theme"));
+    putBrightnessIfSet(config);
+    config["timeout"] = getTimeout();
     config["pages"] = pages;
 
     return config;
@@ -473,11 +648,14 @@ bool RemoteUI::setBrightness(int brightness)
     return true;
 }
 
-int RemoteUI::getBrightness()
+int RemoteUI::getTimeout()
 {
-    int brightness = 100; // Default value
-    Utils::from_string(get_param("brightness"), brightness);
-    return brightness;
+    //30 is what every example of the wire format shows (RemoteUI/remote-ui.md);
+    //nothing in the tree writes this param, so a screen that was provisioned
+    //and never adjusted has no other source for it.
+    int timeout = 30;
+    Utils::from_string_or_keep(get_param("timeout"), timeout);
+    return timeout;
 }
 
 bool RemoteUI::setPage(const string &page_id)

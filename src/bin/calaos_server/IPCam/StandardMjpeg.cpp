@@ -34,13 +34,8 @@ StandardMjpeg::StandardMjpeg(Params &p):
     ioDoc->paramAdd("url_mjpeg", _("URL for mjpeg stream support"), IODoc::TYPE_STRING, false);
     ioDoc->paramAdd("ptz", _("Set to true if camera has PTZ support"), IODoc::TYPE_BOOL, false, "false");
 
-    //Nothing
-    for (int i = 0;i < p.size();i++)
-    {
-        std::string a, b;
-        p.get_item(i, a, b);
-        cDebug() << a << ":" << b;
-    }
+    //T3.3: removed the leftover debug loop that dumped every param to the
+    //logs — url_jpeg/url_mjpeg may embed credentials (http://user:pass@cam/)
 
     //actually this is only for testing UI, it does nothing
     if (param.Exists("ptz"))

@@ -22,38 +22,21 @@
 #include "config.h"
 #endif
 
-#include "ListeRule.h"
 #include "WebOutputLightRGB.h"
-#include "WebCtrl.h"
-#include "jansson.h"
+#include "IOFactory.h"
 
 using namespace Calaos;
 
 REGISTER_IO(WebOutputLightRGB)
 
 WebOutputLightRGB::WebOutputLightRGB(Params &p):
-    OutputLightRGB(p)
+    WebIOBase(p, "WebOutputLightRGB", _("RGB value written to a web document or URL"),
+              WebDoc::Post, "output")
 {
-    ioDoc->friendlyNameSet("WebOutputLightRGB");
-    ioDoc->descriptionSet(_("RGB value written to a web document or URL"));
-    docBase.initDoc(ioDoc, true);
-
     ioDoc->paramAdd("raw_value", _("RGB value has #RRGGBB. Sometimes some web api take only RRGGBB"
                                    "format. If raw_value is true, the # in front of the line is"
                                    "removed. The default value for this parameter is false."),
                     IODoc::TYPE_BOOL, false);
-
-    cInfoDom("output") << "WebOutputLightRGB::WebOutputLightRGB()";
-}
-
-WebOutputLightRGB::~WebOutputLightRGB()
-{
-}
-
-
-void WebOutputLightRGB::readValue()
-{
-  // Read the value
 }
 
 void WebOutputLightRGB::setColorReal(const ColorValue &c, bool s)

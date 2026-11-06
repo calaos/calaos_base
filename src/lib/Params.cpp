@@ -78,7 +78,7 @@ void Params::Parse(string str)
 
     while (str.length() > 0)
     {
-        if (isspace(str[i]))
+        if (isspace(static_cast<unsigned char>(str[i])))
         {
             string sid, val = str.substr(0, i);
             stringstream id;
@@ -86,7 +86,7 @@ void Params::Parse(string str)
             sid = id.str();
             Add(sid, val);
 
-            while (isspace(str[i]))
+            while (isspace(static_cast<unsigned char>(str[i])))
             {
                 i++;
                 if (i >= str.length())
@@ -131,27 +131,12 @@ string Params::toString() const
     return ret;
 }
 
-json_t *Params::toJson() const
-{
-    json_t *ret = json_object();
-
-    auto it = params.begin();
-    for (;it != params.end();it++)
-    {
-        json_object_set_new(ret,
-                            (*it).first.c_str(),
-                            json_string((*it).second.c_str()));
-    }
-
-    return ret;
-}
-
-Json Params::toNJson() const
+Json Params::toJson() const
 {
     return Json(params);
 }
 
-Params Params::fromNJson(const Json &j)
+Params Params::fromJson(const Json &j)
 {
     Params p;
     for (Json::const_iterator it = j.begin(); it != j.end(); ++it)

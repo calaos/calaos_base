@@ -37,24 +37,56 @@ protected:
     void setAuthenticated(bool auth) { loggedin = auth; }
     bool isAuthenticated() const { return loggedin; }
 
-    void sendJson(const string &msg_type, json_t *data, const string &client_id = string());
+    /* E4.1s: the jansson overload is GONE. Its ONE behaviour that the
+     * nlohmann overload does not have - OMITTING the "data" member when the
+     * pointer was null, where `jroot["data"] = json` would write "data":null -
+     * lives on in sendJsonNoData() below. Golden
+     * e40e_ws_get_state_without_data pins that omission.
+     */
     void sendJson(const string &msg_type, const Json &json, const string &client_id = string());
+    void sendJsonNoData(const string &msg_type, const string &client_id = string());
 
     bool loggedin = false;
-    // Set to true when the session was opened with login_service (S2).
-    // Restricts the set of allowed messages to a read+control subset.
-    bool serviceScope = false;
+
+    //Whether a logged-in client receives this event: every event by default.
+    virtual bool forwardsEvent(const CalaosEvent &) { return true; }
+
+    //Whether a logged-in client receives admin_event; never a service session
+    virtual bool forwardsAdminEvents() const { return !serviceScope; }
+
+    //Whether this session's authentication does not rest on cn_user/cn_pass,
+    //so a change_cred leaves it open: the service token, and for RemoteUI the HMAC.
+    virtual bool survivesCredentialChange() const { return serviceScope; }
+
+    //Names this client in the warning for a write to a protected output.
+    virtual const char *setStateSource() const { return "set_state over WebSocket"; }
 
 private:
+    //Source address of the client, "unknown" when there is no connection
+    string clientIp() const;
+
     void processLoginService(const Params &jsonData, const string &client_id = string());
+
+    //The `admin` message: gating here, the daemon calls in relayAdminAction()
+    void processAdminMessage(const Json &request, const string &client_id);
+    void relayAdminAction(const string &action, const Json &request, const string &session,
+                          const AdminAnswer &answer);
     sigc::connection evcon;
+    sigc::connection adminEvcon;
 
     sigc::signal<void, string, string, void*, void*> sig_events;
 
     void handleEvents(const CalaosEvent &event);
+    void handleAdminEvent(const Json &data);
 
     void processGetHome(const Params &jsonReq, const string &client_id = string());
-    void processGetState(json_t *jdata, const string &client_id = string());
+    /* E4.1s: a POINTER, and deliberately so. `json_object_get(jroot, "data")`
+     * answered NULL for an ABSENT member and a non null json_null for a
+     * member spelled `"data": null`, and these two functions branch on exactly
+     * that difference. A `const Json &` cannot carry it - a null Json would
+     * merge the two cases and turn `"data": null` into the no-data answer.
+     */
+    void processGetState(const Json *jdata, const string &client_id = string());
     void processGetStates(const Params &jsonReq, const string &client_id = string());
     void processQuery(const Params &jsonReq, const string &client_id = string());
     void processGetParam(const Params &jsonReq, const string &client_id = string());
@@ -62,17 +94,24 @@ private:
     void processDelParam(const Params &jsonReq, const string &client_id = string());
     void processSetState(Params &jsonReq, const string &client_id = string());
     void processGetPlaylist(Params &jsonReq, const string &client_id = string());
-    void processGetIO(json_t *jdata, const string &client_id = string());
+    void processGetIO(const Json *jdata, const string &client_id = string());
     void processGetTimerange(const Params &jsonReq, const string &client_id = string());
-    void processSetTimerange(json_t *jdata, const string &client_id = string());
+    void processSetTimerange(const Json &jdata, const string &client_id = string());
     void processEventLog(const Params &jsonReq, const string &client_id = string());
     void processRegisterPush(const Params &jsonReq, const string &client_id = string());
+    //Drops the authentication of every other live session, of every
+    //authenticated console and of every get_video stream, and closes them
+    void endOtherSessions();
     void processSettings(const Params &jsonReq, const string &client_id = string());
+    void processCameraToken(const string &client_id);
 
-    void processAudio(json_t *jdata, const string &client_id = string());
-    void processAudioDb(json_t *jdata, const string &client_id = string());
+    //E4.1s: ONE document. The json_t* twin that carried the dispatch is gone
+    //with the request parse it came from.
+    void processAudio(const Json &jdataDoc, const string &client_id = string());
+    void processAudioDb(const Json &jdataDoc, const string &client_id = string());
 
-    void processAutoscenario(json_t *jdata, const string &client_id = string());
+    //E4.1r: the "data" member as a document, not a second parse.
+    void processAutoscenario(const Json &jdata, const string &client_id = string());
 };
 
 #endif // JSONAPIV3_H

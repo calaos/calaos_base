@@ -39,7 +39,6 @@ typedef struct _BlinkInfo
 
 #ifndef UTILS
 std::string get_new_id(std::string prefix);
-std::string get_new_scenario_id();
 #endif
 
 //This class only counts all IO at start and wait for them
@@ -60,6 +59,11 @@ public:
 
     void addIO();
     void ioRead();
+
+    //How many IO still owe their first read. It only ever returns to 0 if
+    //every addIO() is matched, and a read path that loses its ioRead() leaves
+    //the server without start rules for good - a failure with no other symptom.
+    int pendingIOCount() const { return count_io; }
 };
 }
 

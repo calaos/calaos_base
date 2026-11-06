@@ -23,12 +23,17 @@
 
 #include "Calaos.h"
 #include "IOBase.h"
-#include "Jansson_Addition.h"
 
 namespace Calaos
 {
 
 class AutoScenario;
+/* FORWARD DECLARED, and held by pointer, on purpose: including
+ * AutoScenarioDef.h here would put src/bin/calaos_server/Scenario on the
+ * include path of every one of the ~65 test binaries that compile against
+ * Scenario.h. Only IO/Scenario.cpp needs the definition.
+ */
+class AutoScenarioDef;
 
 class Scenario : public IOBase
 {
@@ -36,6 +41,29 @@ protected:
     bool value;
 
     AutoScenario *auto_scenario;
+
+    /* THE DEFINITION, and it is the datum.
+     *
+     * Owned, never null. Loaded from the `autoscenario_*` / `as_*` params of
+     * this IO when they are there, and written back into them at every
+     * SaveToXml(), which is how io.xml stops being empty of the model.
+     */
+    AutoScenarioDef *auto_scenario_def;
+
+    /* Refresh the definition from the rules the AutoScenario currently holds.
+     * A no-op when this IO is not an auto scenario, and a no-op as soon as the
+     * definition holds anything of its own.
+     * The marker IS the uid, so an auto scenario always has a loaded
+     * definition: both guards hold and this bootstrap no longer runs. It is
+     * kept because it is the only thing that could ever rebuild a definition
+     * from a projection, and removing it is a decision of its own.
+     *
+     * It reads the action ids through ActionStd::get_output_id(), NOT through
+     * get_output(): an id that no longer resolves is KEPT (D4). The pointer
+     * based accessors of AutoScenario (getStepAction() & co.) drop it, because
+     * isScenarioInternalIO(nullptr) answers true.
+     */
+    void captureDefinitionFromRules();
 
 public:
     Scenario(Params &p);
@@ -48,9 +76,26 @@ public:
 
     AutoScenario *getAutoScenario() { return auto_scenario; }
 
+    //The definition. Never null.
+    AutoScenarioDef *getDefinition() { return auto_scenario_def; }
+
+    /* Materializes the definition into this IO's params before the generic
+     * writer serializes them, so io.xml carries the whole model.
+     * Writes and removes NOTHING when this IO carries no definition.
+     */
+    virtual bool SaveToXml(pugi::xml_node node) override;
+
     virtual bool get_command_bool() override { return value; }
 
-    json_t *toJson();
+    /* The API payload, rendered from the DEFINITION and never from the rules:
+     * an action whose IO no longer resolves comes out like any other, with
+     * resolved="false". Nothing here mutates.
+     * PITFALL: an action value is arbitrary client text and may carry a zero
+     * byte. It goes in as a std::string, so the whole value reaches the dump
+     * and is escaped there; through a const char * it would be cut at that
+     * byte and answered 200 OK on an amputated value.
+     */
+    Json toJson();
 };
 
 }

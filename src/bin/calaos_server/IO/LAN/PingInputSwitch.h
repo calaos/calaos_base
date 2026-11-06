@@ -22,6 +22,7 @@
 #define PINGINPUTSWITCH_H
 
 #include "InputSwitch.h"
+#include "Timer.h"
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
@@ -39,7 +40,15 @@ protected:
     bool lastStatus = false;
     std::shared_ptr<uvw::ProcessHandle> ping_exe;
 
+    //True between a successful spawn() and the exit/error event
+    bool pingRunning = false;
+
+    //Timer between two pings. Owned here so that it can never tick after
+    //this object is destroyed (Timer::singleShot() could not be stopped).
+    Timer *pollTimer = nullptr;
+
     void doPing();
+    void pollTimeout();
 
 public:
     PingInputSwitch(Params &p);

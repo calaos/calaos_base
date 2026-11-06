@@ -57,6 +57,7 @@ OutputLightRGB::OutputLightRGB(Params &p):
 
 OutputLightRGB::~OutputLightRGB()
 {
+    DELETE_NULL(timer_auto);
 }
 
 /* List of actions where value is in percent

@@ -24,6 +24,8 @@
 #include "Calaos.h"
 #include "AudioPlayer.h"
 #include "AudioDB.h"
+/* for the two role types the callbacks below carry */
+#include "Squeezebox.h"
 
 namespace Calaos
 {
@@ -35,39 +37,39 @@ class SqueezeboxDB: public AudioDB
 private:
     Squeezebox *player;
 
-    void getAlbums_cb(bool status, string request, string result, AudioPlayerData data);
-    void getAlbumsTitles_cb(bool status, string request, string result, AudioPlayerData data);
+    void getAlbums_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getAlbumsTitles_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getArtists_cb(bool status, string request, string result, AudioPlayerData data);
-    void getArtistsAlbums_cb(bool status, string request, string result, AudioPlayerData data);
+    void getArtists_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getArtistsAlbums_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getGenres_cb(bool status, string request, string result, AudioPlayerData data);
-    void getGenresArtists_cb(bool status, string request, string result, AudioPlayerData data);
+    void getGenres_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getGenresArtists_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getYears_cb(bool status, string request, string result, AudioPlayerData data);
-    void getYearsAlbums_cb(bool status, string request, string result, AudioPlayerData data);
+    void getYears_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getYearsAlbums_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getPlaylists_cb(bool status, string request, string result, AudioPlayerData data);
-    void getPlaylistsTracks_cb(bool status, string request, string result, AudioPlayerData data);
+    void getPlaylists_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getPlaylistsTracks_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getRadios_cb(bool status, string request, string result, AudioPlayerData data);
-    void getRadiosItems_cb(bool status, string request, string result, AudioPlayerData data);
+    void getRadios_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getRadiosItems_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getRandoms_cb(bool status, string request, string result, AudioPlayerData data);
-    void getRandomType_cb(bool status, string request, string result, AudioPlayerData data);
+    void getRandoms_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getRandomType_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getSearch_cb(bool status, string request, string result, AudioPlayerData data);
+    void getSearch_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getMusicFolder_cb(bool status, string request, string result, AudioPlayerData data);
+    void getMusicFolder_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getStats_genre_cb(bool status, string request, string result, AudioPlayerData data);
-    void getStats_artist_cb(bool status, string request, string result, AudioPlayerData data);
-    void getStats_album_cb(bool status, string request, string result, AudioPlayerData data);
-    void getStats_song_cb(bool status, string request, string result, AudioPlayerData data);
-    void getStats_playlist_cb(bool status, string request, string result, AudioPlayerData data);
-    void getStats_year_cb(bool status, string request, string result, AudioPlayerData data);
+    void getStats_genre_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getStats_artist_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getStats_album_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getStats_song_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getStats_playlist_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
+    void getStats_year_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
-    void getTrackInfos_cb(bool status, string request, string result, AudioPlayerData data);
+    void getTrackInfos_cb(bool status, SqueezeRequest request, SqueezeResult result, AudioPlayerData data);
 
 public:
     SqueezeboxDB(Squeezebox *squeezebox, Params &p);

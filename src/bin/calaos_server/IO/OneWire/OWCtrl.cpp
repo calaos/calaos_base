@@ -28,16 +28,24 @@ OwCtrl::OwCtrl(const string &args)
 
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_1wire";
 
+    //THE ONE SITE WHERE THE SPLIT ON SPACES IS LOAD BEARING, AND IT STAYS.
+    //`ow_args` is documented as a LIST of owfs arguments, OWTemp prefixes
+    //"--use-w1 " to it space included, and OWExternProc_main.cpp joins
+    //argv[1..] back into one owfs init string. Utils::split() drops empty
+    //tokens, so runs of spaces and a trailing one give the same argv as before.
+    vector<string> procArgs;
+    Utils::split(args, procArgs, " ");
+
     process->messageReceived.connect(sigc::mem_fun(*this, &OwCtrl::processNewMessage));
 
     process->processExited.connect([=]()
     {
         //restart process when stopped
         cWarningDom("process") << "process exited, restarting...";
-        process->startProcess(exe, "1wire", args);
+        process->startProcess(exe, "1wire", procArgs);
     });
 
-    process->startProcess(exe, "1wire", args);
+    process->startProcess(exe, "1wire", procArgs);
 }
 
 
@@ -50,6 +58,11 @@ OwCtrl::~OwCtrl()
 string OwCtrl::getValue(string owid)
 {
     return mapValues[owid];
+}
+
+uint64_t OwCtrl::readingCount(const string &owid)
+{
+    return readings[owid];
 }
 
 string OwCtrl::getType(string owid)
@@ -71,17 +84,17 @@ shared_ptr<OwCtrl> OwCtrl::Instance(const string &args)
 
 void OwCtrl::processNewMessage(const string &msg)
 {
-    Json jroot;
-    try
+    /* Non throwing parse, and the parser's own message does not reach the
+     * journal either: it quotes the token it choked on, so publishing
+     * e.what() published the frame even on the branch where nothing was
+     * concatenated into it. WARNING prints on a stock install.
+     */
+    Json jroot = Json::parse(msg, nullptr, false);
+
+    if (jroot.is_discarded() || !jroot.is_array())
     {
-        jroot = Json::parse(msg);
-        if (!jroot.is_array())
-            throw (invalid_argument(string("Json is not an array: ") + msg));
-    }
-    catch (const std::exception &e)
-    {
-        cWarningDom("1wire") << "Error parsing json from sub process: " << e.what();
-        cDebugDom("1wire") << msg;
+        cWarningDom("1wire") << "Error parsing json message from sub process ("
+                             << msg.size() << " bytes)";
         return;
     }
 
@@ -90,7 +103,12 @@ void OwCtrl::processNewMessage(const string &msg)
         if (it.find("id") != it.end())
         {
             if (it.find("value") != it.end())
-                mapValues[it["id"].get<string>()] = it["value"].get<string>();
+            {
+                const string id = it["id"].get<string>();
+                mapValues[id] = it["value"].get<string>();
+                //OWTemp skips a failed read (empty value) before counting it.
+                readings[id]++;
+            }
             if (it.find("type") != it.end())
                 mapTypes[it["id"].get<string>()] = it["type"].get<string>();
         }

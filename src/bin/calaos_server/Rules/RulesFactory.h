@@ -42,8 +42,8 @@ namespace Calaos
 class RulesFactory
 {
 public:
-    static Condition *CreateCondition(TiXmlElement *node);
-    static Action *CreateAction(TiXmlElement *node);
+    static Condition *CreateCondition(pugi::xml_node node);
+    static Action *CreateAction(pugi::xml_node node);
 };
 
 }

@@ -45,6 +45,7 @@ public:
     virtual DATA_TYPE get_type() override { return TSTRING; }
 
     virtual bool set_value(string val) override;
+    virtual string get_value_string() override { return value; }
 
     virtual string get_command_string() override { return cmd_state; }
 };

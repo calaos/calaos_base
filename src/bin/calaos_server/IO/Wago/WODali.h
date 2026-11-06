@@ -27,7 +27,9 @@
 namespace Calaos
 {
 
-class WODali : public OutputLightDimmer
+//WagoMap outlives this IO and keeps its slots (reconnect, pending replies):
+//trackable cuts every sigc::mem_fun bound to it when the IO dies.
+class WODali: public OutputLightDimmer, public sigc::trackable
 {
 private:
     std::string host;
@@ -35,7 +37,7 @@ private:
 
     virtual bool set_value_real(int val);
 
-    void WagoUDPCommand_cb(bool status, string command, string result);
+    void WagoUDPCommand_cb(bool status, WagoTypes::UdpCommand command, WagoTypes::UdpResult result);
 
 public:
     WODali(Params &p);

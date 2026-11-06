@@ -22,25 +22,15 @@
 #define S_GpioInputSwitchLongPress_H
 
 #include <InputSwitchLongPress.h>
-#include <WagoMap.h>
-#include "GpioCtrl.h"
+#include "GpioInputBase.h"
 
 namespace Calaos
 {
 
-class GpioInputSwitchLongPress : public InputSwitchLongPress
+class GpioInputSwitchLongPress : public GpioInputBase<InputSwitchLongPress>
 {
-private:
-    GpioCtrl *gpioctrl;
-
-protected:
-    bool val;
-    virtual bool readValue();
-
 public:
     GpioInputSwitchLongPress(Params &p);
-    virtual ~GpioInputSwitchLongPress();
-
 };
 
 }

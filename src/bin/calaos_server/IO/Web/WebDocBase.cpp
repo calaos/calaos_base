@@ -22,14 +22,6 @@
 
 using namespace Calaos;
 
-WebDocBase::WebDocBase()
-{
-}
-
-WebDocBase::~WebDocBase()
-{
-}
-
 void WebDocBase::initDoc(IODoc *ioDoc, bool postDoc)
 {
     if (postDoc)
@@ -61,8 +53,10 @@ void WebDocBase::initDoc(IODoc *ioDoc, bool postDoc)
         ioDoc->paramAdd("path",_("The path where to found the value. This value can take multiple values "
                                  "depending on the file type. If file_type is JSON, the json file "
                                  "downloaded will be read, and the informations will be extracted from "
-                                 "the path. for example weather[0]/description, try to read the "
-                                 "description value of the 1 element of the array of the weather object.\n"
+                                 "the path. Array indices are their own path segment, written "
+                                 "between square brackets: for example "
+                                 "weather/[0]/description reads the description value of the "
+                                 "first element of the weather array.\n"
                                  "If file_type is XML, the path is an xpath expression; Look here for "
                                  "syntax : http://www.w3schools.com/xsl/xpath_syntax.asp "
                                  "If file_type is TEXT, the downloaded file is returned as "
@@ -76,5 +70,11 @@ void WebDocBase::initDoc(IODoc *ioDoc, bool postDoc)
                                  "If the path is 2/4/, the value returne wil be 20.3\n"),
                         IODoc::TYPE_STRING, true);
     }
+
+    //T2.19: insecure by default (user decision) — Web IOs point at LAN
+    //devices commonly serving self-signed HTTPS, existing configs have no
+    //insecure param. m_parameters is keyed by name, so the GetAndPost flavor
+    //calling initDoc() twice documents this entry only once.
+    ioDoc->paramAdd("insecure", _("Skip TLS certificate verification when connecting to the url. Default to true (LAN devices commonly use self-signed certificates). Set to false to only allow a verified HTTPS connection."), IODoc::TYPE_BOOL, false, "true");
 }
 

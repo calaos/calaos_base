@@ -19,16 +19,20 @@
  **
  ******************************************************************************/
 #include "Calaos.h"
+#include "ConfigOptions.h"
 #include "Room.h"
 #include "ListeRoom.h"
 #include "IOFactory.h"
+#include "DeviceTemplates.h"
 #include "CalaosConfig.h"
 #include "ListeRule.h"
 #include "UDPServer.h"
-#include "NTPClock.h"
 #include "WagoMap.h"
 #include "HttpServer.h"
 #include "McpServerManager.h"
+#include "AdminEvents.h"
+#include "AdminState.h"
+#include "DaemonClient.h"
 #include "Prefix.h"
 #include "Audio/AVRManager.h"
 #include "HistLogger.h"
@@ -59,6 +63,7 @@ static void echoUsage(char **argv)
     cout << _("\t--config <path>\tSet <path> as the directory for config files.\n");
     cout << _("\t--cache <path>\tSet <path> as the directory for cache files.\n");
     cout << _("\t--gendoc <path>\tGenerate Io documentation in <path>\n");
+    cout << _("\t--gentemplates <path>\tGenerate the device templates in <path>\n");
     cout << _("\t-v, --version\tDisplay current version and exit.\n");
     cout << endl;
 }
@@ -109,6 +114,17 @@ int main (int argc, char **argv)
 
     Utils::initConfigOptions(confdir, cachedir);
 
+    /* Now that local_config.xml is loaded, drop the options that do not have
+     * any effect anymore. This is deliberately an explicit call and not a side
+     * effect of initConfigOptions(): calaos_config and calaos_mail call that
+     * function too, and neither of them may purge behind the user's back.
+     * purgeObsolete() never throws and is a silent no-op on a read-only rootfs.
+     */
+    std::vector<std::string> purgedOptions;
+    ConfigOptions::purgeObsolete(&purgedOptions);
+    for (const std::string &purgedKey: purgedOptions)
+        cInfoDom("config") << "Purged obsolete option: " << purgedKey;
+
     Prefix::Instance(argc, argv);
 
     srand(time(NULL));
@@ -122,6 +138,10 @@ int main (int argc, char **argv)
         cout << endl;
         exit(0);
     }
+
+    char *templatesDir = argvOptionParam(argv, argv + argc, "--gentemplates");
+    if (templatesDir)
+        exit(DeviceTemplates::generate(templatesDir) ? 0 : 1);
 
     //Ensure calling order of destructors
     HistLogger::Instance();
@@ -154,8 +174,10 @@ int main (int argc, char **argv)
     //Start Json API server
     unsigned short port = JSONAPI_PORT;
     string tmp =  Utils::get_config_option("port_api");
+    //T3.25: _keep. Same reason as McpServerManager::jsonApiPort() - .empty()
+    //lets a blank option through, and port 0 is not a port.
     if (!tmp.empty())
-        from_string(tmp, port);
+        from_string_or_keep(tmp, port);
     HttpServer::Instance(port);
 
     // Spawn the MCP sidecar (calaos_mcp Python process). The sidecar listens
@@ -163,7 +185,12 @@ int main (int argc, char **argv)
     // HttpServer above. Disabled silently if the wrapper is not installed.
     McpServerManager::Instance().start();
 
-    NTPClock::Instance();
+    //calaos-container answers admin/status; until it does, admin_seen_set decides
+    //LCOV_EXCL_START the server startup is not run by make check
+    DaemonClient::Instance().configure();
+    AdminState::Instance().start();
+    AdminEvents::Instance().start();
+    //LCOV_EXCL_STOP
 
     if (enable_udp)
     {
@@ -212,6 +239,11 @@ int main (int argc, char **argv)
     loop->run();
 
     McpServerManager::Instance().stop();
+    //LCOV_EXCL_START the server shutdown is not run by make check
+    //Before the clients go: no admin_event may reach a handler being torn down
+    AdminEvents::Instance().stop();
+    AdminState::Instance().stop();
+    //LCOV_EXCL_STOP
     HttpServer::Instance().disconnectAll();
 
     //Stop all wagomaps and wait for their threads to terminate correctly.

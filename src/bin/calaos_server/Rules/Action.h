@@ -21,6 +21,10 @@
 #ifndef S_ACTION_H
 #define S_ACTION_H
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include "Calaos.h"
 
 using namespace std;
@@ -46,7 +50,30 @@ class Action
 protected:
     int action_type;
 
+    /* Load-time diagnosis (E4.2e). Same contract as Condition::missingIoIds,
+     * see the long comment in Condition.h: an id that does not resolve at load
+     * is RECORDED here and KEPT (with its value) so that the save stays non
+     * destructive, while a malformed node still makes LoadFromXml() return
+     * false and the action is dropped as before. Rule::AddAction() reads this
+     * and disables the whole rule. */
+    vector<string> missingIoIds;
+
+    void addMissingIo(const string &id)
+    {
+        string key = id.empty()? MISSING_IO_EMPTY: id;
+
+        if (std::find(missingIoIds.begin(), missingIoIds.end(), key) != missingIoIds.end())
+            return;
+        missingIoIds.push_back(key);
+    }
+
 public:
+    /* Same sentinel as Condition::MISSING_IO_EMPTY, see the long comment
+     * there: an empty/absent id is a missing dependency, not something to
+     * skip. Skipping it left the action with ZERO output and NO flag, so the
+     * rule stayed enabled while doing less than what the user wrote. */
+    static constexpr const char *MISSING_IO_EMPTY = "<no id>";
+
     Action(int type);
     virtual ~Action();
 
@@ -54,8 +81,12 @@ public:
 
     int getType() { return action_type; }
 
-    virtual bool LoadFromXml(TiXmlElement *node) { return true; }
-    virtual bool SaveToXml(TiXmlElement *node) { return true; }
+    //True when at least one id of this action did not resolve at load time
+    bool hasMissingIo() const { return !missingIoIds.empty(); }
+    const vector<string> &getMissingIoIds() const { return missingIoIds; }
+
+    virtual bool LoadFromXml(pugi::xml_node node) { return true; }
+    virtual bool SaveToXml(pugi::xml_node node) { return true; }
 };
 
 }

@@ -21,6 +21,9 @@
 #include "ExternProc.h"
 
 #include "WagoCtrl.h"
+#include "WagoWire.h"
+
+#include <memory>
 
 class WagoProcess: public ExternProcClient
 {
@@ -33,8 +36,7 @@ public:
     EXTERN_PROC_CLIENT_CTOR(WagoProcess)
 
 protected:
-
-    WagoCtrl *wago = nullptr;
+    std::unique_ptr<WagoCtrl> wago;
     string wago_host;
     int wago_port = 502;
 
@@ -54,235 +56,172 @@ void WagoProcess::readTimeout()
 
 void WagoProcess::messageReceived(const string &msg)
 {
-    json_error_t jerr;
-    json_t *jroot = json_loads(msg.c_str(), 0, &jerr);
+    Params jsonData;
+    vector<string> values;
 
-    if (!jroot || !json_is_object(jroot))
+    //E4.1h: ONE non-throwing parse for both the flattened Params and the
+    //"values" array. The array used to be read straight off the raw parsed
+    //root, separately from the flattening.
+    if (!WagoWire::decodeMessage(msg, jsonData, &values))
     {
-        cWarningDom("wago") << "Error parsing json from sub process: " << jerr.text;
-        if (jroot)
-            json_decref(jroot);
+        cWarningDom("wago") << "Error parsing json from calaos_server";
+        return;
+    }
+
+    WagoWire::Request req;
+    const WagoWire::Decoded decoded = WagoWire::decodeRequest(jsonData, values, req);
+
+    if (decoded == WagoWire::Decoded::NoSuchAction)
+        return;
+
+    /* A field we could not read is not a zero. calaos_server is told the
+     * request failed and the PLC is never contacted; answering nothing would
+     * leave the pending command of WagoMap hanging forever. */
+    if (decoded == WagoWire::Decoded::Refused)
+    {
+        cError() << "Refusing " << jsonData["action"] << " request " << jsonData["id"]
+                 << ": address, count or value is missing or unreadable";
+
+        sendMessage(WagoWire::commandExpectsReadReply(req.command)?
+                        WagoWire::buildReadReply(jsonData, false, vector<string>()):
+                        WagoWire::buildStatusReply(jsonData, false));
         return;
     }
 
     string res;
+    bool status = true;
 
-    Params jsonData;
-    jansson_decode_object(jroot, jsonData);
-
-    if (jsonData["action"] == "read_bits" ||
-        jsonData["action"] == "read_output_bits")
+    switch (req.command)
     {
-        UWord address;
-        int count;
+    case WagoWire::Request::ReadBits:
+    {
         vector<bool> values_bits;
-        bool status = true;
 
-        Utils::from_string(jsonData["address"], address);
-        Utils::from_string(jsonData["count"], count);
+        cDebug() << "Reading address " << req.address << " (PLC: " << wago_host << ")";
 
-        UWord offset = 0;
-        if (jsonData["action"] == "read_output_bits")
-            offset = 0x200;
-
-        cDebug() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
-
-        if (!wago->read_bits(address + offset, count, values_bits))
+        if (!wago->read_bits(WagoTypes::Address(req.address), WagoTypes::Count(req.count), values_bits))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->read_bits(address, count, values_bits))
+            if (!wago->read_bits(WagoTypes::Address(req.address), WagoTypes::Count(req.count), values_bits))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "action", json_string(jsonData["action"].c_str()));
-        json_object_set_new(jret, "address", json_string(jsonData["address"].c_str()));
-        json_object_set_new(jret, "count", json_string(jsonData["count"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        json_t *jarr = json_array();
-        for (uint i = 0;i < values_bits.size();i++)
-            json_array_append_new(jarr, json_string(values_bits[i]?"true":"false"));
-        json_object_set_new(jret, "values", jarr);
+        vector<string> jvalues;
+        for (size_t i = 0;i < values_bits.size();i++)
+            jvalues.push_back(values_bits[i]?"true":"false");
 
-        res = jansson_to_string(jret);
+        res = WagoWire::buildReadReply(jsonData, status, jvalues);
+        break;
     }
-    else if (jsonData["action"] == "write_bit")
-    {
-        UWord address;
-        bool value = jsonData["value"] == "true";
-        bool status = true;
 
-        Utils::from_string(jsonData["address"], address);
+    case WagoWire::Request::WriteBit:
+        cDebug() << "Writing " << req.bitValue << " to address " << req.address
+                 << " (PLC: " << wago_host << ")";
 
-        cDebug() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
-
-        if (!wago->write_single_bit(address, value))
+        if (!wago->write_single_bit(WagoTypes::Address(req.address), WagoTypes::BitValue(req.bitValue)))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_single_bit(address, value))
+            if (!wago->write_single_bit(WagoTypes::Address(req.address), WagoTypes::BitValue(req.bitValue)))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
-    }
-    else if (jsonData["action"] == "write_bits")
-    {
-        UWord address;
-        int count;
-        vector<bool> values_bits;
-        bool status = true;
+        res = WagoWire::buildStatusReply(jsonData, status);
+        break;
 
-        Utils::from_string(jsonData["address"], address);
-        Utils::from_string(jsonData["count"], count);
+    case WagoWire::Request::WriteBits:
+        cDebug() << "Writing multiple values to address " << req.address
+                 << " (PLC: " << wago_host << ")";
 
-        uint idx;
-        json_t *value;
-
-        cDebug() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
-
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
-        {
-            string v = json_string_value(value);
-            values_bits.push_back(v == "true");
-        }
-
-        if (!wago->write_multiple_bits(address, count, values_bits))
+        if (!wago->write_multiple_bits(WagoTypes::Address(req.address), WagoTypes::Count(req.count), req.bits))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_multiple_bits(address, count, values_bits))
+            if (!wago->write_multiple_bits(WagoTypes::Address(req.address), WagoTypes::Count(req.count), req.bits))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
-    }
-    else if (jsonData["action"] == "read_words" ||
-             jsonData["action"] == "read_output_words")
+        res = WagoWire::buildStatusReply(jsonData, status);
+        break;
+
+    case WagoWire::Request::ReadWords:
     {
-        UWord address;
-        int count;
         vector<UWord> values_words;
-        bool status = true;
 
-        Utils::from_string(jsonData["address"], address);
-        Utils::from_string(jsonData["count"], count);
+        cDebug() << "Reading address " << req.address << " (PLC: " << wago_host << ")";
 
-        UWord offset = 0;
-        if (jsonData["action"] == "read_output_words")
-            offset = 0x200;
-
-        cDebug() << "Reading address " << (address + offset) << " (PLC: " << wago_host << ")";
-
-        if (!wago->read_words(address + offset, count, values_words))
+        if (!wago->read_words(WagoTypes::Address(req.address), WagoTypes::Count(req.count), values_words))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->read_words(address, count, values_words))
+            if (!wago->read_words(WagoTypes::Address(req.address), WagoTypes::Count(req.count), values_words))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "action", json_string(jsonData["action"].c_str()));
-        json_object_set_new(jret, "address", json_string(jsonData["address"].c_str()));
-        json_object_set_new(jret, "count", json_string(jsonData["count"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        json_t *jarr = json_array();
-        for (uint i = 0;i < values_words.size();i++)
-            json_array_append_new(jarr, json_string(Utils::to_string(values_words[i]).c_str()));
-        json_object_set_new(jret, "values", jarr);
+        vector<string> jvalues;
+        for (size_t i = 0;i < values_words.size();i++)
+            jvalues.push_back(Utils::to_string(values_words[i]));
 
-        res = jansson_to_string(jret);
+        res = WagoWire::buildReadReply(jsonData, status, jvalues);
+        break;
     }
-    else if (jsonData["action"] == "write_word")
-    {
-        UWord address;
-        UWord value;
-        bool status = true;
 
-        Utils::from_string(jsonData["address"], address);
-        Utils::from_string(jsonData["value"], value);
+    case WagoWire::Request::WriteWord:
+        cDebug() << "Writing " << req.wordValue << " to address " << req.address
+                 << " (PLC: " << wago_host << ")";
 
-        cDebug() << "Writing " << value << " to address " << address << " (PLC: " << wago_host << ")";
-
-        if (!wago->write_single_word(address, value))
+        /* The pair of F-WAGO-7: two UWord side by side on a WRITE.
+         * Permuting them used to compile in silence and preset an arbitrary
+         * register of the PLC. The wrapping below is the one place left where
+         * a human names which is which. */
+        if (!wago->write_single_word(WagoTypes::Address(req.address), WagoTypes::WordValue(req.wordValue)))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_single_word(address, value))
+            if (!wago->write_single_word(WagoTypes::Address(req.address), WagoTypes::WordValue(req.wordValue)))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
-    }
-    else if (jsonData["action"] == "write_words")
-    {
-        UWord address;
-        int count;
-        vector<UWord> values_words;
-        bool status = true;
+        res = WagoWire::buildStatusReply(jsonData, status);
+        break;
 
-        Utils::from_string(jsonData["address"], address);
-        Utils::from_string(jsonData["count"], count);
+    case WagoWire::Request::WriteWords:
+        cDebug() << "Writing multiple values to address " << req.address
+                 << " (PLC: " << wago_host << ")";
 
-        uint idx;
-        json_t *value;
-
-        cDebug() << "Writing multiple values to address " << address << " (PLC: " << wago_host << ")";
-
-        json_array_foreach(json_object_get(jroot, "values"), idx, value)
-        {
-            string v = json_string_value(value);
-            UWord vv;
-            Utils::from_string(v, vv);
-            values_words.push_back(vv);
-        }
-
-        if (!wago->write_multiple_words(address, count, values_words))
+        if (!wago->write_multiple_words(WagoTypes::Address(req.address), WagoTypes::Count(req.count), req.words))
         {
             cWarning() << "Wago MBUS, Reconnecting to host " << wago_host;
             wago->Connect();
-            if (!wago->write_multiple_words(address, count, values_words))
+            if (!wago->write_multiple_words(WagoTypes::Address(req.address), WagoTypes::Count(req.count), req.words))
             {
                 cError() << "Wago MBUS, failed to send request";
                 status = false;
             }
         }
 
-        json_t *jret = json_object();
-        json_object_set_new(jret, "id", json_string(jsonData["id"].c_str()));
-        json_object_set_new(jret, "status", json_string(status?"true":"false"));
-        res = jansson_to_string(jret);
-    }
+        res = WagoWire::buildStatusReply(jsonData, status);
+        break;
 
-    json_decref(jroot);
+    case WagoWire::Request::None:
+        break;
+    }
 
     if (!res.empty())
         sendMessage(res);
@@ -296,24 +235,24 @@ bool WagoProcess::setup(int &argc, char **&argv)
         return false;
     }
 
-    if (argc >= 1)
+    //argv[N] is only valid when argc > N, otherwise we would dereference
+    //the NULL terminator of argv (or read past it)
+    if (argc > 1)
         wago_host = argv[1];
 
-    if (argc >= 2)
+    if (argc > 2)
         Utils::from_string(argv[2], wago_port);
 
     cDebug() << "Wago host: " << wago_host << ":" << wago_port;
 
-    wago = new WagoCtrl(wago_host, wago_port);
+    wago = std::make_unique<WagoCtrl>(wago_host, wago_port);
 
     return true;
 }
 
 int WagoProcess::procMain()
 {
-    run(1000);
-
-    return 0;
+    return run(1000)? 0: 1;
 }
 
 EXTERN_PROC_CLIENT_MAIN(WagoProcess)

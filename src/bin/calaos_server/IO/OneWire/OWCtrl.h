@@ -32,6 +32,8 @@ private:
     ExternProcServer *process;
     std::unordered_map<string, string> mapValues;
     std::unordered_map<string, string> mapTypes;
+    //Values received per sensor: a scan repeats the value of a steady one.
+    std::unordered_map<string, uint64_t> readings;
     string exe;
 
     void processNewMessage(const string &msg);
@@ -42,6 +44,7 @@ public:
 
     string getValue(string owid);
     string getType(string owid);
+    uint64_t readingCount(const string &owid);
 
     sigc::signal<void> valueChanged;
 };

@@ -1,0 +1,11 @@
+{
+  "data": {
+    "album": "Fake album",
+    "artist": "Fake artist",
+    "duration": "245",
+    "title": "Fake track",
+    "track_id": ""
+  },
+  "msg": "audio_db",
+  "msg_id": "1"
+}

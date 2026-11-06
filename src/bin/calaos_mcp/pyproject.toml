@@ -1,0 +1,47 @@
+# T1.8 — reproducible install for the calaos_mcp sidecar.
+# All runtime dependencies pinned (the sidecar is security-sensitive: it
+# fronts the Calaos API behind bearer auth — no floating versions).
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calaos-mcp"
+version = "1.0.0"
+description = "Calaos MCP sidecar: exposes the Calaos home-automation API via the Model Context Protocol"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Calaos", email = "team@calaos.fr" }]
+requires-python = ">=3.11"
+dependencies = [
+    "mcp==2.2.0",
+    "fastapi==0.141.1",
+    "uvicorn==0.54.0",
+    "websockets==17.1",
+    "pydantic==2.13.5",
+    "starlette==1.7.0",
+]
+
+# What tests/python/ needs on top of the runtime set. Kept here, and not in a
+# hand-written apt/pip list in the CI workflow or the Dockerfiles, for the same
+# reason as the runtime set: the file Dependabot watches must be the file every
+# build path installs from. pytest alone is not enough -- test_auth.py
+# importorskips fastapi and httpx, the extern-proc and logger suites
+# importorskip colorama, and an importorskip that fires is a case that did not
+# run.
+[project.optional-dependencies]
+test = [
+    "pytest==9.1.1",
+    "httpx==0.28.1",
+    "colorama==0.4.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/calaos/calaos_base"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["calaos_mcp*"]
+
+[tool.setuptools.package-dir]
+"" = "python"

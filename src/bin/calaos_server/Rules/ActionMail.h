@@ -27,6 +27,9 @@
 namespace Calaos
 {
 
+class ActionCameraDownload;
+class IPCam;
+
 class ActionMail: public Action
 {
 private:
@@ -35,9 +38,22 @@ private:
     string mail_subject;
     string mail_attachment;
     string mail_message;
-    string mail_attachment_tfile;
 
-    void sendMail();
+    /* Owns the completion slots of the camera attachment downloads still in
+     * flight. Destroying the action destroys them, which disconnects the slots
+     * and drops the files they were writing to: a transfer still running can
+     * never call back into a freed action.
+     * See ActionCameraDownload.h
+     */
+    std::unique_ptr<ActionCameraDownload> camDownload;
+
+    /* Starts the download of the camera snapshot to attach. Returns false when
+     * the mail has to be sent right away, without any attachment.
+     */
+    bool startAttachmentDownload(IPCam *camera);
+
+    //attachmentFile is empty when there is nothing to attach
+    void sendMail(const string &attachmentFile);
 
 public:
     ActionMail();
@@ -45,8 +61,8 @@ public:
 
     bool Execute();
 
-    bool LoadFromXml(TiXmlElement *node);
-    bool SaveToXml(TiXmlElement *node);
+    bool LoadFromXml(pugi::xml_node node) override;
+    bool SaveToXml(pugi::xml_node node) override;
 };
 
 }

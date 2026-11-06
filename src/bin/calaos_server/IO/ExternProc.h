@@ -23,8 +23,9 @@
 
 #include "Utils.h"
 #include "Calaos.h"
-#include <jansson.h>
-#include "Jansson_Addition.h"
+#include "Timer.h"
+
+#include <chrono>
 
 namespace uvw {
 //Forward declare classes here to prevent long build time
@@ -35,13 +36,13 @@ class ProcessHandle;
 
 /*
  * Small framing for messages
- * +-------+--------------+-------+------------+
- * | START | TYPE         | SIZE  | DATA ..... |
- * | 0x2   | 0x1 reserved | 2bytes|            |
- * +-------+--------------+-------+------------+
+ * +--------+----------------------+------------+
+ * | OPCODE | LENGTH               | DATA ..... |
+ * | 1 byte | 4 bytes (big endian) |            |
+ * +--------+----------------------+------------+
  *
- * type is not used for now
- * size of data is max: 2 bytes : 65536 bytes of data
+ * opcode: TypeMessage (0x21), any other value invalidates the frame
+ * length: payload size in bytes, big endian, capped at MaxPayloadLength
  */
 
 class ExternProcMessage
@@ -50,8 +51,22 @@ public:
     ExternProcMessage();
     ExternProcMessage(string data);
 
+    //Maximum accepted payload length announced in a frame header. The peer is
+    //a local spawned process, but a compromised/faulty one could announce up
+    //to 4 GiB and make us buffer it all. 4 MiB is far above any legitimate
+    //IPC message and aligned with the websocket transport frame cap.
+    static constexpr uint32_t MaxPayloadLength = 4 * 1024 * 1024;
+
     bool isValid() const { return isvalid; }
     string getPayload() const { return payload; }
+
+    //The frame type as it was read from the wire, so a journal can name the
+    //kind of frame that was exchanged without naming its content.
+    int getOpcode() const { return opcode; }
+
+    //true when the framing was violated (oversized announced length).
+    //The stream is not trustable anymore, callers should drop the connection.
+    bool hasError() const { return has_error; }
 
     void clear();
 
@@ -77,18 +92,73 @@ private:
     uint32_t payload_length;
     string payload;
     bool isvalid;
+    bool has_error = false;
 };
 
 class ExternProcServer: public sigc::trackable
 {
+    /* T3.40 - lifetime token for the deferred processExited.emit(). The
+     * server is deleted from inside that very signal's handlers (see
+     * ExternProc.cpp), and sigc::trackable does not disconnect a lambda. */
+    LifetimeTag alive;
+
 public:
     ExternProcServer(string pathprefix);
     ~ExternProcServer();
 
     void sendMessage(const string &data);
 
-    void startProcess(const string &process, const string &name, const string &args = string());
+    /*
+     * A VECTOR, AND NEVER A STRING TO RE-SPLIT.
+     *
+     * This used to take one string, concatenate it into a command line and
+     * let Utils::CStrArray cut it back on the space - no quoting, no
+     * escaping - so any configured value carrying a space became several
+     * argv, the sidecar exited on its argument check and the 100 ms respawn
+     * relaunched it forever. An MQTT password is the case with no other
+     * answer: refusing a space there would refuse a legitimate configuration.
+     * A caller that genuinely passes a LIST builds the vector itself.
+     */
+    void startProcess(const string &process, const string &name, const vector<string> &args = vector<string>());
     void terminate();
+
+    /*
+     * The throttle lives here and not in the eight controllers that respawn:
+     * the exit status arrives on this side, so none of them needs a new
+     * signature or a decision of its own. What is held is the SPAWN and never
+     * the signal - a controller must still learn AT ONCE that its sidecar is
+     * gone, or its disconnect notice and its device lists go stale for as long
+     * as the hold.
+     */
+    static constexpr double kRespawnDelayMin = 0.1;
+    static constexpr double kRespawnDelayMax = 30.0;
+
+    /* A run at least this long is a new incident and not the same one
+     * repeating, so it starts the ramp over - a sidecar that served for an
+     * hour must not be picked up at the ceiling. Equal to the ceiling on
+     * purpose: one number, and no window in which a child could die often
+     * enough to escape the ramp yet still be looping. */
+    static constexpr double kRespawnResetSeconds = kRespawnDelayMax;
+
+    //Hold before the launch that follows `failures` consecutive failures.
+    static double respawnDelay(int failures);
+
+    /* A zero status alone is NOT a voluntary stop: under Linux a child killed
+     * by SIGSEGV, SIGABRT or the OOM killer leaves status 0 as well, so
+     * deciding on the status alone lets every crash keep the old cadence. The
+     * signal tells the two apart, and SIGTERM is exempt only when WE sent it:
+     * exempting it by its value alone hands a killall, a supervisor or an
+     * operator the pre-ramp cadence and a silent journal, which is the loop
+     * the ramp exists to slow down. The default answers for a caller that has
+     * no provenance to offer, and keeps the four-argument question unchanged. */
+    static int nextFailureCount(int failures, int64_t status, int termSignal,
+                                double ranSeconds, bool termSignalWasOurs = true);
+
+    int respawnFailures() const { return respawn_failures; }
+    int64_t lastExitStatus() const { return last_exit_status; }
+    int lastTermSignal() const { return last_term_signal; }
+    bool lastStopWasRequested() const { return last_stop_requested; }
+    double lastRunSeconds() const { return last_run_seconds; }
 
     sigc::signal<void, const string &> messageReceived;
     sigc::signal<void> processExited;
@@ -98,6 +168,7 @@ private:
     std::shared_ptr<uvw::PipeHandle> ipcServer, pipe, pipe_stderr;
 
     string sockpath;
+    string procName;
     string recv_buffer;
     ExternProcMessage currentFrame;
     std::shared_ptr<uvw::ProcessHandle> process_exe;
@@ -108,7 +179,24 @@ private:
     bool isStarted = false;
     bool hasFailedStarting = false;
 
+    int respawn_failures = 0;
+    int64_t last_exit_status = 0;
+    int last_term_signal = 0;
+    bool last_stop_requested = false;
+    double last_run_seconds = 0.0;
+    std::chrono::steady_clock::time_point spawned_at =
+            std::chrono::steady_clock::now();
+
+    //Bumped by anything that makes a pending held launch obsolete, so the
+    //deferred callback can tell it is answering for a launch nobody wants
+    //anymore. terminate() is the case that matters: without it a controller
+    //that stops still gets a child up to half a minute later.
+    unsigned respawn_generation = 0;
+
     void processData(const string &data);
+    void relayChildOutput(string &buf, const char *stream, bool atEof);
+    void spawnProcess(const string &process, const string &name, const vector<string> &args);
+    void noteChildGone(int64_t status, int termSignal, bool stopRequested);
 };
 
 class ExternProcClient: public sigc::trackable
@@ -135,8 +223,17 @@ protected:
     //return false to stop main loop, true otherwise
     virtual bool handleFdSet(int fd) { return true; }
 
-    //minimal mainloop
-    void run(int timeoutms = 5000);
+    /* Minimal mainloop. Answers false on the ways out that are NOT a normal
+     * end: a failed select(), a failed recv(), a failed send(), a framing
+     * violation from the server.
+     * A server that hangs up, and a subclass that asks to stop through
+     * quitLoop() or handleFdSet(), answer true - they are how a sidecar is
+     * meant to stop, and reporting them as failures would make the respawn
+     * ramp throttle sidecars that did nothing wrong. */
+    bool run(int timeoutms = 5000);
+
+    //end run() from a callback that has no way to answer false
+    void quitLoop() { loopQuit = true; }
 
     //append FD to be monitored by main loop
     void appendFd(int fd);
@@ -149,13 +246,24 @@ protected:
 private:
     string sockpath;
     string name;
-    int sockfd;
+    //-1 so that a destruction before connectSocket() assigns it does not
+    //close an arbitrary file descriptor
+    int sockfd = -1;
 
     string recv_buffer;
 
     ExternProcMessage currentFrame;
 
+    //Why the socket's life ended. recv() answering 0 and recv() answering an
+    //error are both "false" to its callers, and only run() needs to tell them
+    //apart - one is the controller hanging up, the other is not. sendMessage()
+    //writes here too, which is why connectSocket() owns the reset and not
+    //run(): a send can fail before the loop is ever entered.
+    enum SocketEnd { EndNone, EndOrderly, EndFailed };
+    SocketEnd socketEnd = EndNone;
+
     list<int> userFds;
+    bool loopQuit = false;
 };
 
 #define EXTERN_PROC_CLIENT_CTOR(class_name) \

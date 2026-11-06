@@ -19,23 +19,17 @@
  **
  ******************************************************************************/
 #include "MqttOutputShutter.h"
-#include "MqttBrokersList.h"
 #include "IOFactory.h"
 
 using namespace Calaos;
 
 REGISTER_IO(MqttOutputShutter)
 
-const char *TAG = "mqtt_shutter";
+static const char *TAG = "mqtt_shutter";
 
 MqttOutputShutter::MqttOutputShutter(Params &p):
-    OutputShutter(p)
+    MqttIOBase(p, "MqttOutputShutter", _("Control shutters through mqtt broker"))
 {
-    // Define IO documentation
-    ioDoc->friendlyNameSet("MqttOutputShutter");
-    ioDoc->descriptionSet(_("Control shutters through mqtt broker"));
-    MqttCtrl::commonDoc(ioDoc);
-
     ioDoc->paramAdd("topic_pub", _("Topic to publish commands (open/close/stop)"), IODoc::TYPE_STRING, true);
     ioDoc->paramAdd("topic_sub", _("Topic to subscribe to get shutter status (optional). If not set, state is managed by Calaos timing logic."), IODoc::TYPE_STRING, false);
 
@@ -46,22 +40,51 @@ MqttOutputShutter::MqttOutputShutter(Params &p):
     ioDoc->paramAdd("state_open", _("Value received for open state (when topic_sub is set)"), IODoc::TYPE_STRING, false, "open");
     ioDoc->paramAdd("state_close", _("Value received for closed state (when topic_sub is set)"), IODoc::TYPE_STRING, false, "closed");
 
-    // Get MQTT controller
-    ctrl = MqttBrokersList::Instance().get_ctrl(get_params());
-
     // Subscribe to status topic if provided
     if (get_params().Exists("topic_sub"))
     {
         useExternalState = true;
-        ctrl->subscribeTopic(get_param("topic_sub"), [=](string, string)
-        {
-            readValue();
-        });
+        subscribeTopicSub([this]() { readValue(); });
     }
-
-    ctrl->subscribeStatusTopics(this);
+    else
+        subscribeStatusTopics();
 
     cInfoDom(TAG) << "MqttOutputShutter::MqttOutputShutter()";
+}
+
+void MqttOutputShutter::applyExternalState(bool open)
+{
+    cDebugDom(TAG) << "Shutter is " << (open ? "OPEN" : "CLOSED");
+
+    // Update internal state
+    sens = SHUTTER_STOP;
+    old_sens = open ? SHUTTER_UP : SHUTTER_DOWN;
+    state_volet = open ? "true" : "false";
+    cmd_state = open ? "up" : "down";
+
+    // Stop any running timers
+    if (timer_end)
+    {
+        delete timer_end;
+        timer_end = NULL;
+    }
+    if (timer_up)
+    {
+        delete timer_up;
+        timer_up = NULL;
+    }
+    if (timer_down)
+    {
+        delete timer_down;
+        timer_down = NULL;
+    }
+
+    updateCache();
+    EmitSignalIO();
+    EventManager::create(CalaosEvent::EventIOChanged,
+                     { { "id", get_param("id") },
+                       { "state", get_value_string() } },
+                     true);
 }
 
 void MqttOutputShutter::readValue()
@@ -86,73 +109,18 @@ void MqttOutputShutter::readValue()
         state_close = "closed";
 
     if (val == state_open)
-    {
-        cDebugDom(TAG) << "Shutter is OPEN";
-
-        // Update internal state
-        sens = SHUTTER_STOP;
-        old_sens = SHUTTER_UP;
-        state_volet = "true";
-        cmd_state = "up";
-
-        // Stop any running timers
-        if (timer_end)
-        {
-            delete timer_end;
-            timer_end = NULL;
-        }
-        if (timer_up)
-        {
-            delete timer_up;
-            timer_up = NULL;
-        }
-        if (timer_down)
-        {
-            delete timer_down;
-            timer_down = NULL;
-        }
-
-        updateCache();
-        EmitSignalIO();
-        EventManager::create(CalaosEvent::EventIOChanged,
-                         { { "id", get_param("id") },
-                           { "state", get_value_string() } },
-                         true);
-    }
+        applyExternalState(true);
     else if (val == state_close)
-    {
-        cDebugDom(TAG) << "Shutter is CLOSED";
+        applyExternalState(false);
+}
 
-        // Update internal state
-        sens = SHUTTER_STOP;
-        old_sens = SHUTTER_DOWN;
-        state_volet = "false";
-        cmd_state = "down";
+void MqttOutputShutter::publishCommand(const string &payloadParam, const string &defaultPayload)
+{
+    string payload = get_param(payloadParam);
+    if (payload.empty())
+        payload = defaultPayload;
 
-        // Stop any running timers
-        if (timer_end)
-        {
-            delete timer_end;
-            timer_end = NULL;
-        }
-        if (timer_up)
-        {
-            delete timer_up;
-            timer_up = NULL;
-        }
-        if (timer_down)
-        {
-            delete timer_down;
-            timer_down = NULL;
-        }
-
-        updateCache();
-        EmitSignalIO();
-        EventManager::create(CalaosEvent::EventIOChanged,
-                         { { "id", get_param("id") },
-                           { "state", get_value_string() } },
-                         true);
-    }
+    ctrl->publishTopic(get_param("topic_pub"), payload);
 }
 
 void MqttOutputShutter::setOutputUp(bool enable)
@@ -161,13 +129,7 @@ void MqttOutputShutter::setOutputUp(bool enable)
         return;
 
     cDebugDom(TAG) << "Opening shutter via MQTT";
-
-    string topic = get_param("topic_pub");
-    string payload = get_param("payload_open");
-    if (payload.empty())
-        payload = "OPEN";
-
-    ctrl->publishTopic(topic, payload);
+    publishCommand("payload_open", "OPEN");
 }
 
 void MqttOutputShutter::setOutputDown(bool enable)
@@ -176,25 +138,13 @@ void MqttOutputShutter::setOutputDown(bool enable)
         return;
 
     cDebugDom(TAG) << "Closing shutter via MQTT";
-
-    string topic = get_param("topic_pub");
-    string payload = get_param("payload_close");
-    if (payload.empty())
-        payload = "CLOSE";
-
-    ctrl->publishTopic(topic, payload);
+    publishCommand("payload_close", "CLOSE");
 }
 
 void MqttOutputShutter::Stop()
 {
     cDebugDom(TAG) << "Stopping shutter via MQTT";
-
-    string topic = get_param("topic_pub");
-    string payload = get_param("payload_stop");
-    if (payload.empty())
-        payload = "STOP";
-
-    ctrl->publishTopic(topic, payload);
+    publishCommand("payload_stop", "STOP");
 
     // Call base class Stop to update internal state
     OutputShutter::Stop();

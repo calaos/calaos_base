@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from calaos_mcp import safety
-from calaos_mcp.tools._home import iter_rooms, is_writable
+from calaos_mcp.tools._home import (
+    device_view, is_writable, iter_rooms, protected_outputs,
+)
 
 
 def _parse_rooms(home: dict) -> list[dict]:
     result = []
+    protected = protected_outputs(home)
     for room in iter_rooms(home):
-        items = room.get("items", [])
+        items = [i for i in room.get("items", []) if i.get("id") not in protected]
         result.append({
             "name": safety.safe_name(room.get("name", "")),
             "type": room.get("type", ""),
@@ -45,8 +48,11 @@ async def get_room(client, room_name: str) -> dict:
         raise ValueError(f"Room '{room_name}' not found. Known rooms: {known}")
 
     ios = []
+    protected = protected_outputs(home)
     for io in room.get("items", []):
-        ios.append({
+        if io.get("id") in protected:
+            continue
+        entry = {
             "id": io.get("id", ""),
             "name": safety.safe_name(io.get("name", "")),
             "gui_type": io.get("gui_type", ""),
@@ -54,7 +60,11 @@ async def get_room(client, room_name: str) -> dict:
             "state": safety.wrap_untrusted(io.get("state", "")),
             "rw": is_writable(io),
             "unit": io.get("unit", ""),
-        })
+        }
+        device = device_view(io)
+        if device is not None:
+            entry["device"] = device
+        ios.append(entry)
     return {
         "name": safety.safe_name(room.get("name", "")),
         "type": room.get("type", ""),

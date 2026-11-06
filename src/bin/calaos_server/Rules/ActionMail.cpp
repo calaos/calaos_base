@@ -19,8 +19,7 @@
  **
  ******************************************************************************/
 #include "ActionMail.h"
-#include "ListeRoom.h"
-#include "IPCam.h"
+#include "ActionCameraDownload.h"
 #include "NotifManager.h"
 
 using namespace Calaos;
@@ -28,7 +27,8 @@ using namespace Calaos;
 static const char *TAG = "rule.action.mail";
 
 ActionMail::ActionMail():
-    Action(ACTION_MAIL)
+    Action(ACTION_MAIL),
+    camDownload(std::make_unique<ActionCameraDownload>())
 {
     cDebugDom(TAG) <<  "New Mail action";
 }
@@ -39,85 +39,91 @@ ActionMail::~ActionMail()
 
 bool ActionMail::Execute()
 {
-    IPCam *camera = NULL;
+    IPCam *camera = ActionCameraDownload::findCamera(mail_attachment);
 
-    if (mail_attachment != "")
-        camera = dynamic_cast<IPCam *>(ListeRoom::Instance().get_io(mail_attachment));
+    if (camera && startAttachmentDownload(camera))
+        return true;
 
-    if (camera)
-    {
-        cInfoDom(TAG) <<  "Need to download camera ("
-                                      << camera->get_param("name")
-                                      << ") attachment";
-
-        //Get a temporary filename
-        mail_attachment_tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
-
-        cDebugDom() << "DL URL: " << camera->getPictureUrl();
-
-        UrlDownloader *dl = new UrlDownloader(camera->getPictureUrl(), true);
-        dl->m_signalComplete.connect([this](int status)
-        {
-            if (status < 20 || status >= 300)
-                mail_attachment_tfile.clear();
-            this->sendMail();
-        });
-        dl->httpGet(mail_attachment_tfile);
-    }
-    else
-    {
-        sendMail();
-    }
+    sendMail("");
 
     return true;
 }
 
-void ActionMail::sendMail()
+bool ActionMail::startAttachmentDownload(IPCam *camera)
+{
+    //Get a temporary filename
+    string tfile = Utils::getTmpFilename("tmp", "_mail_attachment");
+
+    if (tfile.empty())
+    {
+        //getTmpFilename() already logged why. The mail is worth more than its
+        //attachment, so it goes out without one instead of being dropped.
+        cWarningDom(TAG) << "No temporary file available, sending the mail without its attachment";
+        return false;
+    }
+
+    /* The completion slot is owned by camDownload: destroying this action
+     * disconnects it before the captured `this` can go stale, and unlinks the
+     * temp file of a transfer nobody is waiting for anymore.
+     * Every call gets its own file and its own slot, so a rule triggering
+     * again while a first snapshot is downloading sends both mails.
+     */
+    return camDownload->start(camera, tfile, [this](bool success, const string &file)
+    {
+        if (!success)
+        {
+            //Whatever curl left in there is unusable, drop it
+            FileUtils::unlink(file);
+            sendMail("");
+            return;
+        }
+
+        //calaos_mail is spawned with --delete: it unlinks the attachment once
+        //the mail has been sent
+        sendMail(file);
+    });
+}
+
+void ActionMail::sendMail(const string &attachmentFile)
 {
     NotifManager::Instance().sendMailNotification(mail_subject,
                                                   mail_message,
                                                   mail_recipients,
                                                   mail_sender,
-                                                  mail_attachment_tfile);
+                                                  attachmentFile);
 }
 
-bool ActionMail::LoadFromXml(TiXmlElement *pnode)
+bool ActionMail::LoadFromXml(pugi::xml_node pnode)
 {
-    TiXmlElement *mail_node = pnode->FirstChildElement("calaos:mail");
+    pugi::xml_node mail_node = pnode.child("calaos:mail");
     if (!mail_node) return false;
 
-    if (mail_node->Attribute("sender")) mail_sender = mail_node->Attribute("sender");
-    if (mail_node->Attribute("recipients")) mail_recipients = mail_node->Attribute("recipients");
-    if (mail_node->Attribute("subject")) mail_subject = mail_node->Attribute("subject");
-    if (mail_node->Attribute("attachment")) mail_attachment = mail_node->Attribute("attachment");
+    if (mail_node.attribute("sender")) mail_sender = mail_node.attribute("sender").as_string();
+    if (mail_node.attribute("recipients")) mail_recipients = mail_node.attribute("recipients").as_string();
+    if (mail_node.attribute("subject")) mail_subject = mail_node.attribute("subject").as_string();
+    if (mail_node.attribute("attachment")) mail_attachment = mail_node.attribute("attachment").as_string();
 
     //remove spaces
     replace_str(mail_recipients, " ", "");
 
-    TiXmlText *tnode = dynamic_cast<TiXmlText *>(mail_node->FirstChild());
-
-    if (tnode)
-        mail_message = tnode->ValueStr();
+    if (XmlUtils::hasText(mail_node))
+        mail_message = XmlUtils::text(mail_node);
 
     return true;
 }
 
-bool ActionMail::SaveToXml(TiXmlElement *node)
+bool ActionMail::SaveToXml(pugi::xml_node node)
 {
-    TiXmlElement *action_node = new TiXmlElement("calaos:action");
-    action_node->SetAttribute("type", "mail");
-    node->LinkEndChild(action_node);
+    pugi::xml_node action_node = node.append_child("calaos:action");
+    XmlUtils::setAttribute(action_node, "type", "mail");
 
-    TiXmlElement *mail_node = new TiXmlElement("calaos:mail");
-    mail_node->SetAttribute("sender", mail_sender);
-    mail_node->SetAttribute("recipients", mail_recipients);
-    mail_node->SetAttribute("subject", mail_subject);
-    mail_node->SetAttribute("attachment", mail_attachment);
-    action_node->LinkEndChild(mail_node);
+    pugi::xml_node mail_node = action_node.append_child("calaos:mail");
+    XmlUtils::setAttribute(mail_node, "sender", mail_sender);
+    XmlUtils::setAttribute(mail_node, "recipients", mail_recipients);
+    XmlUtils::setAttribute(mail_node, "subject", mail_subject);
+    XmlUtils::setAttribute(mail_node, "attachment", mail_attachment);
 
-    TiXmlText *txt_node = new TiXmlText(mail_message);
-    txt_node->SetCDATA(true);
-    mail_node->LinkEndChild(txt_node);
+    XmlUtils::appendCData(mail_node, mail_message);
 
     return true;
 }

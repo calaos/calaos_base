@@ -41,6 +41,7 @@ private:
     std::chrono::system_clock::time_point last_seen;
 
     std::set<string> referenced_ios;
+    std::set<string> writable_ios;
 
     Json pages;
     Json device_info;
@@ -49,15 +50,14 @@ private:
 
     void readConfig();
     void emitChange();
-    void extractReferencedIOs();
     string generateRandomSecret(size_t length = 32) const;
 
 public:
     RemoteUI(Params &p);
     virtual ~RemoteUI();
 
-    virtual bool LoadFromXml(TiXmlElement *node) override;
-    virtual bool SaveToXml(TiXmlElement *node) override;
+    virtual bool LoadFromXml(pugi::xml_node node) override;
+    virtual bool SaveToXml(pugi::xml_node node) override;
 
     // State management
     bool isOnline() const { return is_online; }
@@ -69,9 +69,16 @@ public:
     void generateDeviceSecret();
     bool validateHMAC(const string &token, const string &timestamp, const string &nonce, const string &hmac);
 
-    // IO reference management
+    //What the panel may read: widget ids, each device expanded to its owned
+    //and linked IOs. Devices and their links are not all loaded when
+    //LoadFromXml() runs: callers refresh it once the house is up.
     const std::set<string> &getReferencedIOs() const { return referenced_ios; }
+    //What it may write: the widget ids alone. A device is commanded through
+    //its own id, never by writing its relays or command IOs directly.
+    const std::set<string> &getWritableIOs() const { return writable_ios; }
+    void extractReferencedIOs();
     bool hasReferencedIO(const string &io_id) const;
+    bool hasWritableIO(const string &io_id) const;
 
     // Configuration access
     const Json &getPages() const { return pages; }
@@ -84,13 +91,26 @@ public:
     Json getRemoteUIIOStatesMessage(const std::map<string, Json> &io_states);
     Json getRemoteUIConfigMessage();
 
+    //The screen drops the WHOLE configuration payload when a key it converts
+    //carries an empty string, while a key it does not find falls back to the
+    //default it holds itself. Every unset value is therefore omitted, never
+    //emitted empty.
+    static void putIfSet(Json &data, const string &key, const string &value);
+
+    //Same rule for the screen brightness, which is an int on the wire: the
+    //level a screen nobody adjusted runs at belongs to the device, and its
+    //constant lives in the firmware repository, which versions apart from
+    //this one. Writing a copy of it here would freeze today's value.
+    void putBrightnessIfSet(Json &data);
+
     // Actions for rules
     bool setBrightness(int brightness);
-    int getBrightness();
+    int getTimeout();
     bool setPage(const string &page_id);
     bool showNotification(const string &message);
 
     virtual DATA_TYPE get_type() override { return TSTRING; }
+    bool hasComparableState() override { return false; }
     virtual bool set_value(string val) override;
     virtual string get_command_string() override { return cmd_state; }
 };

@@ -19,10 +19,24 @@
  **
  ******************************************************************************/
 #include "WebCtrl.h"
-#include <jansson.h>
+#include "JsonPath.h"
 
-#include <TinyXML/tinyxml.h>
-#include <TinyXML/xpath_processor.h>
+//E4.4b: the XML branch runs on pugixml (DOM + native XPath 1.0). This is the
+//only place in calaos that parses *untrusted* XML -- getValue() feeds it a
+//document downloaded from a user-configured URL -- so it is the site that had
+//to leave TinyXML 2.5.3 first (assert()-on-malformed-input, and an infinite
+//loop on truncated UTF-8). TinyXML/TinyXPath were then removed from the tree
+//entirely in E4.4e; the names below describe the engine this code replaced.
+#include <pugixml.hpp>
+
+//E4.4a pinned the floor at pugixml >= 1.10 (Debian 12 ships 1.13, the vendored
+//copy is 1.14). Everything used below -- load_file(), document_element(),
+//xpath_query, xpath_query::result(), evaluate_string(), xpath_exception -- is
+//original 1.0 API, but the guard makes a too-old system package a compile
+//error instead of a link-time surprise on the non-vendored build.
+#if defined(PUGIXML_VERSION) && PUGIXML_VERSION < 1100
+#error "pugixml >= 1.10 is required (see configure.ac / docs/refactoring/E4.4b.md)"
+#endif
 
 
 using namespace Calaos;
@@ -31,7 +45,11 @@ unordered_map<string, WebCtrl> WebCtrl::hash;
 
 WebCtrl::WebCtrl()
 {
-
+    //Keep members sane: a default constructed WebCtrl (unordered_map
+    //value type) would otherwise delete an uninitialized timer pointer.
+    timer = NULL;
+    frequency = 0.0;
+    file_type = UNKNOWN;
 }
 
 WebCtrl::WebCtrl(Params &p, int _file_type)
@@ -73,19 +91,17 @@ WebCtrl &WebCtrl::Instance(Params &p)
     return hash[url];
 }
 
-
-void WebCtrl::Add(string path,
-                  double _frequency,
-                  std::function<void()> fileDownloaded_cb)
+uint64_t WebCtrl::Add(double _frequency, std::function<void(bool)> fileDownloaded_cb)
 {
 
     if (!_frequency)
     {
        cError() << "The frequency parameter is NULL, please set a real value.";
-       return;
+       return 0;
     }
 
-    fileDownloadedCallbacks.push_back(std::make_pair(path, fileDownloaded_cb));
+    uint64_t id = ++lastCallbackId;
+    fileDownloadedCallbacks.push_back(std::make_pair(id, fileDownloaded_cb));
     if (!frequency || frequency > _frequency )
         frequency = _frequency;
 
@@ -97,14 +113,18 @@ void WebCtrl::Add(string path,
         timer->Reset(frequency);
 
     launchDownload();
+    return id;
 }
 
-void WebCtrl::Del(string path)
+void WebCtrl::Del(uint64_t id)
 {
-    for(unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
+    for (auto it = fileDownloadedCallbacks.begin(); it != fileDownloadedCallbacks.end(); ++it)
     {
-        if (fileDownloadedCallbacks[i].first == path)
-            fileDownloadedCallbacks.erase(fileDownloadedCallbacks.begin() + i);
+        if (it->first == id)
+        {
+            fileDownloadedCallbacks.erase(it);
+            return;
+        }
     }
 }
 
@@ -117,34 +137,62 @@ void WebCtrl::launchDownload()
         Utils::strStartsWith(u, "https://"))
     {
         UrlDownloader *dl = new UrlDownloader(param.get_param("url"), true);
+        //T2.19: user-configured URL — insecure unless the IO opts in to
+        //hardening with insecure="false"
+        dl->setInsecureFromParam(param.get_param("insecure"));
         dl->httpGet(filename);
         dl->m_signalComplete.connect([=](int status)
         {
             string dest =  "/tmp/calaos_" + param.get_param("id");
             string src = dest + ".part";
             FileUtils::rename(src, dest);
-            for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
-            {
-                fileDownloadedCallbacks[i].second();
-            }
+            notifyDownloaded(status >= 200 && status < 300);
         });
     }
     else
     {
-        for (unsigned int i = 0; i < fileDownloadedCallbacks.size(); i++)
-        {
-            fileDownloadedCallbacks[i].second();
-        }
+        //A local file is read again on each period: nothing tells whether
+        //whoever writes it is still alive.
+        notifyDownloaded(false);
+    }
+}
+
+void WebCtrl::notifyDownloaded(bool received)
+{
+    vector<uint64_t> ids;
+    for (const auto &cb: fileDownloadedCallbacks)
+        ids.push_back(cb.first);
+
+    //A callback may add or remove callbacks, its own included: each one is
+    //looked up again, and called through a copy that outlives its entry.
+    for (uint64_t id: ids)
+    {
+        auto it = fileDownloadedCallbacks.begin();
+        while (it != fileDownloadedCallbacks.end() && it->first != id)
+            ++it;
+        if (it == fileDownloadedCallbacks.end())
+            continue;
+        std::function<void(bool)> callback = it->second;
+        callback(received);
     }
 }
 
 string WebCtrl::getValueJson(string path, string filename)
 {
+    bool err = false;
+    return getValueJson(path, filename, err);
+}
+
+string WebCtrl::getValueJson(string path, string filename, bool &err)
+{
     string value;
+
+    err = false;
 
     std::ifstream ifs(filename);
     if (!ifs.is_open())
     {
+        err = true;
         cWarning() << "Failed to open WebCtrl file: " << filename;
         return string();
     }
@@ -156,101 +204,118 @@ string WebCtrl::getValueJson(string path, string filename)
     }
     catch (const std::exception &e)
     {
-        cWarning() << "Error parsing " << filename << ":" << e.what();
+        err = true;
+        cWarning() << "Error parsing " << filename << ": "
+                   << Utils::jsonErrorForLog(e, ifs);
         return string();
     }
 
-    vector<string> tokens;
-    Utils::split(path, tokens, "/");
-
-    if (!tokens.empty())
+    //T3.37. The ~55 line path parser that used to sit here, and again in
+    //MqttCtrl::getValueJson(), now lives once in IO/JsonPath.h. What is left
+    //is what is genuinely Web's: the document comes from a downloaded FILE,
+    //so it is opened and parsed here and the log names the file. There is no
+    //empty-path shortcut on this side - "" splits into no token and falls
+    //into the parser's "no path segment" branch, which is the divergence
+    //T3.29 AnEmptyPathReturnsEmpty freezes against the MQTT copy.
+    if (!JsonPath::resolve(root, path, value))
     {
-        Json parent = root;
-        for (auto it = tokens.begin();it != tokens.end();it++)
-        {
-            string val = *it;
-
-            // Test if the token is an array index
-            // if it's the case, it must be something like [x]
-            if (val[0] == '[')
-            {
-                int idx;
-                // Remove first and last char
-                val.erase(0, 1);
-                val.pop_back();
-                // Read array index
-                Utils::from_string(val, idx);
-
-                try
-                {
-                    parent = parent.at(idx);
-                }
-                catch (const std::exception &e)
-                {
-                    cWarning() << "Error in path " << path << ", index not found " << *it << " : " << e.what();
-                    return string();
-                }
-            }
-            else
-            {
-                // Toke is a normal object name
-                try
-                {
-                    parent = parent.at(val);
-                }
-                catch (const std::exception &e)
-                {
-                    cWarning() << "Error in path " << path << ", subpath not found " << *it << " : " << e.what();
-                    return string();
-                }
-            }
-        }
-
-        if (parent.is_null())
-            value = "null";
-        else if (parent.is_boolean())
-            value = parent.get<bool>()?"true":"false";
-        else if (parent.is_number())
-            value = Utils::to_string(parent.get<double>());
-        else if (parent.is_string())
-            value = parent.get<string>();
-        else if (parent.is_object())
-        {
-            cWarning() << "Error, path returns an object, not a value";
-            value = "object{}";
-        }
-        else if (parent.is_array())
-        {
-            cWarning() << "Error, path returns an array, not a value";
-            value = "array[]";
-        }
-    }
-    else
-    {
-        cWarning() << "Error emtpy path not allowed";
+        //T3.37 closes the T3.35b sect. 6.8 divergence AT THE PARSER: resolve()
+        //reports to everyone, there is no flagless variant to fall back on.
+        //It is DISCARDED HERE, on purpose and in one place, because
+        //WebCtrl::getValue() reports nothing to its four call sites and
+        //making it report is a behaviour change that also has to cover the
+        //XML and TEXT branches to mean anything - a flag honest on one branch
+        //out of three is the very defect T3.35b sect. 6.1 had to undo. The
+        //measurement of what those four sites do with a silent failure today,
+        //and the follow-up it calls for, are in docs/refactoring/T3.37.md
+        //sect. 4.
+        err = true;
+        return string();
     }
 
     return value;
 }
 
+/*
+ * `path` is a full XPath expression straight out of the user config
+ * (WebDocBase.cpp advertises it as such, w3schools link included), so
+ * predicates, functions and axes are part of the contract and are all
+ * evaluated natively by pugixml.
+ *
+ * Result stringification follows XPath 1.0 string(): a node-set becomes the
+ * string-value of its first node in document order (empty set -> empty
+ * string), a number/boolean its canonical lexical form. That is what
+ * evaluate_string() does, and it is what TinyXPath's S_compute_xpath()
+ * claimed to do. The three places where TinyXPath actually deviated from the
+ * spec are fixed rather than replicated, because every one of them used to
+ * yield an unusable value:
+ *  - string-value of an *element* returned the tag name ("temperature")
+ *    instead of its text; getValueDouble() turned that into 0,
+ *  - string(), number(), boolean(), local-name() and round() were not
+ *    implemented and silently produced an empty string,
+ *  - a bare relative path resolved to nothing at all.
+ * Text nodes, attributes, predicates, axes, count()/sum()/concat()/
+ * substring()/translate()/normalize-space()/starts-with()/contains(), unions
+ * and comparisons were verified to return byte-identical strings under both
+ * engines, so an expression that used to work keeps working.
+ */
 string WebCtrl::getValueXml(string path, string filename)
 {
-    TiXmlDocument document(filename);
-    string value;
-    string xpath;
+    pugi::xml_document document;
 
-    if (!document.LoadFile())
+    //Default parse options: no DTD, no entity expansion, no network -- the
+    //document is remote and untrusted.
+    const pugi::xml_parse_result parsed = document.load_file(filename.c_str());
+    if (!parsed)
     {
-        cError() << "Error loading file " << filename;
+        cError() << "Error loading file " << filename << " : " << parsed.description();
         // Error loading file
         return "";
     }
 
-    xpath = path;
-    TinyXPath::xpath_processor proc(document.RootElement(), xpath.c_str());
-    value = proc.S_compute_xpath();
+    //Same context node TinyXPath was handed (TiXmlDocument::RootElement()), so
+    //user expressions keep their exact meaning: absolute paths still walk from
+    //the document root, relative ones from the document element.
+    const pugi::xml_node context = document.document_element();
+    if (!context)
+    {
+        //TinyXPath dereferenced this NULL; a document made only of comments is
+        //enough to reach it.
+        cError() << "Error, no root element in file " << filename;
+        return "";
+    }
 
-    return value;
+    //pugi::xpath_query throws xpath_exception on an invalid expression where
+    //TinyXPath returned an error code and an empty string. Nothing may escape
+    //here: the expression is user config, and getValue() is called from the
+    //download callback. Non-throwing parse that logs and fails clean, same
+    //house pattern as parseGridDimension()/parseDebounceTime().
+    try
+    {
+        const pugi::xpath_query query(path.c_str());
+
+        //PUGIXML_NO_EXCEPTIONS builds report the parse error here instead of
+        //throwing, so check it too rather than evaluating a broken query.
+        if (!query)
+        {
+            cError() << "Invalid XPath expression \"" << path << "\" : "
+                     << query.result().description();
+            return "";
+        }
+
+        return query.evaluate_string(context);
+    }
+    catch (const pugi::xpath_exception &e)
+    {
+        cError() << "Invalid XPath expression \"" << path << "\" : " << e.what();
+        return "";
+    }
+    catch (const std::exception &e)
+    {
+        cError() << "Error evaluating XPath expression \"" << path
+                 << "\" on " << filename << " : " << e.what();
+        return "";
+    }
 }
 
 /*
@@ -273,8 +338,8 @@ string WebCtrl::getValueText(string path, string filename)
     string value;
     vector<string> tokens;
     vector<string> items;
-    int line_nb;
-    unsigned int item_nb;
+    int line_nb = 0;
+    unsigned int item_nb = 0;
     ifstream file(filename);
     string line;
     int i;
@@ -286,6 +351,13 @@ string WebCtrl::getValueText(string path, string filename)
     }
 
     Utils::split(path, tokens, "/");
+    //split() with max=0 does not pad: an empty or delimiter-only path
+    //yields an empty vector, and tokens[0] would be out of range.
+    if (tokens.empty())
+    {
+        cError() << "Error, empty path not allowed";
+        return "";
+    }
     Utils::from_string(tokens[0], line_nb);
     for (i = 0; i < line_nb; i++)
     {
@@ -372,13 +444,18 @@ void WebCtrl::setValue(string value)
     }
 
     UrlDownloader *fdownloader = new UrlDownloader(url, true);
+    //T2.19: user-configured URL — insecure unless the IO opts in to
+    //hardening with insecure="false"
+    fdownloader->setInsecureFromParam(param.get_param("insecure"));
     fdownloader->setHeader("Content-Type", data_type);
     fdownloader->httpPost(string(), data);
 
+    //The body is user configuration, and what a web service wants in it is
+    //decided there: an api key is as ordinary a field as a set point.
     cDebug() << "Set value with param : "
-             << url << " | "
+             << Utils::urlForLog(url) << " | "
              << param.get_param("request_type") << " | "
-             << data << " | "
+             << data.size() << " bytes #" << Utils::logTag(data) << " | "
              << data_type;
 
 }

@@ -46,7 +46,14 @@ PingInputSwitch::PingInputSwitch(Params &p):
 
 PingInputSwitch::~PingInputSwitch()
 {
-    if (ping_exe && ping_exe->referenced())
+    //The timer holds a slot bound to this object. It must not outlive it,
+    //or the next tick would call doPing() on freed memory (config reload).
+    DELETE_NULL(pollTimer);
+
+    //Only signal a process that is really running: a handle whose spawn
+    //failed keeps pid 0, and killing 0 signals our own process group. The
+    //exit and error handlers already closed the handle in every other case.
+    if (ping_exe && pingRunning && ping_exe->pid() > 0)
     {
         ping_exe->kill(SIGTERM);
         ping_exe->close();
@@ -71,6 +78,7 @@ void PingInputSwitch::doPing()
     ping_exe = uvw::Loop::getDefault()->resource<uvw::ProcessHandle>();
     ping_exe->once<uvw::ExitEvent>([this](const uvw::ExitEvent &ev, auto &)
     {
+        pingRunning = false;
         ping_exe->close();
 
         lastStatus = ev.status == 0;
@@ -81,30 +89,50 @@ void PingInputSwitch::doPing()
         if (Utils::is_of_type<int>(this->get_param("interval")))
             Utils::from_string(this->get_param("interval"), interval);
 
-        Timer::singleShot(interval / 1000.0, sigc::mem_fun(*this, &PingInputSwitch::doPing));
+        //Timer::singleShot() would survive this object and tick into freed
+        //memory. Keep the timer as a member instead, ~PingInputSwitch()
+        //destroys it.
+        DELETE_NULL(pollTimer);
+        pollTimer = new Timer(interval / 1000.0,
+                              sigc::mem_fun(*this, &PingInputSwitch::pollTimeout));
 
         this->hasChanged();
     });
     ping_exe->once<uvw::ErrorEvent>([this](const uvw::ErrorEvent &ev, auto &)
     {
         cDebugDom("process") << "Process error: " << ev.what();
+        pingRunning = false;
         ping_exe->close();
     });
 
     vector<string> tok;
     Utils::split(cmd, tok, " ");
 
-    //convert args list to a char**
-    const char **argarray = new const char*[tok.size() + 1];
-    unsigned index = 1;
-    for (auto it = tok.begin();it != tok.end();it++)
+    if (tok.empty())
     {
-        argarray[index] = it->c_str();
-        index++;
+        cErrorDom("input") << "Empty ping command, not spawning anything";
+        return;
     }
-    argarray[index] = NULL;
 
-    ping_exe->spawn(tok[0].c_str(), (char **)argarray);
+    //convert args list to a char**: argv[0] is the program itself, and the
+    //array is NULL terminated, so it holds tok.size() + 1 entries.
+    vector<const char *> argarray;
+    argarray.reserve(tok.size() + 1);
+    for (const auto &arg: tok)
+        argarray.push_back(arg.c_str());
+    argarray.push_back(nullptr);
 
-    delete [] argarray;
+    ping_exe->spawn(tok[0].c_str(), (char **)argarray.data());
+
+    //spawn() reports a failure through ErrorEvent, published synchronously,
+    //and leaves pid at 0 in that case
+    pingRunning = ping_exe->pid() > 0;
+}
+
+void PingInputSwitch::pollTimeout()
+{
+    //The timer is one shot: destroy it before starting the next ping, the
+    //exit handler creates a new one when the ping is done.
+    DELETE_NULL(pollTimer);
+    doPing();
 }
