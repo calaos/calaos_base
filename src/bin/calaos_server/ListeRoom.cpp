@@ -843,6 +843,11 @@ IOBase* ListeRoom::createIO(Params param, Room *room)
     return nullptr;
 }
 
+static bool moreHits(Room *a, Room *b)
+{
+    return a->get_hits() > b->get_hits();
+}
+
 std::vector<Room *> ListeRoom::getRoomsByHits() const
 {
     std::vector<Room *> sorted;
@@ -850,10 +855,7 @@ std::vector<Room *> ListeRoom::getRoomsByHits() const
     for (const auto &r: rooms)
         sorted.push_back(r.get());
 
-    std::stable_sort(sorted.begin(), sorted.end(), [](Room *a, Room *b)
-    {
-        return a->get_hits() > b->get_hits();
-    });
+    std::stable_sort(sorted.begin(), sorted.end(), moreHits);
 
     return sorted;
 }
