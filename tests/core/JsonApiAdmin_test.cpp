@@ -543,6 +543,7 @@ protected:
     void TearDown() override
     {
         drainLoop(30);
+        JsonApi::resetVersionsCache();
         Utils::set_config_frozen(false);
     }
 
@@ -1759,6 +1760,7 @@ TEST_F(JsonApiAdminTest, VersionsOnlyPassesTheFieldsOfTheContract)
         data["secret_path"] = "/etc/calaos/token";
         data["packages"][0]["maintainer"] = "somebody";
         data["packages"].push_back("not an object");
+        data["packages"].push_back(Json{ { "name", 7 } });
         res.body = FakeDaemon::ok(data);
         return true;
     });
@@ -1804,6 +1806,62 @@ TEST_F(JsonApiAdminTest, VersionsKeepsTheContainerAnswerForAMinuteAndAnErrorBrie
     EXPECT_EQ("daemon_unreachable", str(versions()["result"], "error"));
     now += 10;
     EXPECT_EQ(FakeDaemon::versionsData(), versions()["result"]["system"]);
+}
+
+TEST_F(JsonApiAdminTest, VersionsPipelinedMessagesShareOneDaemonCall)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const bool answers: { true, false })
+    {
+        JsonApi::resetVersionsCache();
+        fakeDaemon.clearLog();
+        fakeDaemon.setOverride([answers](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path != "/api/v2/system/versions")
+                return false;
+            res.delayMs = 300;
+            if (answers)
+                res.body = FakeDaemon::ok(FakeDaemon::versionsData());
+            else
+            {
+                res.status = 500;
+                res.body = FakeDaemon::err("internal");
+            }
+            return true;
+        });
+
+        const Json msg{ { "msg", "admin" }, { "msg_id", "a" }, { "data", { { "action", "versions" } } } };
+        ws.post(msg);
+        ws.post(msg);
+        const Json first = ws.next()["data"];
+        const Json second = ws.next()["data"];
+        ASSERT_EQ("true", str(first, "success")) << first.dump();
+        EXPECT_EQ(first, second);
+        if (answers)
+            EXPECT_EQ(FakeDaemon::versionsData(), first["result"]["system"]);
+        else
+            EXPECT_TRUE(first["result"].contains("error")) << first.dump();
+        EXPECT_EQ(1u, fakeDaemon.requests().size()) << answers << " " << requestPaths();
+    }
+}
+
+TEST_F(JsonApiAdminTest, VersionsPipelinedMessagesShareAnUnreachableDaemon)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.stop();
+
+    const Json msg{ { "msg", "admin" }, { "msg_id", "a" }, { "data", { { "action", "versions" } } } };
+    ws.post(msg);
+    ws.post(msg);
+    const Json first = ws.next()["data"];
+    const Json second = ws.next()["data"];
+    EXPECT_EQ("daemon_unreachable", str(first["result"], "error")) << first.dump();
+    EXPECT_EQ(first, second);
 }
 
 TEST_F(JsonApiAdminTest, McpRegenerateChangesTheTokenAndRestartsTheSidecar)

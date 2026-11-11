@@ -989,7 +989,8 @@ Json versionsWhitelist(const Json &data)
                 if (it != pkg.end() && it->is_string())
                     entry[key] = *it;
             }
-            list.push_back(entry);
+            if (!entry.empty())
+                list.push_back(entry);
         }
         out["packages"] = list;
     }
@@ -1006,6 +1007,8 @@ struct VersionsCache
     std::function<double()> clock;
     Json answer;
     double expires = 0;
+    //Callers that arrived while the single daemon call is in flight
+    std::vector<std::function<void(const Json &)>> waiters;
 };
 
 VersionsCache &versionsCache()
@@ -1034,7 +1037,12 @@ void relayVersions(DaemonClient::Request req, const std::function<void(const Jso
         return;
     }
 
-    DaemonClient::Instance().call(req, [answer, server](const DaemonReply &reply)
+    //One call in flight at most: a pipelining session must not reach dpkg-query per message.
+    cache.waiters.push_back(answer);
+    if (cache.waiters.size() > 1)
+        return;
+
+    DaemonClient::Instance().call(req, [server](const DaemonReply &reply)
                                   {
         Json result;
         double ttl = VersionsErrorTtl;
@@ -1049,7 +1057,10 @@ void relayVersions(DaemonClient::Request req, const std::function<void(const Jso
         VersionsCache &c = versionsCache();
         c.answer = result;
         c.expires = versionsNow() + ttl;
-        answer(Json{ { "success", "true" }, { "result", result } });
+        auto waiters = std::move(c.waiters);
+        c.waiters.clear();
+        for (const auto &w: waiters)
+            w(Json{ { "success", "true" }, { "result", result } });
     });
 }
 
