@@ -36,6 +36,7 @@
 #include "HttpServer.h"
 #include "HttpClient.h"
 #include "JsonApi.h"
+#include "ServerInfo.h"
 #include "JsonApiHandlerHttp.h"
 #include "AdminConfig.h"
 #include "CalaosConfig.h"
@@ -525,6 +526,7 @@ protected:
         AdminState::Instance().observeUnreachable();
         AdminState::Instance().loadFlag();
         AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
+        JsonApi::resetVersionsCache();
         Utils::set_config_frozen(false);
         drainLoop(10);
     }
@@ -541,6 +543,7 @@ protected:
     void TearDown() override
     {
         drainLoop(30);
+        JsonApi::resetVersionsCache();
         Utils::set_config_frozen(false);
     }
 
@@ -698,7 +701,7 @@ TEST(JsonApiAdminRules, DaemonCallTimeouts)
     EXPECT_EQ(120, JsonApi::adminRelayTimeout("update_check"));
     EXPECT_EQ(30, JsonApi::adminRelayTimeout("system_restart"));
     for (const char *action: { "update_status", "update_available", "update_upgrade_all", "update_upgrade",
-                               "system_reboot", "system_info", "admin_logout" })
+                               "system_reboot", "system_info", "admin_logout", "versions" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
     for (const char *action: { "approver_list", "approver_candidates", "approver_enroll", "approver_confirm",
                                "approver_remove", "code_request", "code_verify", "console_open" })
@@ -726,7 +729,7 @@ TEST(JsonApiAdminRules, PackageNamesFollowTheDaemonRule)
 TEST(JsonApiAdminRules, AdminActionsComeFromTheClosedTable)
 {
     for (const char *action: { "update_status", "update_check", "update_available", "update_upgrade_all",
-                               "system_reboot", "system_restart", "system_info", "admin_logout", "mcp_regenerate" })
+                               "system_reboot", "system_restart", "system_info", "admin_logout", "mcp_regenerate", "versions" })
         EXPECT_TRUE(JsonApi::adminRequestRefusal(action, Json::object()).is_null()) << action;
 
     for (const char *action: { "system_rollback_snapshot", "system/reboot", "update_installed", "admin_reset",
@@ -1633,6 +1636,232 @@ TEST_F(JsonApiAdminTest, TheAdminMessageIsGatedBeforeAnyDaemonCall)
     //A data member that is not an object
     expectError(ws.ask(Json{ { "msg", "admin" }, { "msg_id", "x" }, { "data", "update_status" } })["data"],
                 "invalid_request");
+}
+
+TEST_F(JsonApiAdminTest, VersionsAnswersAHouseholdSessionWithoutAdminSession)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.clearLog();
+
+    //Neither the session nor the params reach the daemon
+    const Json answer = ws.admin("admin", { { "action", "versions" },
+                                            { "admin_session", "not-a-session" },
+                                            { "params", { { "path", "update/installed" } } } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(ServerInfo::toJson()["version"], answer["result"]["server"]);
+    EXPECT_EQ(FakeDaemon::versionsData(), answer["result"]["system"]);
+    EXPECT_FALSE(answer["result"].contains("error"));
+
+    const auto log = fakeDaemon.requests();
+    ASSERT_EQ(1u, log.size()) << requestPaths();
+    EXPECT_EQ("GET", log[0].method);
+    EXPECT_EQ("/api/v2/system/versions", log[0].path);
+    EXPECT_EQ(0u, log[0].headers.count("x-calaos-admin-session"));
+
+    //The household session opens that action and no other
+    for (const char *other: { "update_check", "update_available", "system_info", "services_list", "system_reboot",
+                              "update_installed", "system/versions" })
+    {
+        fakeDaemon.clearLog();
+        const Json refused = ws.admin("admin", { { "action", other } });
+        EXPECT_NE("true", str(refused, "success")) << other << " " << refused.dump();
+        EXPECT_TRUE(fakeDaemon.requests().empty()) << other << " " << requestPaths();
+    }
+}
+
+TEST_F(JsonApiAdminTest, VersionsWithTheContainerDownKeepsTheServerVersion)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    fakeDaemon.stop();
+    AdminState::Instance().observeUnreachable();
+
+    const Json answer = ws.admin("admin", { { "action", "versions" } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(ServerInfo::toJson()["version"], answer["result"]["server"]);
+    EXPECT_TRUE(answer["result"]["system"].is_null());
+    EXPECT_EQ("daemon_unreachable", str(answer["result"], "error")) << answer.dump();
+}
+
+TEST_F(JsonApiAdminTest, VersionsAnswersWhileTheAdminIsNotDefined)
+{
+    fakeDaemon.setAdminSet(false);
+    syncAdminState();
+    ASSERT_EQ(AdminState::Mode::NotSet, AdminState::Instance().mode());
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.clearLog();
+
+    const Json answer = ws.admin("admin", { { "action", "versions" } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(FakeDaemon::versionsData(), answer["result"]["system"]);
+    EXPECT_FALSE(answer["result"].contains("error")) << answer.dump();
+}
+
+TEST_F(JsonApiAdminTest, VersionsOnAnOldContainerReportsDaemonTooOld)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/versions")
+            return false;
+        res.status = 404;
+        res.body = FakeDaemon::err("not_found");
+        return true;
+    });
+
+    const Json answer = ws.admin("admin", { { "action", "versions" } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ("daemon_too_old", str(answer["result"], "error")) << answer.dump();
+    EXPECT_TRUE(answer["result"]["system"].is_null());
+    EXPECT_EQ(AdminState::Mode::Set, AdminState::Instance().mode());
+}
+
+TEST_F(JsonApiAdminTest, VersionsWithDataThatIsNotAnObjectIsInternal)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const char *body: { "{\"error\":false,\"msg\":\"ok\",\"data\":[]}", "{\"error\":false,\"msg\":\"ok\"}" })
+    {
+        JsonApi::resetVersionsCache();
+        fakeDaemon.setOverride([body](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path != "/api/v2/system/versions")
+                return false;
+            res.body = body;
+            return true;
+        });
+
+        const Json answer = ws.admin("admin", { { "action", "versions" } });
+        ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+        EXPECT_EQ("internal", str(answer["result"], "error")) << body << " " << answer.dump();
+        EXPECT_TRUE(answer["result"]["system"].is_null());
+    }
+}
+
+TEST_F(JsonApiAdminTest, VersionsOnlyPassesTheFieldsOfTheContract)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/versions")
+            return false;
+        Json data = FakeDaemon::versionsData();
+        data["secret_path"] = "/etc/calaos/token";
+        data["packages"][0]["maintainer"] = "somebody";
+        data["packages"].push_back("not an object");
+        data["packages"].push_back(Json{ { "name", 7 } });
+        res.body = FakeDaemon::ok(data);
+        return true;
+    });
+
+    const Json answer = ws.admin("admin", { { "action", "versions" } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(FakeDaemon::versionsData(), answer["result"]["system"]) << answer.dump();
+}
+
+TEST_F(JsonApiAdminTest, VersionsKeepsTheContainerAnswerForAMinuteAndAnErrorBriefly)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    double now = 1000;
+    JsonApi::resetVersionsCache([&now]()
+                                {
+        return now;
+    });
+    fakeDaemon.clearLog();
+
+    auto versions = [&ws]()
+    {
+        return ws.admin("admin", { { "action", "versions" } });
+    };
+    EXPECT_EQ("true", str(versions(), "success"));
+    now += 59;
+    const Json cached = versions();
+    EXPECT_EQ(FakeDaemon::versionsData(), cached["result"]["system"]);
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+
+    now += 2;
+    versions();
+    EXPECT_EQ(2u, fakeDaemon.requests().size()) << requestPaths();
+
+    //An error is forgotten within seconds
+    fakeDaemon.stop();
+    now += 61;
+    EXPECT_EQ("daemon_unreachable", str(versions()["result"], "error"));
+    ASSERT_TRUE(fakeDaemon.start(env.daemonPort));
+    fakeDaemon.setAdminSet(true);
+    now += 1;
+    EXPECT_EQ("daemon_unreachable", str(versions()["result"], "error"));
+    now += 10;
+    EXPECT_EQ(FakeDaemon::versionsData(), versions()["result"]["system"]);
+}
+
+TEST_F(JsonApiAdminTest, VersionsPipelinedMessagesShareOneDaemonCall)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    for (const bool answers: { true, false })
+    {
+        JsonApi::resetVersionsCache();
+        fakeDaemon.clearLog();
+        fakeDaemon.setOverride([answers](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path != "/api/v2/system/versions")
+                return false;
+            res.delayMs = 300;
+            if (answers)
+                res.body = FakeDaemon::ok(FakeDaemon::versionsData());
+            else
+            {
+                res.status = 500;
+                res.body = FakeDaemon::err("internal");
+            }
+            return true;
+        });
+
+        const Json msg{ { "msg", "admin" }, { "msg_id", "a" }, { "data", { { "action", "versions" } } } };
+        ws.post(msg);
+        ws.post(msg);
+        const Json first = ws.next()["data"];
+        const Json second = ws.next()["data"];
+        ASSERT_EQ("true", str(first, "success")) << first.dump();
+        EXPECT_EQ(first, second);
+        if (answers)
+            EXPECT_EQ(FakeDaemon::versionsData(), first["result"]["system"]);
+        else
+            EXPECT_TRUE(first["result"].contains("error")) << first.dump();
+        EXPECT_EQ(1u, fakeDaemon.requests().size()) << answers << " " << requestPaths();
+    }
+}
+
+TEST_F(JsonApiAdminTest, VersionsPipelinedMessagesShareAnUnreachableDaemon)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.stop();
+
+    const Json msg{ { "msg", "admin" }, { "msg_id", "a" }, { "data", { { "action", "versions" } } } };
+    ws.post(msg);
+    ws.post(msg);
+    const Json first = ws.next()["data"];
+    const Json second = ws.next()["data"];
+    EXPECT_EQ("daemon_unreachable", str(first["result"], "error")) << first.dump();
+    EXPECT_EQ(first, second);
 }
 
 TEST_F(JsonApiAdminTest, McpRegenerateChangesTheTokenAndRestartsTheSidecar)

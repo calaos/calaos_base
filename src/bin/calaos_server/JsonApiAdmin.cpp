@@ -26,12 +26,14 @@
 #include "HistLogger.h"
 #include "HttpClient.h"
 #include "JsonField.h"
+#include "ServerInfo.h"
 #include "libuvw.h"
 
 #include <openssl/evp.h>
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <set>
@@ -707,6 +709,8 @@ const RelayRow relayTable[] = {
     { "network_apply", "POST", "network/apply", true, DaemonClient::NetworkChangeTimeout, networkApplyBody },
     { "network_confirm", "POST", "network/confirm", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
     { "network_revert", "POST", "network/revert", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
+    //Open to a household session: version numbers only, see relayVersions()
+    { "versions", "GET", "system/versions", false, DaemonClient::DefaultTimeout, nullptr },
 };
 
 const RelayRow *relayRow(const string &action)
@@ -958,6 +962,108 @@ void addTimeSteps(const DaemonReply &reply, Json &answer)
         answer["failed"] = failed;
 }
 
+//Only what the contract promises leaves for a household session: a field the
+//daemon adds later is not exposed without a decision.
+Json versionsWhitelist(const Json &data)
+{
+    Json out = Json::object();
+    for (const char *key: { "calaos_os", "debian", "kernel", "container" })
+    {
+        const auto it = data.find(key);
+        if (it != data.end() && it->is_string())
+            out[key] = *it;
+    }
+
+    const auto packages = data.find("packages");
+    if (packages != data.end() && packages->is_array())
+    {
+        Json list = Json::array();
+        for (const Json &pkg: *packages)
+        {
+            if (!pkg.is_object())
+                continue;
+            Json entry = Json::object();
+            for (const char *key: { "name", "version" })
+            {
+                const auto it = pkg.find(key);
+                if (it != pkg.end() && it->is_string())
+                    entry[key] = *it;
+            }
+            if (!entry.empty())
+                list.push_back(entry);
+        }
+        out["packages"] = list;
+    }
+    return out;
+} //LCOV_EXCL_LINE only the unwind path of out lands on this brace
+
+//A household session must not be able to trigger a dpkg-query per message; an
+//error is kept briefly so that a container coming back is seen quickly.
+constexpr double VersionsOkTtl = 60.0;
+constexpr double VersionsErrorTtl = 3.0;
+
+struct VersionsCache
+{
+    std::function<double()> clock;
+    Json answer;
+    double expires = 0;
+    //Callers that arrived while the single daemon call is in flight
+    std::vector<std::function<void(const Json &)>> waiters;
+};
+
+VersionsCache &versionsCache()
+{
+    static VersionsCache cache;
+    return cache;
+}
+
+double versionsNow()
+{
+    const auto &clock = versionsCache().clock;
+    if (clock)
+        return clock();
+    return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+//The daemon being down or too old is an answer here, not a failure: the server
+//version is still worth showing. The daemon's error code is the short message.
+void relayVersions(DaemonClient::Request req, const std::function<void(const Json &)> &answer)
+{
+    const string server = ServerInfo::toJson()["version"].get<string>();
+    VersionsCache &cache = versionsCache();
+    if (!cache.answer.is_null() && versionsNow() < cache.expires)
+    {
+        answer(Json{ { "success", "true" }, { "result", cache.answer } });
+        return;
+    }
+
+    //One call in flight at most: a pipelining session must not reach dpkg-query per message.
+    cache.waiters.push_back(answer);
+    if (cache.waiters.size() > 1)
+        return;
+
+    DaemonClient::Instance().call(req, [server](const DaemonReply &reply)
+                                  {
+        Json result;
+        double ttl = VersionsErrorTtl;
+        if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
+        {
+            result = { { "server", server }, { "system", versionsWhitelist(reply.data) } };
+            ttl = VersionsOkTtl;
+        }
+        else
+            result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(relayFailure(reply), "error") } };
+
+        VersionsCache &c = versionsCache();
+        c.answer = result;
+        c.expires = versionsNow() + ttl;
+        auto waiters = std::move(c.waiters);
+        c.waiters.clear();
+        for (const auto &w: waiters)
+            w(Json{ { "success", "true" }, { "result", result } });
+    });
+}
+
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
 {
     DaemonClient::Instance().call(req, [req, household, sessionOptional, answer](const DaemonReply &reply)
@@ -1116,6 +1222,12 @@ Json JsonApi::adminRelayFailure(const DaemonReply &reply)
     return relayFailure(reply);
 }
 
+void JsonApi::resetVersionsCache(std::function<double()> clock)
+{
+    versionsCache() = VersionsCache();
+    versionsCache().clock = std::move(clock);
+}
+
 void JsonApi::relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
 {
     const RelayRow *row = relayRow(action);
@@ -1123,6 +1235,17 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
     {
         answer(adminError("not_allowed", "Unknown admin action")); //LCOV_EXCL_LINE refused before
         return;                                                    //LCOV_EXCL_LINE refused before
+    }
+
+    if (action == "versions")
+    {
+        DaemonClient::Request req;
+        req.method = row->method;
+        req.path = row->path;
+        req.timeout = row->timeout;
+        req.clientIp = adminClientIp();
+        relayVersions(req, answer);
+        return;
     }
 
     //update_status without a session is the household view, which carries no

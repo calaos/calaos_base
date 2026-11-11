@@ -793,14 +793,16 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
   champ par champ à partir des `params` validés de la table (le reste est ignoré).
 - `result` est le champ `data` de la réponse du daemon, **recopié tel quel, avec ses types
   JSON** (booléens, nombres, objets imbriqués), sauf `update_status` sans session (vue foyer,
-  ci-dessous). C'est la troisième exception à la règle
+  ci-dessous) et `versions`, dont le `result` est `{server, system, error?}`. C'est la troisième exception à la règle
   « tout est chaîne » (après l'objet `device` et `eventlog`) ; `success` reste une chaîne.
   Les formes des `result` sont définies par `API.md` (`<Job>`, `<Status>`, etc.).
-- `admin_session` est requise partout, **sauf** `update_status`.
+- `admin_session` est requise partout, **sauf** `update_status` et `versions` (qui n'en transmet
+  aucune au daemon).
 
 | `action` | `params` | Appel du daemon | Session | `result` |
 |---|---|---|:---:|---|
 | `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
+| `versions` | | `GET system/versions` | non | `{"server": "<version>", "system": <réponse du daemon, liste blanche> ou null, "error"?: "<code>"}` |
 | `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
 | `update_available` | | `GET update/available` | oui | idem, sans contacter les miroirs |
 | `update_upgrade_all` | | `POST update/upgrade-all` | oui | `<Job>` (le daemon répond 202 et le job tourne) |
@@ -863,6 +865,19 @@ donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unk
 l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
 `time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
 
+- **`versions`** : les numéros de version de la box, pour la page
+  « Versions » des clients. Avec `update_status` sans session, c'est la seule action du relais
+  ouverte à une session foyer : elle n'exige ni `admin_session` ni admin défini (elle ne dépend ni
+  de l'admin mode ni de l'état de l'admin, le daemon répondant sur le seul bearer), et ne transmet au daemon ni session ni `params`
+  (aucune autre route du daemon n'en devient accessible). Sous `secureTransport()` comme les
+  autres. `server` est le `version` de `get_server_info`. `system` est le `data` de
+  `GET /api/v2/system/versions` du daemon, réduit à une liste blanche : `{calaos_os, debian,
+  kernel, container, packages: [{name, version}]}`, tout autre champ est abandonné. La dernière
+  réponse réussie du daemon est gardée 60 s au plus, une erreur 3 s, pour qu'une session foyer ne
+  déclenche pas un `dpkg-query` par message ; un seul appel est en vol à la fois, les messages
+  arrivés entre-temps reçoivent sa réponse. Daemon injoignable ou trop ancien : la
+  réponse reste `success: "true"`, `system` vaut `null` et `error` porte le code court
+  (`daemon_unreachable`, `daemon_too_old`…) ; `server` est toujours rempli.
 - **`update_status` sans session** : accepté une fois l'admin défini, sous
   `secureTransport()`. C'est ce qui permet à n'importe quel client foyer de reprendre l'affichage
   d'une mise à jour en cours après une reconnexion, sans redemander le mot de passe admin.
