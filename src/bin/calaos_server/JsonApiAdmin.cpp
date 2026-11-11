@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <set>
@@ -961,23 +962,97 @@ void addTimeSteps(const DaemonReply &reply, Json &answer)
         answer["failed"] = failed;
 }
 
+//Only what the contract promises leaves for a household session: a field the
+//daemon adds later is not exposed without a decision.
+Json versionsWhitelist(const Json &data)
+{
+    Json out = Json::object();
+    for (const char *key: { "calaos_os", "debian", "kernel", "container" })
+    {
+        const auto it = data.find(key);
+        if (it != data.end() && it->is_string())
+            out[key] = *it;
+    }
+
+    const auto packages = data.find("packages");
+    if (packages != data.end() && packages->is_array())
+    {
+        Json list = Json::array();
+        for (const Json &pkg: *packages)
+        {
+            if (!pkg.is_object())
+                continue;
+            Json entry = Json::object();
+            for (const char *key: { "name", "version" })
+            {
+                const auto it = pkg.find(key);
+                if (it != pkg.end() && it->is_string())
+                    entry[key] = *it;
+            }
+            list.push_back(entry);
+        }
+        out["packages"] = list;
+    }
+    return out;
+}
+
+//A household session must not be able to trigger a dpkg-query per message; an
+//error is kept briefly so that a container coming back is seen quickly.
+constexpr double VersionsOkTtl = 60.0;
+constexpr double VersionsErrorTtl = 3.0;
+
+struct VersionsCache
+{
+    std::function<double()> clock;
+    Json answer;
+    double expires = 0;
+};
+
+VersionsCache &versionsCache()
+{
+    static VersionsCache cache;
+    return cache;
+}
+
+double versionsNow()
+{
+    const auto &clock = versionsCache().clock;
+    if (clock)
+        return clock();
+    return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
 //The daemon being down or too old is an answer here, not a failure: the server
 //version is still worth showing. The daemon's error code is the short message.
 void relayVersions(DaemonClient::Request req, const std::function<void(const Json &)> &answer)
 {
-    req.session.clear();
-    DaemonClient::Instance().call(req, [answer](const DaemonReply &reply)
+    const string server = ServerInfo::toJson()["version"].get<string>();
+    VersionsCache &cache = versionsCache();
+    if (!cache.answer.is_null() && versionsNow() < cache.expires)
+    {
+        answer(Json{ { "success", "true" }, { "result", cache.answer } });
+        return;
+    }
+
+    DaemonClient::Instance().call(req, [answer, server](const DaemonReply &reply)
                                   {
-        const string server = ServerInfo::toJson()["version"].get<string>();
+        Json result;
+        double ttl = VersionsErrorTtl;
         if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
         {
-            answer(Json{ { "success", "true" }, { "result", { { "server", server }, { "system", reply.data } } } });
-            return;
+            result = { { "server", server }, { "system", versionsWhitelist(reply.data) } };
+            ttl = VersionsOkTtl;
+        }
+        else
+        {
+            const Json failure = relayFailure(reply);
+            result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(failure, "error") } };
         }
 
-        const Json failure = relayFailure(reply);
-        answer(Json{ { "success", "true" },
-                     { "result", { { "server", server }, { "system", nullptr }, { "error", JsonField::string(failure, "error") } } } });
+        VersionsCache &c = versionsCache();
+        c.answer = result;
+        c.expires = versionsNow() + ttl;
+        answer(Json{ { "success", "true" }, { "result", result } });
     });
 }
 
@@ -1139,6 +1214,12 @@ Json JsonApi::adminRelayFailure(const DaemonReply &reply)
     return relayFailure(reply);
 }
 
+void JsonApi::resetVersionsCache(std::function<double()> clock)
+{
+    versionsCache() = VersionsCache();
+    versionsCache().clock = std::move(clock);
+}
+
 void JsonApi::relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)
 {
     const RelayRow *row = relayRow(action);
@@ -1148,8 +1229,6 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
         return;                                                    //LCOV_EXCL_LINE refused before
     }
 
-    //update_status without a session is the household view, which carries no
-    //package inventory; the admin's session opens the full answer
     if (action == "versions")
     {
         DaemonClient::Request req;
@@ -1161,6 +1240,8 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
         return;
     }
 
+    //update_status without a session is the household view, which carries no
+    //package inventory; the admin's session opens the full answer
     const bool household = !row->session && !isValidAdminSession(session);
 
     DaemonClient::Request req;
