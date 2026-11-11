@@ -1758,6 +1758,7 @@ TEST_F(JsonApiAdminTest, VersionsOnlyPassesTheFieldsOfTheContract)
         Json data = FakeDaemon::versionsData();
         data["secret_path"] = "/etc/calaos/token";
         data["packages"][0]["maintainer"] = "somebody";
+        data["packages"].push_back("not an object");
         res.body = FakeDaemon::ok(data);
         return true;
     });
@@ -1773,10 +1774,16 @@ TEST_F(JsonApiAdminTest, VersionsKeepsTheContainerAnswerForAMinuteAndAnErrorBrie
     WsClient ws;
     ASSERT_TRUE(ws.login("https"));
     double now = 1000;
-    JsonApi::resetVersionsCache([&now]() { return now; });
+    JsonApi::resetVersionsCache([&now]()
+                                {
+        return now;
+    });
     fakeDaemon.clearLog();
 
-    auto versions = [&ws]() { return ws.admin("admin", { { "action", "versions" } }); };
+    auto versions = [&ws]()
+    {
+        return ws.admin("admin", { { "action", "versions" } });
+    };
     EXPECT_EQ("true", str(versions(), "success"));
     now += 59;
     const Json cached = versions();

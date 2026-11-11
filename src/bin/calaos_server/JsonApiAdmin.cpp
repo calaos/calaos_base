@@ -994,7 +994,7 @@ Json versionsWhitelist(const Json &data)
         out["packages"] = list;
     }
     return out;
-}
+} //LCOV_EXCL_LINE only the unwind path of out lands on this brace
 
 //A household session must not be able to trigger a dpkg-query per message; an
 //error is kept briefly so that a container coming back is seen quickly.
@@ -1044,10 +1044,7 @@ void relayVersions(DaemonClient::Request req, const std::function<void(const Jso
             ttl = VersionsOkTtl;
         }
         else
-        {
-            const Json failure = relayFailure(reply);
-            result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(failure, "error") } };
-        }
+            result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(relayFailure(reply), "error") } };
 
         VersionsCache &c = versionsCache();
         c.answer = result;
