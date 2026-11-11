@@ -36,6 +36,7 @@
 #include "HttpServer.h"
 #include "HttpClient.h"
 #include "JsonApi.h"
+#include "ServerInfo.h"
 #include "JsonApiHandlerHttp.h"
 #include "AdminConfig.h"
 #include "CalaosConfig.h"
@@ -45,6 +46,7 @@
 #include "McpServerManager.h"
 #include "AdminEvents.h"
 #include "AdminState.h"
+#include "ServerInfo.h"
 #include "DaemonClient.h"
 #include "NotifManager.h"
 #include "HistLogger.h"
@@ -698,7 +700,7 @@ TEST(JsonApiAdminRules, DaemonCallTimeouts)
     EXPECT_EQ(120, JsonApi::adminRelayTimeout("update_check"));
     EXPECT_EQ(30, JsonApi::adminRelayTimeout("system_restart"));
     for (const char *action: { "update_status", "update_available", "update_upgrade_all", "update_upgrade",
-                               "system_reboot", "system_info", "admin_logout" })
+                               "system_reboot", "system_info", "admin_logout", "versions" })
         EXPECT_EQ(4, JsonApi::adminRelayTimeout(action)) << action;
     for (const char *action: { "approver_list", "approver_candidates", "approver_enroll", "approver_confirm",
                                "approver_remove", "code_request", "code_verify", "console_open" })
@@ -726,7 +728,7 @@ TEST(JsonApiAdminRules, PackageNamesFollowTheDaemonRule)
 TEST(JsonApiAdminRules, AdminActionsComeFromTheClosedTable)
 {
     for (const char *action: { "update_status", "update_check", "update_available", "update_upgrade_all",
-                               "system_reboot", "system_restart", "system_info", "admin_logout", "mcp_regenerate" })
+                               "system_reboot", "system_restart", "system_info", "admin_logout", "mcp_regenerate", "versions" })
         EXPECT_TRUE(JsonApi::adminRequestRefusal(action, Json::object()).is_null()) << action;
 
     for (const char *action: { "system_rollback_snapshot", "system/reboot", "update_installed", "admin_reset",
@@ -1633,6 +1635,55 @@ TEST_F(JsonApiAdminTest, TheAdminMessageIsGatedBeforeAnyDaemonCall)
     //A data member that is not an object
     expectError(ws.ask(Json{ { "msg", "admin" }, { "msg_id", "x" }, { "data", "update_status" } })["data"],
                 "invalid_request");
+}
+
+TEST_F(JsonApiAdminTest, VersionsAnswersAHouseholdSessionWithoutAdminSession)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.clearLog();
+
+    //Neither the session nor the params reach the daemon
+    const Json answer = ws.admin("admin", { { "action", "versions" },
+                                            { "admin_session", "not-a-session" },
+                                            { "params", { { "path", "update/installed" } } } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(ServerInfo::toJson()["version"], answer["result"]["server"]);
+    EXPECT_EQ(FakeDaemon::versionsData(), answer["result"]["system"]);
+    EXPECT_FALSE(answer["result"].contains("error"));
+
+    const auto log = fakeDaemon.requests();
+    ASSERT_EQ(1u, log.size()) << requestPaths();
+    EXPECT_EQ("GET", log[0].method);
+    EXPECT_EQ("/api/v2/system/versions", log[0].path);
+    EXPECT_EQ(0u, log[0].headers.count("x-calaos-admin-session"));
+
+    //The household session opens that action and no other
+    for (const char *other: { "update_check", "update_available", "system_info", "services_list", "system_reboot",
+                              "update_installed", "system/versions" })
+    {
+        fakeDaemon.clearLog();
+        const Json refused = ws.admin("admin", { { "action", other } });
+        EXPECT_NE("true", str(refused, "success")) << other << " " << refused.dump();
+        EXPECT_TRUE(fakeDaemon.requests().empty()) << other << " " << requestPaths();
+    }
+}
+
+TEST_F(JsonApiAdminTest, VersionsWithTheContainerDownKeepsTheServerVersion)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    fakeDaemon.stop();
+    AdminState::Instance().observeUnreachable();
+
+    const Json answer = ws.admin("admin", { { "action", "versions" } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ(ServerInfo::toJson()["version"], answer["result"]["server"]);
+    EXPECT_TRUE(answer["result"]["system"].is_null());
+    EXPECT_FALSE(str(answer["result"], "error").empty()) << answer.dump();
 }
 
 TEST_F(JsonApiAdminTest, McpRegenerateChangesTheTokenAndRestartsTheSidecar)

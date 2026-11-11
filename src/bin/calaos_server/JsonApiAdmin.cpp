@@ -26,6 +26,7 @@
 #include "HistLogger.h"
 #include "HttpClient.h"
 #include "JsonField.h"
+#include "ServerInfo.h"
 #include "libuvw.h"
 
 #include <openssl/evp.h>
@@ -707,6 +708,8 @@ const RelayRow relayTable[] = {
     { "network_apply", "POST", "network/apply", true, DaemonClient::NetworkChangeTimeout, networkApplyBody },
     { "network_confirm", "POST", "network/confirm", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
     { "network_revert", "POST", "network/revert", true, DaemonClient::NetworkChangeTimeout, changeIdBody },
+    //Open to a household session: version numbers only, see relayVersions()
+    { "versions", "GET", "system/versions", false, DaemonClient::DefaultTimeout, nullptr },
 };
 
 const RelayRow *relayRow(const string &action)
@@ -958,6 +961,26 @@ void addTimeSteps(const DaemonReply &reply, Json &answer)
         answer["failed"] = failed;
 }
 
+//The daemon being down or too old is an answer here, not a failure: the server
+//version is still worth showing. The daemon's error code is the short message.
+void relayVersions(DaemonClient::Request req, const std::function<void(const Json &)> &answer)
+{
+    req.session.clear();
+    DaemonClient::Instance().call(req, [answer](const DaemonReply &reply)
+                                  {
+        const string server = ServerInfo::toJson()["version"].get<string>();
+        if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
+        {
+            answer(Json{ { "success", "true" }, { "result", { { "server", server }, { "system", reply.data } } } });
+            return;
+        }
+
+        const Json failure = relayFailure(reply);
+        answer(Json{ { "success", "true" },
+                     { "result", { { "server", server }, { "system", nullptr }, { "error", JsonField::string(failure, "error") } } } });
+    });
+}
+
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
 {
     DaemonClient::Instance().call(req, [req, household, sessionOptional, answer](const DaemonReply &reply)
@@ -1127,6 +1150,17 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
 
     //update_status without a session is the household view, which carries no
     //package inventory; the admin's session opens the full answer
+    if (action == "versions")
+    {
+        DaemonClient::Request req;
+        req.method = row->method;
+        req.path = row->path;
+        req.timeout = row->timeout;
+        req.clientIp = adminClientIp();
+        relayVersions(req, answer);
+        return;
+    }
+
     const bool household = !row->session && !isValidAdminSession(session);
 
     DaemonClient::Request req;

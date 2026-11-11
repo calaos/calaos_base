@@ -822,6 +822,13 @@ void JsonApiHandlerWS::processAdminMessage(const Json &request, const string &cl
 
     const string session = jsonStringGet(request, "admin_session");
 
+    //Version numbers for any household session, daemon up or not
+    if (action == "versions")
+    {
+        relayAdminAction(action, request, string(), answer);
+        return;
+    }
+
     withAdminMode([this, answer, action, session, request]()
                   {
         const Json refusal = adminModeRefusal();

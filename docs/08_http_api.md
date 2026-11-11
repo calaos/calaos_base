@@ -801,6 +801,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `action` | `params` | Appel du daemon | Session | `result` |
 |---|---|---|:---:|---|
 | `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
+| `versions` | | `GET system/versions` | non | `{"server": "<version>", "system": <réponse du daemon> ou null, "error"?: "<code>"}` |
 | `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
 | `update_available` | | `GET update/available` | oui | idem, sans contacter les miroirs |
 | `update_upgrade_all` | | `POST update/upgrade-all` | oui | `<Job>` (le daemon répond 202 et le job tourne) |
@@ -863,6 +864,15 @@ donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unk
 l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
 `time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
 
+- **`versions`** : les numéros de version de la box, pour la page
+  « Versions » des clients. C'est la seule action du relais ouverte à une session foyer : elle
+  n'exige ni `admin_session` ni admin défini, et ne transmet au daemon ni session ni `params`
+  (aucune autre route du daemon n'en devient accessible). Sous `secureTransport()` comme les
+  autres. `server` est le `version` de `get_server_info`. `system` est le `data` de
+  `GET /api/v2/system/versions` du daemon, tel quel : `{calaos_os, debian, kernel, container,
+  packages: [{name, version}]}`. Daemon injoignable, trop ancien ou admin non défini : la
+  réponse reste `success: "true"`, `system` vaut `null` et `error` porte le code court
+  (`daemon_unreachable`, `daemon_too_old`…) ; `server` est toujours rempli.
 - **`update_status` sans session** : accepté une fois l'admin défini, sous
   `secureTransport()`. C'est ce qui permet à n'importe quel client foyer de reprendre l'affichage
   d'une mise à jour en cours après une reconnexion, sans redemander le mot de passe admin.

@@ -403,6 +403,12 @@ public:
         return it == data.end() ? nlohmann::json() : it->second;
     }
 
+    //The contract of GET system/versions
+    static nlohmann::json versionsData()
+    {
+        return { { "calaos_os", "4.5.1" }, { "debian", "12.12" }, { "kernel", "6.12.48-amd64" }, { "container", "1.9.1" }, { "packages", { { { "name", "calaos-server" }, { "version", "4.8.1" } } } } };
+    }
+
     static std::string ok(const nlohmann::json &data)
     {
         return nlohmann::json{ { "error", false }, { "msg", "ok" }, { "data", data } }.dump();
@@ -1023,6 +1029,10 @@ private:
         else if (req.method == "GET" && req.path == "/api/v2/system/info")
         {
             res.body = ok({ { "hostname", "calaos" }, { "uptime", 1234 }, { "cpu_usage", 3 }, { "mem_usage", 41 } });
+        }
+        else if (req.method == "GET" && req.path == "/api/v2/system/versions")
+        {
+            res.body = ok(versionsData());
         }
         else if (req.path.compare(0, 23, "/api/v2/admin/approvers") == 0 || req.path.compare(0, 19, "/api/v2/admin/codes") == 0 ||
                  req.path == "/api/v2/admin/console")
