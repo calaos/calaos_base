@@ -23,6 +23,7 @@
 #include "IOFactory.h"
 #include "RemoteUI/HMACAuthenticator.h"
 #include "RemoteUI/RemoteUISecurityLimits.h"
+#include "RemoteUI/LegacyTimezone.h"
 #include "RemoteUIManager.h"
 #include "ListeRoom.h"
 #include "IO/Device.h"
@@ -580,7 +581,7 @@ Json RemoteUI::getProvisioningResponse()
 
     Json remote_ui_config;
     remote_ui_config["name"] = get_param("name");
-    remote_ui_config["pages"] = pages;
+    remote_ui_config["pages"] = LegacyTimezone::normalizePages(pages);
     response["remote_ui_config"] = remote_ui_config;
 
     return response;
@@ -624,7 +625,7 @@ Json RemoteUI::getRemoteUIConfigMessage()
     putIfSet(config, "theme", get_param("theme"));
     putBrightnessIfSet(config);
     config["timeout"] = getTimeout();
-    config["pages"] = pages;
+    config["pages"] = LegacyTimezone::normalizePages(pages);
 
     return config;
 }

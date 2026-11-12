@@ -26,6 +26,7 @@
 #include "RemoteUIManager.h"
 #include "HMACAuthenticator.h"
 #include "OtaFirmwareManager.h"
+#include "LegacyTimezone.h"
 #include "IO/Device.h"
 #include "ListeRoom.h"
 
@@ -444,7 +445,10 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     data["grid_width"] = parseGridDimension(authenticated_remote_ui->get_param("grid_w"), 3);
     for (const char *const param: screensaverParams)
         RemoteUI::putIfSet(data, param, authenticated_remote_ui->get_param(param));
-    data["pages"] = authenticated_remote_ui->getPages();
+    if (data.contains("screensaver_clock_timezone"))
+        data["screensaver_clock_timezone"] = LegacyTimezone::toPosix(
+            data["screensaver_clock_timezone"].get<string>());
+    data["pages"] = LegacyTimezone::normalizePages(authenticated_remote_ui->getPages());
 
     // Add room information
     Room *room = ListeRoom::Instance().getRoomByIO(authenticated_remote_ui);

@@ -379,6 +379,7 @@ calaos_server_SOURCES = \
         RemoteUI/HMACAuthenticator.h                    \
         RemoteUI/AuthFailureReason.h                    \
         RemoteUI/RemoteUISecurityLimits.h               \
+        RemoteUI/LegacyTimezone.h                       \
         RemoteUI/FirmwareManifest.cpp                   \
         RemoteUI/FirmwareManifest.h                     \
         RemoteUI/OtaFirmwareManager.cpp                 \
