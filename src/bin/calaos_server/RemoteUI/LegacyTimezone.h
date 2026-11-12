@@ -49,7 +49,8 @@ inline std::string toPosix(const std::string &tz)
     while (i < tz.size() && std::isdigit(static_cast<unsigned char>(tz[i])) && digits < 2)
     {
         hours = hours * 10 + (tz[i] - '0');
-        ++i; ++digits;
+        ++i;
+        ++digits;
     }
     if (digits == 0)
         return tz;
@@ -108,7 +109,17 @@ inline nlohmann::json normalizePages(nlohmann::json pages)
     return pages;
 }
 
+//Applies both rewrites to the config message built for a screen.
+inline void normalizeConfig(nlohmann::json &data)
+{
+    auto it = data.find("screensaver_clock_timezone");
+    if (it != data.end() && it->is_string())
+        *it = toPosix(it->get<std::string>());
+    if (data.contains("pages"))
+        data["pages"] = normalizePages(data["pages"]);
 }
-}
+
+} //namespace LegacyTimezone
+} //namespace Calaos
 
 #endif

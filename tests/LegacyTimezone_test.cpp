@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 #include "RemoteUI/LegacyTimezone.h"
 
-using Calaos::LegacyTimezone::toPosix;
+using Calaos::LegacyTimezone::normalizeConfig;
 using Calaos::LegacyTimezone::normalizePages;
+using Calaos::LegacyTimezone::toPosix;
 
 TEST(LegacyTimezone, PositiveOffsets)
 {
@@ -44,19 +45,43 @@ TEST(LegacyTimezone, PosixAndOtherValuesUntouched)
     EXPECT_EQ("UTC+5:75", toPosix("UTC+5:75"));
     EXPECT_EQ("UTC+5:3", toPosix("UTC+5:3"));
     EXPECT_EQ("UTC+", toPosix("UTC+"));
+    EXPECT_EQ("UTCx123", toPosix("UTCx123"));
+    EXPECT_EQ("UTC+:300", toPosix("UTC+:300"));
 }
 
 TEST(LegacyTimezone, PagesOnlyClockTimezoneRewrittenInCopy)
 {
     using Json = nlohmann::json;
-    Json pages = Json::array({ Json{ { "widgets", Json::array({
-        Json{ { "type", "clock" }, { "clock_timezone", "UTC+1" } },
-        Json{ { "type", "clock" }, { "clock_timezone", "UTC0" } },
-        Json{ { "type", "light" } } }) } } });
+    Json clockUtc1 = Json{ { "type", "clock" }, { "clock_timezone", "UTC+1" } };
+    Json clockUtc0 = Json{ { "type", "clock" }, { "clock_timezone", "UTC0" } };
+    Json light = Json{ { "type", "light" } };
+    Json pages = Json::array({ Json{ { "widgets", Json::array({ clockUtc1, clockUtc0, light }) } } });
     Json out = normalizePages(pages);
     EXPECT_EQ("<+01>-1", out[0]["widgets"][0]["clock_timezone"]);
     EXPECT_EQ("UTC0", out[0]["widgets"][1]["clock_timezone"]);
     EXPECT_FALSE(out[0]["widgets"][2].contains("clock_timezone"));
     EXPECT_EQ("UTC+1", pages[0]["widgets"][0]["clock_timezone"]);
     EXPECT_TRUE(normalizePages(Json::object()).is_object());
+}
+
+TEST(LegacyTimezone, MalformedPagesAndWidgetsSkipped)
+{
+    using Json = nlohmann::json;
+    Json pages = Json::array({ 42, Json::object(), Json{ { "widgets", 1 } },
+                               Json{ { "widgets", Json::array({ 7, Json{ { "clock_timezone", 5 } } }) } } });
+    EXPECT_EQ(pages, normalizePages(pages));
+}
+
+TEST(LegacyTimezone, NormalizeConfig)
+{
+    using Json = nlohmann::json;
+    Json data = Json{ { "screensaver_clock_timezone", "UTC-5" },
+                      { "pages", Json::array({ Json{ { "widgets", Json::array({ Json{ { "clock_timezone", "UTC+1" } } }) } } }) } };
+    normalizeConfig(data);
+    EXPECT_EQ("<-05>5", data["screensaver_clock_timezone"]);
+    EXPECT_EQ("<+01>-1", data["pages"][0]["widgets"][0]["clock_timezone"]);
+
+    Json empty = Json::object();
+    normalizeConfig(empty);
+    EXPECT_TRUE(empty.empty());
 }
