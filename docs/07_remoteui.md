@@ -377,6 +377,13 @@ Clés de `remote_ui_config_update` (dérivé,
 (`name`/`type`/`hits`, seulement si la pièce est trouvée), et `io_items` — un tableau projeté par
 `JsonApi::buildJsonIO(io, jio, IoProjection::DeviceConfig)` (`:346`).
 
+⚠️ Fuseaux horaires : `screensaver_clock_timezone` et le `clock_timezone` des widgets Clock sont des
+chaînes POSIX (`setenv("TZ")` côté écran). Un installeur antérieur à 9d85a26 y stockait un décalage
+humain (`UTC+1`, `UTC-9:30`, `GMT+1`) que POSIX lit à l'envers. À l'envoi, le serveur le réécrit en POSIX
+de même sens (`UTC+1` devient `<+01>-1`, `UTC+5:30` devient `<+0530>-5:30`, `UTC+0` devient `UTC0`) ;
+les chaînes POSIX valides et les valeurs vides passent telles quelles, et `io.xml` n'est pas modifié
+(dérivé, `src/bin/calaos_server/RemoteUI/LegacyTimezone.h`). Le `*_timezone_iana` n'est pas lu.
+
 Les noms de params sont ceux de l'API 5454, déclarés une seule fois par
 `JsonApi::ioProjectionParams()` (`JsonApi.cpp:576`) : `id`, `name`, `type`, `hits`, `var_type`,
 `visible`, `chauffage_id`, `rw`, `unit`, `gui_type`, `state`, `autoscenario_uid`, `step`, `io_type`,

@@ -8570,3 +8570,15 @@ core_JpegThumbnail_test_LDADD = $(CORE_TEST_LDADD)
 core_JpegThumbnail_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#Legacy "UTC+N" clock timezone rewrite for remote_ui (header-inline, libs only).
+if HAVE_GTEST
+TESTS += LegacyTimezone_test
+check_PROGRAMS += LegacyTimezone_test
+LegacyTimezone_test_SOURCES = LegacyTimezone_test.cpp
+LegacyTimezone_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server
+LegacyTimezone_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
