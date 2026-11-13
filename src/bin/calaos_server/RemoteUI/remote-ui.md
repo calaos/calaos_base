@@ -186,7 +186,7 @@ void setupTimeSync() {
     // Set timezone (example: Europe/Paris). The server sends a POSIX string:
     // derived from the screen's *_timezone_iana (TZif footer of
     // /usr/share/zoneinfo/<IANA>) when set, else the stored value repaired.
-    // A zoneless pseudo-IANA "UTC-15" / "UTC+5:30" is already POSIX: sent as is.
+    // A zoneless pseudo-IANA "UTC-15" / "UTC+5:30" / "UTC13" (sign optional) is already POSIX: sent as is.
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
 }
