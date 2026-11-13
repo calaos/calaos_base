@@ -446,7 +446,7 @@ void RemoteUIWebSocketHandler::sendConfigUpdate()
     for (const char *const param: screensaverParams)
         RemoteUI::putIfSet(data, param, authenticated_remote_ui->get_param(param));
     data["pages"] = authenticated_remote_ui->getPages();
-    LegacyTimezone::normalizeConfig(data);
+    LegacyTimezone::normalizeConfig(data, authenticated_remote_ui->get_param("screensaver_clock_timezone_iana"));
 
     // Add room information
     Room *room = ListeRoom::Instance().getRoomByIO(authenticated_remote_ui);
