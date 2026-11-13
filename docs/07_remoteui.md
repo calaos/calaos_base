@@ -386,8 +386,8 @@ chaînes POSIX (`setenv("TZ")` côté écran). À l'envoi, le serveur calcule la
    `/usr/share/zoneinfo/<IANA>` (`Europe/Paris` donne `CET-1CEST,M3.5.0,M10.5.0/3`), donc à jour avec le
    tzdata de l'image. Un nom qui sort de zoneinfo (`..`, chemin absolu), un fichier absent, v1 ou sans règle
    n'est pas une IANA valide. Une IANA valide est envoyée même si aucune clé POSIX n'existe.
-   Pour un décalage sans zone IANA (`UTC-15`, `UTC+5:30`), l'installeur écrit une pseudo-IANA
-   `UTC±N[:MM]` : c'est déjà une chaîne POSIX, signe POSIX compris (`UTC-15` = 15 h à l'est), envoyée
+   Pour un décalage sans zone IANA (`UTC-15`, `UTC+5:30`, `UTC13`), l'installeur écrit une pseudo-IANA
+   `UTC[±]N[:MM]` (signe facultatif, comme en POSIX ; l'ouest s'écrit sans signe) : c'est déjà une chaîne POSIX (`UTC-15` = 15 h à l'est, `UTC13` = 13 h à l'ouest), envoyée
    telle quelle, sans l'inversion du point 2.
 2. Sinon, la valeur POSIX stockée est réparée. Un décalage humain (`UTC+1`, `UTC-9:30`, `GMT+1`, écrit par un
    installeur antérieur à 9d85a26) que POSIX lit à l'envers devient `<+01>-1`, `<-0930>9:30`, et `UTC+0`

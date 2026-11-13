@@ -204,17 +204,19 @@ inline std::string posixFromIana(const std::string &iana, const std::string &roo
 }
 
 //The installer writes "UTC[+-]N[:MM]" into *_iana for an offset with no IANA
-//zone (UTC-15, UTC-4:15). It is already a POSIX string, sign included (UTC-15 is
-//15 h east), so it is relayed as is: humanOffsetToPosix would invert it.
+//zone (UTC-15, UTC-4:15, and UTC13 for the west: POSIX makes the sign optional).
+//It is already a POSIX string (UTC-15 is 15 h east), so it is relayed as is:
+//humanOffsetToPosix would invert it.
 inline bool isPosixOffset(const std::string &s)
 {
-    if (s.size() < 5 || s.compare(0, 3, "UTC") != 0 || (s[3] != '+' && s[3] != '-'))
+    if (s.size() < 4 || s.compare(0, 3, "UTC") != 0)
         return false;
-    size_t i = 4;
+    const size_t first = (s[3] == '+' || s[3] == '-') ? 4 : 3;
+    size_t i = first;
     int hours = 0;
-    while (i < s.size() && i < 6 && std::isdigit(static_cast<unsigned char>(s[i])))
+    while (i < s.size() && i < first + 2 && std::isdigit(static_cast<unsigned char>(s[i])))
         hours = hours * 10 + (s[i++] - '0');
-    if (i == 4 || hours > 24)
+    if (i == first || hours > 24)
         return false;
     if (i == s.size())
         return true;
