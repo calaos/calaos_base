@@ -73,11 +73,18 @@ ENV PKG_CONFIG_PATH="/opt/lib/pkgconfig"
 
 FROM dev as builder
 
+# Not inherited from the dev stage: without it $APP_VERSION is empty below.
+ARG APP_VERSION
+
 COPY . /calaos_base
 
-RUN cd /calaos_base && ./autogen.sh && \
+# `version` must exist before autogen.sh: m4/calaos.m4 reads it at autoconf time,
+# so writing it later leaves PACKAGE_VERSION at the committed "git".
+RUN cd /calaos_base && \
+    if [ -n "$APP_VERSION" ]; then echo "$APP_VERSION" > version; fi && \
+    ./autogen.sh && \
     sed -E -i 's/^#define[[:space:]]+PKG_VERSION_STR[[:space:]]+"[^"]+"/#define PKG_VERSION_STR "'"$APP_VERSION"'"/' src/bin/calaos_server/version.h && \
-    echo $APP_VERSION > version && \
+    if [ -n "$APP_VERSION" ]; then grep -q "^PACKAGE_VERSION='$APP_VERSION'\$" configure; fi && \
     ./configure --prefix=/opt CPPFLAGS=-I/opt/include LDFLAGS=-L/opt/lib && \
     make -j$(nproc) && \
     make install-strip
