@@ -95,7 +95,7 @@ RUN apt -y update && \
     apt-get install -yq --no-install-recommends libuv1 curl libsigc++-2.0-0v5 \
         libluajit2-5.1-dev libsqlite3-0 libusb-1.0 imagemagick libow-3.2 libev4 unzip zip knxd \
         libmosquitto1 libmosquittopp1 libowcapi-3.2 libcurl4 libpugixml1v5 ola python3 python3-pip python3-colorama openssl \
-        libjpeg62-turbo
+        libjpeg62-turbo tzdata
 
 # Python dependencies come from src/bin/calaos_mcp/pyproject.toml, and from
 # nowhere else. That file is the one Dependabot watches; before T3.23 it was

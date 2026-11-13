@@ -378,11 +378,19 @@ Clés de `remote_ui_config_update` (dérivé,
 `JsonApi::buildJsonIO(io, jio, IoProjection::DeviceConfig)` (`:346`).
 
 ⚠️ Fuseaux horaires : `screensaver_clock_timezone` et le `clock_timezone` des widgets Clock sont des
-chaînes POSIX (`setenv("TZ")` côté écran). Un installeur antérieur à 9d85a26 y stockait un décalage
-humain (`UTC+1`, `UTC-9:30`, `GMT+1`) que POSIX lit à l'envers. À l'envoi, le serveur le réécrit en POSIX
-de même sens (`UTC+1` devient `<+01>-1`, `UTC+5:30` devient `<+0530>-5:30`, `UTC+0` devient `UTC0`) ;
-les chaînes POSIX valides et les valeurs vides passent telles quelles, et `io.xml` n'est pas modifié
-(dérivé, `src/bin/calaos_server/RemoteUI/LegacyTimezone.h`). Le `*_timezone_iana` n'est pas lu.
+chaînes POSIX (`setenv("TZ")` côté écran). À l'envoi, le serveur calcule la valeur (dérivé,
+`src/bin/calaos_server/RemoteUI/LegacyTimezone.h`), sans jamais modifier `io.xml` :
+
+1. Si `screensaver_clock_timezone_iana` (ou, pour un widget, `clock_timezone_iana`) est présente et valide,
+   elle prime et la clé POSIX stockée est ignorée. La chaîne POSIX est lue dans le pied du fichier TZif
+   `/usr/share/zoneinfo/<IANA>` (`Europe/Paris` donne `CET-1CEST,M3.5.0,M10.5.0/3`), donc à jour avec le
+   tzdata de l'image. Un nom qui sort de zoneinfo (`..`, chemin absolu), un fichier absent, v1 ou sans règle
+   n'est pas une IANA valide. Une IANA valide est envoyée même si aucune clé POSIX n'existe.
+2. Sinon, la valeur POSIX stockée est réparée. Un décalage humain (`UTC+1`, `UTC-9:30`, `GMT+1`, écrit par un
+   installeur antérieur à 9d85a26) que POSIX lit à l'envers devient `<+01>-1`, `<-0930>9:30`, et `UTC+0`
+   devient `UTC0`. Les abréviations Qt écrites sans chevrons par l'installeur Windows 4.7
+   (`UTC+1-1UTC+2,M3.5.0,M10.5.0/3`) sont entourées de chevrons (`<UTC+1>-1<UTC+2>,M3.5.0,M10.5.0/3`).
+   Une chaîne POSIX valide et une valeur vide passent telles quelles.
 
 Les noms de params sont ceux de l'API 5454, déclarés une seule fois par
 `JsonApi::ioProjectionParams()` (`JsonApi.cpp:576`) : `id`, `name`, `type`, `hits`, `var_type`,
