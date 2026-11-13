@@ -116,11 +116,12 @@ void writeTzif(const std::string &path, char version, const std::string &footer)
     std::string hdr = std::string("TZif") + version + std::string(15, '\0');
     f << hdr << std::string(24, '\0') << hdr << std::string(24, '\0');
     if (version >= '2')
-        f << "\n" << footer << "\n";
+        f << "\n"
+          << footer << "\n";
 }
-}
+} //namespace
 
-class IanaTimezone : public ::testing::Test
+class IanaTimezone: public ::testing::Test
 {
 protected:
     std::string root;
@@ -173,11 +174,10 @@ TEST_F(IanaTimezone, IanaWinsOverTheStoredPosix)
 
 TEST_F(IanaTimezone, WidgetsAndScreensaver)
 {
-    Json pages = Json::array({ Json{ { "widgets", Json::array({
-        Json{ { "clock_timezone", "UTC+1-1UTC+2,M3.5.0,M10.5.0/3" }, { "clock_timezone_iana", "Europe/Paris" } },
-        Json{ { "clock_timezone_iana", "America/New_York" } },
-        Json{ { "clock_timezone", "UTC+1" }, { "clock_timezone_iana", "Nowhere/Land" } },
-        Json{ { "type", "clock" } } }) } } });
+    Json pages = Json::array({ Json{ { "widgets", Json::array({ Json{ { "clock_timezone", "UTC+1-1UTC+2,M3.5.0,M10.5.0/3" }, { "clock_timezone_iana", "Europe/Paris" } },
+                                                                Json{ { "clock_timezone_iana", "America/New_York" } },
+                                                                Json{ { "clock_timezone", "UTC+1" }, { "clock_timezone_iana", "Nowhere/Land" } },
+                                                                Json{ { "type", "clock" } } }) } } });
     Json out = normalizePages(pages, root);
     EXPECT_EQ("CET-1CEST,M3.5.0,M10.5.0/3", out[0]["widgets"][0]["clock_timezone"]);
     EXPECT_EQ("EST5EDT,M3.2.0,M11.1.0", out[0]["widgets"][1]["clock_timezone"]);
