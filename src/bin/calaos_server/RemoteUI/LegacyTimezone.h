@@ -203,11 +203,39 @@ inline std::string posixFromIana(const std::string &iana, const std::string &roo
     return rule;
 }
 
+//The installer writes "UTC[+-]N[:MM]" into *_iana for an offset with no IANA
+//zone (UTC-15, UTC-4:15). It is already a POSIX string, sign included (UTC-15 is
+//15 h east), so it is relayed as is: humanOffsetToPosix would invert it.
+inline bool isPosixOffset(const std::string &s)
+{
+    if (s.size() < 5 || s.compare(0, 3, "UTC") != 0 || (s[3] != '+' && s[3] != '-'))
+        return false;
+    size_t i = 4;
+    int hours = 0;
+    while (i < s.size() && i < 6 && std::isdigit(static_cast<unsigned char>(s[i])))
+        hours = hours * 10 + (s[i++] - '0');
+    if (i == 4 || hours > 24)
+        return false;
+    if (i == s.size())
+        return true;
+    return s.size() - i == 3 && s[i] == ':' && std::isdigit(static_cast<unsigned char>(s[i + 1])) &&
+           std::isdigit(static_cast<unsigned char>(s[i + 2])) && (s[i + 1] - '0') < 6;
+}
+
+//POSIX rule for an *_iana value: TZif footer, else a zoneless offset; "" if neither.
+inline std::string ianaToPosix(const std::string &iana, const std::string &root = defaultZoneinfoRoot())
+{
+    const std::string derived = posixFromIana(iana, root);
+    if (!derived.empty())
+        return derived;
+    return isPosixOffset(iana) ? iana : "";
+}
+
 //IANA wins when it yields a rule; otherwise the legacy value is repaired.
 inline std::string resolve(const std::string &iana, const std::string &legacy,
                            const std::string &root = defaultZoneinfoRoot())
 {
-    const std::string derived = posixFromIana(iana, root);
+    const std::string derived = ianaToPosix(iana, root);
     return derived.empty() ? toPosix(legacy) : derived;
 }
 
@@ -229,7 +257,7 @@ inline nlohmann::json normalizePages(nlohmann::json pages, const std::string &ro
             const std::string iana = (ianaIt != widget.end() && ianaIt->is_string()) ? ianaIt->get<std::string>() : "";
             auto it = widget.find("clock_timezone");
             const bool legacyStr = it != widget.end() && it->is_string();
-            if (legacyStr || !posixFromIana(iana, root).empty())
+            if (legacyStr || !ianaToPosix(iana, root).empty())
                 widget["clock_timezone"] = resolve(iana, legacyStr ? it->get<std::string>() : "", root);
         }
     }
@@ -243,7 +271,7 @@ inline void normalizeConfig(nlohmann::json &data, const std::string &screensaver
 {
     auto it = data.find("screensaver_clock_timezone");
     const bool legacyStr = it != data.end() && it->is_string();
-    if (legacyStr || !posixFromIana(screensaverIana, root).empty())
+    if (legacyStr || !ianaToPosix(screensaverIana, root).empty())
         data["screensaver_clock_timezone"] = resolve(screensaverIana, legacyStr ? it->get<std::string>() : "", root);
     if (data.contains("pages"))
         data["pages"] = normalizePages(data["pages"], root);

@@ -130,10 +130,11 @@ protected:
         char tmpl[] = "/tmp/tzroot.XXXXXX";
         ASSERT_NE(nullptr, mkdtemp(tmpl));
         root = tmpl;
-        ASSERT_EQ(0, system(("mkdir -p " + root + "/Europe " + root + "/America " + root + "/Asia").c_str()));
+        ASSERT_EQ(0, system(("mkdir -p " + root + "/Europe " + root + "/America " + root + "/Asia " + root + "/Etc").c_str()));
         writeTzif(root + "/Europe/Paris", '2', "CET-1CEST,M3.5.0,M10.5.0/3");
         writeTzif(root + "/America/New_York", '3', "EST5EDT,M3.2.0,M11.1.0");
         writeTzif(root + "/Asia/Kolkata", '2', "IST-5:30");
+        writeTzif(root + "/Etc/GMT-14", '2', "<+14>-14");
         writeTzif(root + "/Europe/Old", '1', "");
         writeTzif(root + "/Europe/NoRule", '2', "");
         writeTzif(root + "/outside", '2', "OUT0");
@@ -152,6 +153,46 @@ TEST_F(IanaTimezone, FooterOfAValidZone)
     EXPECT_EQ("CET-1CEST,M3.5.0,M10.5.0/3", posixFromIana("Europe/Paris", root));
     EXPECT_EQ("EST5EDT,M3.2.0,M11.1.0", posixFromIana("America/New_York", root));
     EXPECT_EQ("IST-5:30", posixFromIana("Asia/Kolkata", root));
+    EXPECT_EQ("<+14>-14", posixFromIana("Etc/GMT-14", root));
+}
+
+// The installer's pseudo-IANA carries the POSIX sign (UTC-15 is 15 h east, as in
+// its convertStoredTimezone("UTC+15") == "UTC-15"), so it is relayed unchanged.
+TEST_F(IanaTimezone, ZonelessOffsetInIanaIsRelayedAsPosix)
+{
+    using Calaos::LegacyTimezone::ianaToPosix;
+    using Calaos::LegacyTimezone::resolve;
+    for (const char *z: { "UTC-15", "UTC+13", "UTC-4:15", "UTC+5:30", "UTC-13:30", "UTC+0", "UTC-24" })
+    {
+        EXPECT_EQ(z, ianaToPosix(z, root)) << z;
+        EXPECT_EQ(z, resolve(z, "", root)) << z;
+    }
+    EXPECT_EQ("UTC-15", resolve("UTC-15", "UTC+15", root));
+    EXPECT_EQ("<+14>-14", ianaToPosix("Etc/GMT-14", root));
+    for (const char *z: { "UTC", "UTC+", "UTC+x", "UTC+25", "UTC+123", "UTC+5:", "UTC+5:3", "UTC+5:60", "UTC+5:300", "UTC+5:30x", "UTC+5;1", "GMT+5", "UTC5", "Europe/Paris:30" })
+        EXPECT_EQ("", ianaToPosix(z, root)) << z;
+}
+
+TEST_F(IanaTimezone, ZonelessOffsetReachesWidgetsAndScreensaver)
+{
+    Json pages = Json::array({ Json{ { "widgets", Json::array({ Json{ { "clock_timezone_iana", "UTC-15" } },
+                                                                Json{ { "clock_timezone_iana", "UTC+5:30" } },
+                                                                Json{ { "clock_timezone", "UTC+1" }, { "clock_timezone_iana", "UTC-4:15" } } }) } } });
+    Json out = normalizePages(pages, root);
+    EXPECT_EQ("UTC-15", out[0]["widgets"][0]["clock_timezone"]);
+    EXPECT_EQ("UTC+5:30", out[0]["widgets"][1]["clock_timezone"]);
+    EXPECT_EQ("UTC-4:15", out[0]["widgets"][2]["clock_timezone"]);
+    EXPECT_FALSE(pages[0]["widgets"][0].contains("clock_timezone"));
+
+    Json noKey = Json{ { "pages", pages } };
+    normalizeConfig(noKey, "UTC+5:30", root);
+    EXPECT_EQ("UTC+5:30", noKey["screensaver_clock_timezone"]);
+    Json withKey = Json{ { "screensaver_clock_timezone", "UTC-15" }, { "pages", Json::array() } };
+    normalizeConfig(withKey, "UTC-13", root);
+    EXPECT_EQ("UTC-13", withKey["screensaver_clock_timezone"]);
+    Json fallback = Json{ { "screensaver_clock_timezone", "UTC+1" }, { "pages", Json::array() } };
+    normalizeConfig(fallback, "UTC+5:", root);
+    EXPECT_EQ("<+01>-1", fallback["screensaver_clock_timezone"]);
 }
 
 TEST_F(IanaTimezone, InvalidOrTrappedNamesGiveNothing)
