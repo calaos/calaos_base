@@ -162,6 +162,21 @@ TEST_F(IanaTimezone, InvalidOrTrappedNamesGiveNothing)
         EXPECT_EQ("", posixFromIana(z, root)) << z;
 }
 
+TEST_F(IanaTimezone, TruncatedOrMalformedFootersGiveNothing)
+{
+    using Calaos::LegacyTimezone::posixFromIana;
+    auto raw = [&](const char *name, const std::string &bytes)
+    {
+        std::ofstream(root + "/Europe/" + name, std::ios::binary) << bytes;
+    };
+    raw("Tiny", "TZif2");
+    raw("NoNewline", std::string("TZif2") + std::string(20, 'x'));
+    raw("OneLine", std::string("TZif2") + std::string(20, 'x') + "\n");
+    raw("Control", std::string("TZif2") + std::string(15, '\0') + "\nCET\x01-1\n");
+    for (const char *z: { "Europe/Tiny", "Europe/NoNewline", "Europe/OneLine", "Europe/Control" })
+        EXPECT_EQ("", posixFromIana(z, root)) << z;
+}
+
 TEST_F(IanaTimezone, IanaWinsOverTheStoredPosix)
 {
     using Calaos::LegacyTimezone::resolve;

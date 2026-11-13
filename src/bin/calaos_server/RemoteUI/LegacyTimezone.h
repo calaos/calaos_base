@@ -189,11 +189,9 @@ inline std::string posixFromIana(const std::string &iana, const std::string &roo
     const std::streamoff want = size < 256 ? size : 256;
     std::string tail(static_cast<size_t>(want), '\0');
     f.seekg(size - want);
-    if (!f.read(&tail[0], want))
+    if (!f.read(&tail[0], want) || tail.back() != '\n')
         return "";
 
-    if (tail.back() != '\n')
-        return "";
     tail.pop_back();
     const size_t start = tail.rfind('\n');
     if (start == std::string::npos)
