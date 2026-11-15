@@ -67,6 +67,17 @@ OutputShutterSmart::OutputShutterSmart(Params &p):
 
     set_param("gui_type", "shutter_smart");
 
+    /* Same mechanism as OutputLight (outlet, pump...) and InputSwitch (door,
+     * motion...): one gui_type, a style the apps use to pick the icon. A
+     * client that does not know a style falls back to the plain shutter, so
+     * an old app keeps showing the IO. */
+    Params io_style = { { "shutter", _("Shutter") },
+                        { "window", _("Window") } };
+    ioDoc->paramAddList("io_style", _("GUI style display. This will control the icon displayed on the UI"), true, io_style, "shutter");
+
+    if (!get_params().Exists("io_style"))
+        set_param("io_style", "shutter");
+
     if (!get_params().Exists("visible")) set_param("visible", "true");
     if (!get_params().Exists("log_history")) set_param("log_history", "true");
 

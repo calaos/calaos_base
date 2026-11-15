@@ -32,7 +32,7 @@ seulement journalisée — le code tourne depuis des initialiseurs statiques, av
 Les **types génériques** (`InputSwitch`, `OutputLight`…) sont dans
 `src/bin/calaos_server/IO/` ; les **implémentations de protocole** sont dans les sous-dossiers
 (`Wago/`, `KNX/`, `Mqtt/`, `Gpio/`, `OneWire/`, `OLA/`, `Hue/`, `LAN/`, `Web/`, `Reolink/`,
-`RemoteUI/`). Les caméras sont dans `IPCam/` et les lecteurs audio dans `Audio/`
+`Klf200/`, `RemoteUI/`). Les caméras sont dans `IPCam/` et les lecteurs audio dans `Audio/`
 (voir [06_ipcam.md](06_ipcam.md) et [05_audio.md](05_audio.md)).
 
 ### ⚠️ La plupart des types génériques ne sont PAS des types XML
@@ -780,6 +780,106 @@ conforme à XPath 1.0 (`//temp/@value + 0` rend `21.5` et non plus `21`). Voir
 
 Ce driver est distinct des caméras IP : il ne fournit **pas** de flux vidéo. Pour les caméras,
 voir [06_ipcam.md](06_ipcam.md).
+
+---
+
+## Driver KLF 200 (VELUX)
+
+**Dossier :** [src/bin/calaos_server/IO/Klf200/](../src/bin/calaos_server/IO/Klf200/)
+
+Fenêtres et volets roulants VELUX pilotés à travers une passerelle **KLF 200**, via le
+sous-processus Python `calaos_klf200` (bibliothèque `pyvlx`, voir
+[14_python_extern_proc.md](14_python_extern_proc.md)) piloté par le singleton `Klf200Ctrl`
+(dérivé, [IO/Klf200/Klf200Ctrl.cpp:32-33](../src/bin/calaos_server/IO/Klf200/Klf200Ctrl.cpp)).
+Une seule session par passerelle, quel que soit le nombre d'IOs qui la citent.
+
+Prérequis matériel : le firmware du KLF 200 doit exposer l'API locale (version **2.0.0.71** ou
+plus, port TCP 51200 en TLS) et le mot de passe est celui du **Wi-Fi** imprimé au dos du boîtier,
+pas celui de l'interface web. Le KLF 150 n'a pas cette API. La passerelle tolère très peu de
+sessions simultanées : un autre client (pont MQTT, Home Assistant) sur la même passerelle entre en
+conflit avec ce driver.
+
+### Types XML
+
+| Type | Hérite de | Rôle |
+|---|---|---|
+| `Klf200OutputShutterSmart` | `OutputShutterSmart` | Fenêtre ou volet, position réelle 0–100 % |
+| `Klf200InputSwitch` | `InputSwitch` | Capteur de pluie d'une fenêtre |
+
+(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:27](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)
+et [IO/Klf200/Klf200InputSwitch.cpp:26](../src/bin/calaos_server/IO/Klf200/Klf200InputSwitch.cpp)).
+
+### Paramètres
+
+| Paramètre | Obligatoire | Description |
+|---|---|---|
+| `host` | oui | IP ou nom d'hôte de la passerelle KLF 200 |
+| `password` | oui | Mot de passe de la passerelle (celui du Wi-Fi) |
+| `node_id` | oui | Numéro du nœud sur la passerelle, 0 à 255 |
+| `io_style` | non | `shutter` (défaut) ou `window` ; **le défaut `shutter` devient `window`** quand la passerelle annonce une fenêtre, une autre valeur n'est jamais modifiée |
+
+Le `node_id` s'obtient avec le wrapper installé :
+
+```bash
+calaos_klf200 --list --host 192.168.1.50 --password klf200123
+```
+
+Les deux IOs d'une même fenêtre (le volet et la pluie) portent le même `host`/`node_id` : le
+registre `Klf200Registry` ne garde qu'un enregistrement par nœud et distribue chaque événement à
+tous les callbacks du nœud (dérivé,
+[IO/Klf200/Klf200Registry.h](../src/bin/calaos_server/IO/Klf200/Klf200Registry.h)).
+
+### Position réelle, pas de minuterie
+
+`Klf200OutputShutterSmart` est la « seconde option » décrite dans l'en-tête de
+`OutputShutterSmart` : le matériel possède la position. `readConfig()` épingle `time_up` et
+`time_down` à **100** pour que la position interne de la classe de base *soit* le pourcentage
+(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:95-105](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)),
+et `set_value()` est entièrement réécrit : chaque ordre devient une position absolue envoyée à la
+passerelle, aucun timer n'est armé. Les paramètres `time_up`, `time_down`, `impulse_time` et
+`stop_both` sont redéclarés en lecture seule pour que l'installeur ne les exige pas.
+
+Un ordre n'est **jamais annoncé comme pris** quand il ne peut pas partir : si le sous-processus
+redémarre ou si la session avec la passerelle est tombée (dernier statut `gateway` reçu),
+`Klf200Ctrl::setPosition()`/`stop()` répondent `false` sans rien envoyer, `set_value()` journalise
+une erreur, garde l'état de l'IO et répond `false` à la règle ou à l'API. Une règle « fermer s'il
+pleut » ne peut donc pas sembler avoir fonctionné pendant une coupure (dérivé,
+`Klf200GatewayLinks` dans [IO/Klf200/Klf200Registry.h](../src/bin/calaos_server/IO/Klf200/Klf200Registry.h)).
+
+Un événement de la passerelle n'est republié que s'il diffère de ce que **l'IO affiche** (position
+et sens), et non du rapport précédent : après un `set_state N`, le rapport suivant, même identique
+au dernier, ramène l'IO à la position réelle.
+
+Convention de position, identique aux deux bouts et dans le KLF 200 : **0 = ouvert** (volet en
+haut, fenêtre ouverte), **100 = fermé**.
+
+Actions acceptées : `up`, `down`, `stop`, `toggle`, `set N`, `up N`, `down N`, `set_state N`.
+`impulse up/down` et `calibrate` sont refusées (`false`) : elles n'ont pas de sens pour un
+actionneur qui rapporte sa position.
+
+L'état affiché (`stop 42`, `up 30`…) vient des événements `node` de la passerelle, qui portent la
+position et le sens de déplacement ; un événement identique au précédent n'est pas republié.
+
+### Capteur de pluie
+
+Le KLF 200 n'expose pas le capteur : quand il pleut, il pose une **limitation de position
+minimale** sur la fenêtre (elle ne peut rester qu'entrouverte), et rien ne signale ce changement
+spontanément. La valeur dépend du modèle (89, 91, 93 % le plus souvent, 100 % sur une VELUX GPU) :
+toute limitation **≥ 89 %** vaut pluie, même seuil que Home Assistant. `calaos_klf200` interroge donc cette limitation pour chaque fenêtre qui a
+un `Klf200InputSwitch`, toutes les **300 s** par défaut (`--rain-poll` sur le wrapper), en sautant
+une fenêtre en mouvement (une requête d'état mi-course peut interrompre le déplacement). Même
+lecture que l'intégration Home Assistant. Une fenêtre sans capteur est signalée une fois en
+avertissement et lit toujours `false`.
+
+### `io_style` des volets
+
+Les deux classes de base `OutputShutter` et `OutputShutterSmart` déclarent désormais un paramètre
+`io_style` (`shutter` par défaut, `window`), sur le modèle de `OutputLight` (`outlet`, `pump`…) et
+`InputSwitch` (`door`, `motion`…) (dérivé,
+[IO/OutputShutterSmart.cpp:69-80](../src/bin/calaos_server/IO/OutputShutterSmart.cpp)). Le
+`gui_type` ne change pas : un client qui ne connaît pas le style retombe sur le volet, un client qui
+le connaît dessine une fenêtre. Ce n'est pas propre au KLF 200 : une fenêtre motorisée sur KNX ou Wago
+peut le poser aussi.
 
 ---
 

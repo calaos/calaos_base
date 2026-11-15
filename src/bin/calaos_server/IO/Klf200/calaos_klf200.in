@@ -1,0 +1,4 @@
+#!/bin/bash
+CALAOS_PREFIX=@prefix@
+export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
+exec python3 -u $CALAOS_PREFIX/lib/calaos/ExternProcKlf200_main.py "$@"

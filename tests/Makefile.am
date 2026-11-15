@@ -69,7 +69,8 @@ EXTRA_DIST = \
               python/test_reolink.py         \
               python/test_t116_mcp_client.py \
               python/test_t116_mcp_config_io.py \
-              python/test_t116_roon.py
+              python/test_t116_roon.py       \
+              python/test_klf200.py
 
 # T3.45: dist-path integrity. Every file named by EXTRA_DIST and friends must
 # exist, or `make dist` dies with "No rule to make target" and no release
@@ -8579,6 +8580,35 @@ LegacyTimezone_test_SOURCES = LegacyTimezone_test.cpp
 LegacyTimezone_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS) \
                   -I$(top_srcdir)/src/bin/calaos_server
 LegacyTimezone_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+endif
+
+# VELUX KLF 200 driver (IO/Klf200/): the wire between Klf200Ctrl and calaos_klf200
+# (Klf200Wire.h) and the callback registry shared by the shutter and rain
+# sensor IOs of one node (Klf200Registry.h). Both are header-only and pure std
+# + nlohmann, no server object, no fixture - same shape as ReolinkWire_test /
+# ReolinkRegistry_test. The python end is tests/python/test_klf200.py.
+if HAVE_GTEST
+TESTS += Klf200Wire_test
+check_PROGRAMS += Klf200Wire_test
+Klf200Wire_test_SOURCES = Klf200Wire_test.cpp \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Klf200/Klf200Wire.h \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Klf200/Klf200Types.h
+Klf200Wire_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Klf200
+Klf200Wire_test_LDADD = @CALAOS_COMMON_LIBS@ \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  -lgtest -lgtest_main
+
+TESTS += Klf200Registry_test
+check_PROGRAMS += Klf200Registry_test
+Klf200Registry_test_SOURCES = Klf200Registry_test.cpp \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Klf200/Klf200Registry.h \
+                  $(top_srcdir)/src/bin/calaos_server/IO/Klf200/Klf200Types.h
+Klf200Registry_test_CPPFLAGS = $(AM_CPPFLAGS) \
+                  -I$(top_srcdir)/src/bin/calaos_server/IO/Klf200
+Klf200Registry_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   $(top_builddir)/src/lib/libcalaos_common.la \
                   -lgtest -lgtest_main
 endif

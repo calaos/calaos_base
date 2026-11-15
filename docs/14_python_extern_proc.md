@@ -16,8 +16,9 @@ Drivers Python actuels :
 |---|---|---|---|
 | **Reolink** | `IO/Reolink/ExternProcReolink_main.py` | `calaos_reolink` | `reolink_aio` |
 | **Roon** | `Audio/ExternProcRoon_main.py` | `calaos_roon` | `roonapi` |
+| **KLF 200** | `IO/Klf200/ExternProcKlf200_main.py` | `calaos_klf200` | `pyvlx` |
 
-Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl` et `RoonCtrl` appellent
+Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl`, `RoonCtrl` et `Klf200Ctrl` appellent
 `startProcess()` sur un **wrapper shell généré par `configure`** depuis
 `calaos_reolink.in` / `calaos_roon.in`. Ce wrapper positionne `PYTHONPATH` puis fait
 `exec python3 $CALAOS_PREFIX/lib/calaos/<script>.py "$@"` (intégral,
@@ -30,12 +31,12 @@ export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
 exec python3 -u $CALAOS_PREFIX/lib/calaos/ExternProcReolink_main.py "$@"
 ```
 
-Le `-u` du wrapper Reolink n'est pas cosmétique : le stdout du sous-processus est un pipe,
+Le `-u` des wrappers Reolink et KLF 200 n'est pas cosmétique : le stdout du sous-processus est un pipe,
 donc Python le bufferise par blocs de 8 Ko, et un driver peu bavard ne publiait jamais rien
 dans le journal — même ses erreurs.
 
-Les deux dépendances tierces sont sondées par `configure` (`configure.ac:194-213`) : si
-`roonapi` ou `reolink_aio` manque, un avertissement est émis et le driver correspondant
+Les trois dépendances tierces sont sondées par `configure` (`configure.ac:206-237`) : si
+`roonapi`, `reolink_aio` ou `pyvlx` manque, un avertissement est émis et le driver correspondant
 n'est pas construit.
 
 ---
@@ -444,6 +445,86 @@ apparaît **deux fois** dans l'alternation d'actions de `:183` (bénin).
 
 ---
 
+## Driver KLF 200 (Python)
+
+**Fichier :** [src/bin/calaos_server/IO/Klf200/ExternProcKlf200_main.py](../src/bin/calaos_server/IO/Klf200/ExternProcKlf200_main.py)
+
+Utilise la bibliothèque `pyvlx` (async, celle de l'intégration Home Assistant) pour parler à une ou
+plusieurs passerelles VELUX KLF 200. Côté serveur : `Klf200Ctrl` et les deux IOs de
+[02_io_drivers.md](02_io_drivers.md#driver-klf-200-velux).
+
+### Architecture interne
+
+- Boucle `ExternProcClient.run(200)` dans le thread principal (IPC)
+- Event loop `asyncio` dans un **thread séparé** ; les commandes traversent par
+  `run_coroutine_threadsafe()`, l'état revient par `send_message()` (verrou, thread-safe)
+- Une classe `Gateway` par `host` : session pyvlx, reconnexion avec backoff (5 s doublés jusqu'à
+  120 s), nœuds enregistrés, sondage pluie
+- Une tentative de connexion ratée ferme la session qu'elle a ouverte : `pyvlx.connect()` ouvre le
+  TLS **avant** de s'authentifier et ne le referme pas si une étape suivante échoue (mot de passe,
+  version, house monitor) ; sans ça chaque essai laissait un socket, et le KLF 200 n'accepte que
+  quelques sessions
+- Le heartbeat de pyvlx continue de tourner après une coupure et rouvre la session tout seul.
+  L'attente entre deux essais se termine donc dès que pyvlx signale une session ouverte
+  (`register_connection_opened_cb`), et une session déjà rouverte n'est pas reconnectée une
+  seconde fois
+- À l'arrêt, la session est fermée **sans** `pyvlx.disconnect()`, qui redémarre la passerelle et la
+  rend indisponible deux minutes à chaque redémarrage de calaos
+
+### Arguments CLI
+
+```
+--socket / --namespace   IPC (obligatoires ensemble, via parse_known_args)
+--list --host H --password P   liste les nœuds d'une passerelle puis quitte, sans IPC
+--rain-poll N            période du sondage pluie en secondes (défaut 300, minimum 10)
+```
+
+### Messages reçus de calaos_server
+
+Validés par `parse_command()`, fonction pure épinglée par
+[tests/python/test_klf200.py](../tests/python/test_klf200.py) ; tout message refusé est loggué en
+warning et ignoré, jamais levé (une exception tuerait la boucle IPC).
+
+```json
+{"action": "register", "host": "192.168.1.50", "password": "klf200123", "node_id": 3, "rain": false}
+{"action": "set_position", "host": "192.168.1.50", "node_id": 3, "position": 42}
+{"action": "stop", "host": "192.168.1.50", "node_id": 3}
+```
+
+`position` est borné à 0–100 des deux côtés (`Klf200Wire::buildSetPositionMessage()` et
+`parse_command()`). Le log de réception **rédige** `password`.
+
+### Messages envoyés à calaos_server
+
+```json
+{"status": "connected"}
+{"status": "gateway", "host": "192.168.1.50", "connected": true}
+{"status": "error", "host": "192.168.1.50", "code": "node_not_found", "node_id": 3, "message": "..."}
+{"event": "node", "host": "192.168.1.50", "node_id": 3, "position": 42, "moving": "up", "node_type": "Window", "name": "Bureau", "rain_sensor": true}
+{"event": "rain", "host": "192.168.1.50", "node_id": 3, "rain": true}
+```
+
+`position` vaut `-1` tant que la passerelle n'a rien rapporté. `moving` vaut `up` (ouverture),
+`down` (fermeture) ou `stop`. L'événement `node` est envoyé à **chaque** `register` — y compris
+pour un nœud déjà enregistré par un autre IO, c'est ainsi qu'un IO créé pendant que le processus
+tourne apprend l'état — puis à chaque notification de la passerelle, et une fois par seconde pendant un déplacement (position interpolée
+par pyvlx).
+
+Les codes d'erreur sont un vocabulaire fermé, le même que `Klf200Wire::isKnownErrorCode()` :
+`gateway_connect_failed`, `gateway_not_connected` (commande reçue avant que la session soit
+établie), `node_not_found`, `node_unsupported`, `command_failed`. Le champ
+`message` (texte d'une exception pyvlx) n'est **pas** journalisé côté C++, seule sa taille l'est.
+
+### Pluie
+
+Voir [02_io_drivers.md](02_io_drivers.md#capteur-de-pluie) : limitation minimale ≥ 89 % lue par
+`get_limitation_min()`, sondée toutes les `--rain-poll` secondes pour les nœuds enregistrés avec
+`"rain": true`, un événement `rain` seulement quand la valeur change. Un `register` avec
+`"rain": true` oublie la dernière valeur publiée et relit la pluie aussitôt : un IO pluie recréé
+(rechargement de configuration) reçoit l'état courant même s'il n'a pas changé.
+
+---
+
 ## Variables d'environnement communes
 
 | Variable | Description |
@@ -480,6 +561,7 @@ installation** (`src/lib/calaos-python` et `src/bin/calaos_mcp/python`).
 | `test_logger.py` | niveaux, domaines, format (T1.8) |
 | `test_auth.py` | Bearer, rate-limit, ban, identité `X-Forwarded-For` (T1.8) |
 | `test_t116_mcp_client.py`, `test_t116_mcp_config_io.py`, `test_t116_roon.py` | robustesse client MCP et Roon (T1.16) |
+| `test_klf200.py` | grammaire des commandes, trame d'état, lecture pluie du driver KLF 200 |
 
 ---
 
