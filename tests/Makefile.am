@@ -8626,6 +8626,7 @@ endif
 if HAVE_GTEST
 KLF200_TEST_OBJECTS = \
                   $(CALAOS_SERVER_BUILDDIR)/IO/InputSwitch.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutter.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/OutputShutterSmart.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Klf200/Klf200Ctrl.$(OBJEXT) \
                   $(CALAOS_SERVER_BUILDDIR)/IO/Klf200/Klf200InputSwitch.$(OBJEXT) \

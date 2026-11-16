@@ -59,6 +59,7 @@
 #include "Klf200Ctrl.h"
 #include "Klf200InputSwitch.h"
 #include "Klf200OutputShutterSmart.h"
+#include "OutputShutter.h"
 #include "libuvw.h"
 
 using namespace Calaos;
@@ -587,27 +588,60 @@ TEST_F(Klf200CtrlTest, NodeEventsMoveTheIOAndOnlyAChangeIsPublished)
     EXPECT_EQ(afterSetState + 1, notified);
 }
 
-TEST_F(Klf200CtrlTest, TheDefaultStyleBecomesWindowButAChosenOneStays)
+TEST_F(Klf200CtrlTest, OnlyAWindowGetsAStyleAndAChosenOneStays)
 {
     IOBase *s = shutter("klf_window", 10);
     ASSERT_NE(nullptr, s);
+    IOBase *roller = shutter("klf_roller", 16);
+    ASSERT_NE(nullptr, roller);
     IOBase *chosen = createIO({ { "type", "Klf200OutputShutterSmart" },
                                 { "id", "klf_chosen" },
                                 { "name", "klf_chosen" },
                                 { "host", kHost },
                                 { "password", kPassword },
                                 { "node_id", "11" },
-                                { "io_style", "window" } });
+                                { "io_style", "shutter" } });
     ASSERT_NE(nullptr, chosen);
-    EXPECT_EQ("shutter", s->get_param("io_style"));
+    EXPECT_FALSE(s->get_params().Exists("io_style"));
 
     processConnected();
     deliver(nodeEvent(10, 0, "stop", "Window"));
     EXPECT_EQ("window", s->get_param("io_style"));
 
-    //A window the user styled stays as it is on a roller shutter report
-    deliver(nodeEvent(11, 0, "stop", "RollerShutter"));
-    EXPECT_EQ("window", chosen->get_param("io_style"));
+    //A roller shutter stays without a style, like any other shutter
+    deliver(nodeEvent(16, 0, "stop", "RollerShutter"));
+    EXPECT_FALSE(roller->get_params().Exists("io_style"));
+
+    //A style the user chose is never overwritten
+    deliver(nodeEvent(11, 0, "stop", "Window"));
+    EXPECT_EQ("shutter", chosen->get_param("io_style"));
+}
+
+/* Apps were not changed with this driver: an existing shutter must look
+ * exactly as before, no io_style in io.xml nor in the JSON API. */
+TEST_F(Klf200CtrlTest, AnExistingShutterGetsNoStyle)
+{
+    Params plainParams = { { "id", "plain" }, { "name", "plain" } };
+    Params smartParams = { { "id", "smart" }, { "name", "smart" } };
+    std::unique_ptr<Calaos::OutputShutter> plain(new Calaos::OutputShutter(plainParams));
+    std::unique_ptr<Calaos::OutputShutterSmart> smart(new Calaos::OutputShutterSmart(smartParams));
+
+    for (IOBase *io: { static_cast<IOBase *>(plain.get()), static_cast<IOBase *>(smart.get()) })
+    {
+        EXPECT_FALSE(io->get_params().Exists("io_style")) << io->get_param("id");
+
+        bool documented = false;
+        const Json doc = io->getDoc()->genDocJson();
+        for (const auto &p: doc.at("parameters"))
+        {
+            if (p.at("name").get<std::string>() != "io_style")
+                continue;
+            documented = true;
+            EXPECT_EQ("false", p.at("mandatory").get<std::string>()) << io->get_param("id");
+            EXPECT_EQ("", p.value("default", std::string())) << io->get_param("id");
+        }
+        EXPECT_TRUE(documented) << io->get_param("id");
+    }
 }
 
 TEST_F(Klf200CtrlTest, RainEventsDriveTheSwitch)

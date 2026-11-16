@@ -258,13 +258,10 @@ void Klf200OutputShutterSmart::nodeEventReceived(const Params &event)
     if (event["event"] != "node")
         return; //rain events are for Klf200InputSwitch
 
-    /* The default "shutter" style becomes what the gateway says the node is.
-     * Keyed on the value, not on its presence: the default is saved to io.xml,
-     * and must not pin a window to a shutter icon. */
-    const string style = Klf200Wire::styleOf(event);
-    const string current = get_param("io_style");
-    if ((current.empty() || current == "shutter") && current != style)
-        set_param("io_style", style);
+    /* Only a window gets a style, and only when none was chosen: a roller
+     * shutter keeps no io_style, like every other shutter. */
+    if (Klf200Wire::styleOf(event) == "window" && get_param("io_style").empty())
+        set_param("io_style", "window");
 
     const int reported = Klf200Wire::positionOf(event);
     const string moving = event["moving"];

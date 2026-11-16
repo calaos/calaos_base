@@ -820,7 +820,7 @@ et [IO/Klf200/Klf200InputSwitch.cpp:26](../src/bin/calaos_server/IO/Klf200/Klf20
 | `host` | oui | IP ou nom d'hôte de la passerelle KLF 200 |
 | `password` | oui | Mot de passe de la passerelle (celui du Wi-Fi) |
 | `node_id` | oui | Numéro du nœud sur la passerelle, 0 à 255 |
-| `io_style` | oui (défaut `shutter`, posé s'il manque) | `shutter` ou `window` ; **le défaut `shutter` devient `window`** quand la passerelle annonce une fenêtre, une autre valeur n'est jamais modifiée |
+| `io_style` | non (pas de défaut) | `shutter` ou `window` ; posé à `window` quand la passerelle annonce une fenêtre et qu'aucun style n'est choisi, une valeur présente n'est jamais modifiée |
 
 Le `node_id` s'obtient avec le wrapper installé :
 
@@ -894,17 +894,16 @@ avertissement et lit toujours `false`.
 ### `io_style` des volets
 
 Les deux classes de base `OutputShutter` et `OutputShutterSmart` déclarent désormais un paramètre
-`io_style` (`shutter` par défaut, `window`), sur le modèle de `OutputLight` (`outlet`, `pump`…) et
-`InputSwitch` (`door`, `motion`…) (dérivé,
-[IO/OutputShutterSmart.cpp:69-80](../src/bin/calaos_server/IO/OutputShutterSmart.cpp)). Le
-`gui_type` ne change pas : un client qui ne connaît pas le style retombe sur le volet, un client qui
-le connaît dessine une fenêtre. Ce n'est pas propre au KLF 200 : une fenêtre motorisée sur KNX ou Wago
+**facultatif et sans défaut** `io_style` (`shutter`, `window`), sur le modèle de `OutputLight`
+(`outlet`, `pump`…) et `InputSwitch` (`door`, `motion`…)
+([IO/OutputShutterSmart.cpp:70-74](../src/bin/calaos_server/IO/OutputShutterSmart.cpp)). Le
+`gui_type` ne change pas. Ce n'est pas propre au KLF 200 : une fenêtre motorisée sur KNX ou Wago
 peut le poser aussi.
 
-Impact sur les configurations existantes : comme `InputSwitch` et `OutputLight`, le paramètre est
-obligatoire avec un défaut posé à la construction, donc **tout volet** (Wago, GPIO, KNX…) reçoit
-`io_style="shutter"`, écrit dans `io.xml` à la première sauvegarde et exposé par l'API JSON. Un
-client qui ignore le champ n'est pas affecté (calaos_remote_ui ne le lit pas).
+Impact sur les configurations existantes : aucun. Contrairement à `InputSwitch` et `OutputLight`,
+rien n'est posé à la construction, donc un volet existant (Wago, GPIO, KNX…) n'a toujours pas
+d'`io_style` dans `io.xml` ni dans l'API JSON : les apps, qui n'ont pas été modifiées, le voient comme
+avant. Seul le driver KLF 200 pose `window` sur un nœud que la passerelle annonce comme fenêtre.
 
 ---
 
