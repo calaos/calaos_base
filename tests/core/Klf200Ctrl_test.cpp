@@ -667,6 +667,10 @@ TEST_F(Klf200CtrlTest, RainEventsDriveTheSwitch)
         count++;
     EXPECT_EQ(1u, count) << log;
     EXPECT_FALSE(r->get_value_bool());
+
+    //An event of another kind is not rain
+    deliver(std::string("{\"event\":\"other\",\"host\":\"") + kHost + "\",\"node_id\":12,\"rain\":true}");
+    EXPECT_FALSE(r->get_value_bool());
 }
 
 TEST_F(Klf200CtrlTest, AnIOWithoutItsParametersStaysOutOfTheWire)

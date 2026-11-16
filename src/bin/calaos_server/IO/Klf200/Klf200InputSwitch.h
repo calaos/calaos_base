@@ -21,8 +21,6 @@
 #ifndef S_Klf200InputSwitch_H
 #define S_Klf200InputSwitch_H
 
-#include <memory>
-
 #include "InputSwitch.h"
 #include "Klf200Ctrl.h"
 
@@ -43,8 +41,6 @@ private:
     Klf200Ctrl::RegistrationId registrationId = Klf200Registry::INVALID_ID;
     bool rain = false;
     bool warnedNoSensor = false;
-
-    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     void nodeEventReceived(const Params &event);
 

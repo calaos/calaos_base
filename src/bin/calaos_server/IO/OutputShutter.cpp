@@ -72,8 +72,9 @@ OutputShutter::OutputShutter(Params &p):
 
     /* Optional, no default: an existing shutter keeps no io_style, so io.xml
      * and the JSON API stay as they were for apps that do not know it. */
-    Params io_style = { { "shutter", _("Shutter") },
-                        { "window", _("Window") } };
+    Params io_style;
+    io_style.Add("shutter", _("Shutter"));
+    io_style.Add("window", _("Window"));
     ioDoc->paramAddList("io_style", _("GUI style display. This will control the icon displayed on the UI"), false, io_style);
 
     if (!get_params().Exists("visible")) set_param("visible", "true");

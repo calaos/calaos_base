@@ -21,8 +21,6 @@
 #ifndef S_Klf200OutputShutterSmart_H
 #define S_Klf200OutputShutterSmart_H
 
-#include <memory>
-
 #include "OutputShutterSmart.h"
 #include "Klf200Ctrl.h"
 
@@ -39,11 +37,6 @@ private:
     Klf200Ctrl::RegistrationId registrationId = Klf200Registry::INVALID_ID;
     string host;
     int nodeId = -1;
-
-    /* Lifetime token for the callback stored in the Klf200Ctrl singleton:
-     * it holds a weak_ptr, when this IO dies the token expires and a stale
-     * callback becomes a no-op. */
-    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 
     void nodeEventReceived(const Params &event);
     //false when the order could not be handed to the gateway link

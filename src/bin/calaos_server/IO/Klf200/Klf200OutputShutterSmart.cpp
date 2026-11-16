@@ -82,14 +82,14 @@ Klf200OutputShutterSmart::Klf200OutputShutterSmart(Params &p):
 
     ctrl = &Klf200Ctrl::Instance();
 
+    /* No lifetime guard in the callback: the destructor unregisters it, and
+     * ListeRoom refuses to delete an IO while change callbacks run. */
     registrationId = ctrl->registerNode(Klf200Types::Host(host),
                                         Klf200Types::Password(get_param("password")),
                                         Klf200Types::NodeId(nodeId),
                                         false,
-                                        [this, weakAlive = std::weak_ptr<bool>(alive)](const Params &event)
+                                        [this](const Params &event)
                                         {
-        if (weakAlive.expired())
-            return; //IO deleted, stale callback
         nodeEventReceived(event);
     });
 

@@ -166,10 +166,10 @@ void Klf200Ctrl::doRegisterNode(const Klf200Registry::NodeRegistration &reg)
     const string key = Klf200Registry::nodeKey(reg);
 
     /* The message carries the gateway password IN CLEAR: never log it. */
-    process->sendMessage(Klf200Wire::buildRegisterMessage(Klf200Types::Host(reg.host),
-                                                          Klf200Types::Password(reg.password),
-                                                          Klf200Types::NodeId(reg.nodeId),
-                                                          reg.rain));
+    const Klf200Types::Host host(reg.host);
+    const Klf200Types::Password password(reg.password);
+    const Klf200Types::NodeId nodeId(reg.nodeId);
+    process->sendMessage(Klf200Wire::buildRegisterMessage(host, password, nodeId, reg.rain));
 
     cInfoDom(TAG) << "Node registration sent: " << key;
 }
