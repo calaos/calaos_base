@@ -818,19 +818,28 @@ et [IO/Klf200/Klf200InputSwitch.cpp:26](../src/bin/calaos_server/IO/Klf200/Klf20
 | Paramètre | Obligatoire | Description |
 |---|---|---|
 | `host` | oui | IP ou nom d'hôte de la passerelle KLF 200 |
-| `password` | oui | Mot de passe de la passerelle (celui du Wi-Fi) |
+| `password` | oui | Mot de passe de la passerelle : celui du Wi-Fi, imprimé sur l'étiquette au dos de la KLF 200 |
 | `node_id` | oui | Numéro du nœud sur la passerelle, 0 à 255 |
 | `io_style` | non (pas de défaut) | `shutter` ou `window` ; posé à `window` quand la passerelle annonce une fenêtre et qu'aucun style n'est choisi, une valeur présente n'est jamais modifiée |
 
-Le `node_id` s'obtient avec le wrapper installé :
+Le `node_id` s'obtient avec le wrapper installé, qui demande le mot de passe au clavier :
+
+```bash
+calaos_klf200 --list --host 192.168.1.50
+```
+
+Sans terminal (script), le mot de passe est lu dans la variable `KLF200_PASSWORD` ; la retirer de
+l'environnement ensuite :
 
 ```bash
 read -rs KLF200_PASSWORD && export KLF200_PASSWORD
 calaos_klf200 --list --host 192.168.1.50
+unset KLF200_PASSWORD
 ```
 
-Le mot de passe est lu dans `KLF200_PASSWORD`, ou demandé sur le terminal, jamais en argument
-(il serait visible dans `ps` et l'historique du shell).
+Il n'est jamais passé en argument : il serait visible dans `ps` et l'historique du shell. Cette
+variable ne sert qu'à `--list` ; en fonctionnement normal, le serveur transmet au sidecar le
+`password` de chaque IO lu dans `io.xml`.
 
 Les deux IOs d'une même fenêtre (le volet et la pluie) portent le même `host`/`node_id` : le
 registre `Klf200Registry` ne garde qu'un enregistrement par nœud et distribue chaque événement à
