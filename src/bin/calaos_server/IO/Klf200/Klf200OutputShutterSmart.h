@@ -29,19 +29,9 @@
 namespace Calaos
 {
 
-/*
- * A VELUX window or roller shutter driven through a KLF 200 gateway.
- *
- * This is the "second option" of OutputShutterSmart: the hardware owns the
- * position. Every command becomes an absolute position sent to the
- * gateway, and the position shown to Calaos is the one the gateway reports,
- * never one estimated from timers. To make the base class arithmetic an
- * identity, time_up and time_down are pinned to 100 (readConfig()), so the
- * internal position IS the percentage.
- *
- * Position convention, identical on both ends and in the KLF 200:
- * 0 = fully open (up), 100 = fully closed (down).
- */
+/* A VELUX window or roller shutter behind a KLF 200: the gateway owns the
+ * position (0 = open, 100 = closed); time_up/time_down are pinned to 100 so the
+ * base class position IS the percentage. */
 class Klf200OutputShutterSmart: public OutputShutterSmart
 {
 private:

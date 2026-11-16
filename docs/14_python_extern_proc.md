@@ -20,7 +20,8 @@ Drivers Python actuels :
 
 Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl`, `RoonCtrl` et `Klf200Ctrl` appellent
 `startProcess()` sur un **wrapper shell généré par `configure`** depuis
-`calaos_reolink.in` / `calaos_roon.in`. Ce wrapper positionne `PYTHONPATH` puis fait
+`calaos_reolink.in` / `calaos_roon.in` / `IO/Klf200/calaos_klf200.in`. Ce wrapper positionne
+`PYTHONPATH` puis fait
 `exec python3 $CALAOS_PREFIX/lib/calaos/<script>.py "$@"` (intégral,
 `IO/Reolink/calaos_reolink.in:1-4`) :
 
@@ -30,6 +31,9 @@ CALAOS_PREFIX=@prefix@
 export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
 exec python3 -u $CALAOS_PREFIX/lib/calaos/ExternProcReolink_main.py "$@"
 ```
+
+Le wrapper KLF 200 écrit `$CALAOS_PREFIX/lib/python${PYTHONPATH:+:$PYTHONPATH}` : avec un
+`PYTHONPATH` vide, le `:` final de la forme ci-dessus ajoute le répertoire courant à `sys.path`.
 
 Le `-u` des wrappers Reolink et KLF 200 n'est pas cosmétique : le stdout du sous-processus est un pipe,
 donc Python le bufferise par blocs de 8 Ko, et un driver peu bavard ne publiait jamais rien
@@ -464,18 +468,37 @@ plusieurs passerelles VELUX KLF 200. Côté serveur : `Klf200Ctrl` et les deux I
   TLS **avant** de s'authentifier et ne le referme pas si une étape suivante échoue (mot de passe,
   version, house monitor) ; sans ça chaque essai laissait un socket, et le KLF 200 n'accepte que
   quelques sessions
-- Le heartbeat de pyvlx continue de tourner après une coupure et rouvre la session tout seul.
-  L'attente entre deux essais se termine donc dès que pyvlx signale une session ouverte
-  (`register_connection_opened_cb`), et une session déjà rouverte n'est pas reconnectée une
-  seconde fois
-- À l'arrêt, la session est fermée **sans** `pyvlx.disconnect()`, qui redémarre la passerelle et la
-  rend indisponible deux minutes à chaque redémarrage de calaos
+- Un seul chemin de reconnexion, `Gateway._run()` : le heartbeat de pyvlx reconnecterait aussi
+  (`send_frame()` → `ensure_connected()`), et `connected` reste faux pendant la poignée de main
+  TLS, donc les deux pouvaient ouvrir une session chacun (socket perdu, et un `connection_lost`
+  tardif fermait la session courante). Le heartbeat est arrêté à chaque fermeture de session
+  (`_on_connection_closed`) et après un essai raté ; `pyvlx.connect()` le relance à la session
+  suivante. pyvlx est épinglé (`pyvlx==0.2.36` dans les Dockerfile) parce que ce point dépend de
+  ses internes
+- Chien de garde : un pair muet (coupure de courant ou de Wi-Fi, ni FIN ni RST) laisse pyvlx
+  connecté jusqu'au timeout de retransmission TCP (~15 min) et son heartbeat avale les échecs.
+  `Gateway._watchdog()` envoie un `GetState` toutes les 45 s, **seulement** si la session est
+  ouverte (sinon `do_api_call()` reconnecterait), et coupe la session après 2 échecs : `_run()`
+  reconnecte, et les trames restées dans le transport sont jetées au lieu d'être rejouées
+- Après chaque (re)connexion, la pluie est relue tout de suite, sans attendre le prochain sondage
+- `unregister` retire un nœud ; une passerelle sans nœud ferme sa session après 30 s
+  (`IDLE_GATEWAY_CLOSE_DELAY`) sauf si un nœud revient avant (rechargement de configuration). Un
+  `register` avec un autre mot de passe rouvre la session si plus aucun nœud n'utilise l'ancien,
+  sinon il est ignoré avec un avertissement
+- Arrêt propre : SIGTERM (et SIGINT) ne fait que terminer la boucle `run()` ; `close()` tourne
+  ensuite, aussi quand `run()` rend la main parce que calaos_server a fermé le socket. Il arrête le
+  heartbeat, désactive le house monitor (sinon la session suivante échoue sur la poignée de main
+  TLS) et ferme la session **sans** `pyvlx.disconnect()`, qui redémarre la passerelle et la rend
+  indisponible deux minutes à chaque redémarrage de calaos
+- Le logger `pyvlx` ne descend jamais sous INFO : en DEBUG il trace chaque trame, y compris le
+  début du mot de passe (`FramePasswordEnterRequest`)
 
 ### Arguments CLI
 
 ```
 --socket / --namespace   IPC (obligatoires ensemble, via parse_known_args)
---list --host H --password P   liste les nœuds d'une passerelle puis quitte, sans IPC
+--list --host H          liste les nœuds d'une passerelle puis quitte, sans IPC ; mot de
+                         passe dans $KLF200_PASSWORD ou demandé sur le terminal
 --rain-poll N            période du sondage pluie en secondes (défaut 300, minimum 10)
 ```
 
@@ -489,7 +512,11 @@ warning et ignoré, jamais levé (une exception tuerait la boucle IPC).
 {"action": "register", "host": "192.168.1.50", "password": "klf200123", "node_id": 3, "rain": false}
 {"action": "set_position", "host": "192.168.1.50", "node_id": 3, "position": 42}
 {"action": "stop", "host": "192.168.1.50", "node_id": 3}
+{"action": "unregister", "host": "192.168.1.50", "node_id": 3}
 ```
+
+`rain` n'est vrai que pour le booléen JSON `true` (ou la chaîne `"true"`) : `bool("false")`
+vaudrait vrai.
 
 `position` est borné à 0–100 des deux côtés (`Klf200Wire::buildSetPositionMessage()` et
 `parse_command()`). Le log de réception **rédige** `password`.
@@ -577,4 +604,4 @@ installation** (`src/lib/calaos-python` et `src/bin/calaos_mcp/python`).
 5. Côté C++ : créer un `MonDriverCtrl` qui lance **le wrapper**, pas `python3` :
    `ExternProcServer::startProcess(Prefix::Instance().binDirectoryGet() + "/calaos_mondriver", "mondriver", args)`
 6. Sonder la dépendance Python tierce dans `configure.ac`, sur le modèle de `roonapi` /
-   `reolink_aio` (`configure.ac:194-213`)
+   `reolink_aio` (`configure.ac:206-226`)

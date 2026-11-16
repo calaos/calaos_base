@@ -58,12 +58,13 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 #
 # roonapi, reolink-aio and pyvlx are deliberately not in pyproject.toml: they are
 # optional integrations of calaos_server (extern procs), not sidecar runtime
-# deps. They stay unpinned, as before, but now share the resolver pass.
+# deps. roonapi and reolink-aio stay unpinned; pyvlx is pinned because the
+# KLF 200 driver relies on its internals (heartbeat, connection callbacks).
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     cat /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
-        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx && \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx==0.2.36 && \
     CALAOS_PYDEPS_STRICT=1 \
         python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py \
         /tmp/calaos-pydeps/pyproject.toml && \
@@ -128,12 +129,13 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 #
 # roonapi, reolink-aio and pyvlx are deliberately not in pyproject.toml: they are
 # optional integrations of calaos_server (extern procs), not sidecar runtime
-# deps. They stay unpinned, as before, but now share the resolver pass.
+# deps. roonapi and reolink-aio stay unpinned; pyvlx is pinned because the
+# KLF 200 driver relies on its internals (heartbeat, connection callbacks).
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     cat /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
-        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx && \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx==0.2.36 && \
     CALAOS_PYDEPS_STRICT=1 \
         python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py \
         /tmp/calaos-pydeps/pyproject.toml && \

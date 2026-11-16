@@ -24,14 +24,8 @@
 #include <string>
 #include <utility>
 
-/*
- * Strong types for the three values that identify a VELUX node on the wire
- * between Klf200Ctrl and the calaos_klf200 external process. Same rationale as
- * IO/Reolink/ReolinkTypes.h: host and password are two adjacent strings on
- * every call that carries them, and a caller that swaps them compiles in
- * silence and sends the password in clear in the host field. With distinct
- * types the swap does not compile.
- */
+/* Distinct types so that swapping host and password does not compile
+ * (same as IO/Reolink/ReolinkTypes.h). */
 namespace Klf200Types
 {
 

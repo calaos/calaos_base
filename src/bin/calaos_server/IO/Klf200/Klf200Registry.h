@@ -21,7 +21,6 @@
 #ifndef S_KLF200_REGISTRY_H
 #define S_KLF200_REGISTRY_H
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -34,22 +33,9 @@
 #include "Params.h"
 #include "Klf200Types.h"
 
-/*
- * Bookkeeping for the VELUX node callbacks, kept free of any process or
- * event-loop dependency so it can be unit tested (tests/Klf200Registry_test.cpp).
- * Same shape as IO/Reolink/ReolinkEventRegistry.h.
- *
- * Each add() returns a RegistrationId that the owning IO must pass back to
- * remove() from its destructor: callbacks live in the long-lived Klf200Ctrl
- * singleton, so an un-removed callback would dangle after the IO is
- * destroyed (config reload) and fire on freed memory.
- *
- * A node may be shared by several IOs (the shutter of a window and the rain
- * sensor of the same window are two IOs on one node): the registration
- * record is one per node key and carries the OR of the rain flags, and every
- * callback of the key gets every event of the node. The callback filters on
- * the "event" field of the Params it receives.
- */
+/* Callbacks and registrations of the VELUX nodes, kept free of any process
+ * or loop so it can be unit tested. One record per node key, shared by every
+ * IO of that node (shutter + rain sensor of one window). */
 class Klf200Registry
 {
 public:
@@ -88,13 +74,9 @@ public:
         return nodeKey(Klf200Types::Host(reg.host), Klf200Types::NodeId(reg.nodeId));
     }
 
-    /*
-     * Register one callback for a node. The first registration of a key
-     * fixes the password of the record; a later one with a different
-     * password is kept as a callback but does not replace it (the gateway
-     * has one password, the first IO in io.xml wins, and Klf200Ctrl logs
-     * the disagreement). The rain flag accumulates.
-     */
+    /* The first registration of a key fixes its password (one gateway, one
+     * password: the first IO wins, Klf200Ctrl logs a disagreement); the rain
+     * flag accumulates. */
     RegistrationId add(const NodeRegistration &reg, EventCallback callback)
     {
         const std::string key = nodeKey(reg);
@@ -129,12 +111,14 @@ public:
         if (cbIt != callbacks.end())
         {
             auto &v = cbIt->second;
-            v.erase(std::remove_if(v.begin(), v.end(),
-                                   [id](const Entry &e)
-                                   {
-                return e.id == id;
-                    }),
-                    v.end());
+            for (auto e = v.begin(); e != v.end(); ++e)
+            {
+                if (e->id == id)
+                {
+                    v.erase(e); //ids are unique
+                    break;
+                }
+            }
             if (!v.empty())
                 return false;
             callbacks.erase(cbIt);
@@ -176,7 +160,34 @@ public:
 
     bool hasNode(const Klf200Types::Host &host, const Klf200Types::NodeId &nodeId) const
     {
-        return registrations.find(nodeKey(host, nodeId)) != registrations.end();
+        return registration(host, nodeId) != nullptr;
+    }
+
+    //The merged record of a node (what is sent to the process), or nullptr
+    const NodeRegistration *registration(const Klf200Types::Host &host, const Klf200Types::NodeId &nodeId) const
+    {
+        auto it = registrations.find(nodeKey(host, nodeId));
+        return it == registrations.end() ? nullptr : &it->second;
+    }
+
+    //The record a registration id belongs to, or nullptr
+    const NodeRegistration *registrationOf(RegistrationId id) const
+    {
+        auto idIt = idToKey.find(id);
+        if (idIt == idToKey.end())
+            return nullptr;
+        auto it = registrations.find(idIt->second);
+        return it == registrations.end() ? nullptr : &it->second;
+    }
+
+    /* Whether a record of the same host already holds another password: the
+     * gateway has only one, and the first registered is the one kept. */
+    bool passwordConflicts(const NodeRegistration &reg) const
+    {
+        for (const auto &kv: registrations)
+            if (kv.second.host == reg.host && kv.second.password != reg.password)
+                return true;
+        return false;
     }
 
     /* Whether any registration names this host: what a sidecar echoes back
@@ -211,16 +222,8 @@ private:
     std::unordered_map<RegistrationId, std::string> idToKey;
 };
 
-/*
- * Whether a command for a gateway can reach it right now: the external
- * process must be connected AND that gateway's session up, as last reported
- * by a {"status":"gateway"} frame. Klf200Ctrl asks before sending a command
- * so an IO can refuse an order instead of reporting a success the gateway
- * never saw (a "close on rain" rule must not look like it worked).
- *
- * Kept apart from Klf200Ctrl for the same reason as Klf200Registry: the
- * controller cannot be built in a test.
- */
+/* Whether a command can reach a gateway: process connected AND that
+ * gateway's session up, so an IO refuses an order instead of faking success. */
 class Klf200GatewayLinks
 {
 public:

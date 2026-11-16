@@ -32,85 +32,83 @@ Klf200Ctrl::Klf200Ctrl()
     process = new ExternProcServer("klf200");
     exe = Prefix::Instance().binDirectoryGet() + "/calaos_klf200";
 
+    //The relaunch is throttled by ExternProcServer::startProcess() itself.
+    // LCOV_EXCL_START needs the real sidecar to die; ExternProcRespawnBackoff_test covers the relaunch
     process->processExited.connect([this]()
                                    {
-        //restart process when stopped
         cWarningDom(TAG) << "Klf200 process exited, restarting...";
         links.processExited();
         process->startProcess(exe, "klf200");
     });
+    // LCOV_EXCL_STOP
 
-    process->messageReceived.connect([this](const string &msg)
-                                     {
-        Params p;
-
-        //Never log msg itself: this channel carries the gateway password.
-        if (!Klf200Wire::decodeMessage(msg, p))
-        {
-            cWarningDom(TAG) << "Error parsing json message (" << msg.size() << " bytes)";
-            return;
-        }
-
-        if (p.Exists("status"))
-        {
-            const string status = p["status"];
-            const string host = p["host"];
-            const bool knownHost = registry.hasHost(host);
-
-            if (status == "connected")
-            {
-                links.processConnected();
-                cInfoDom(TAG) << "Klf200 process connected";
-
-                //Re-register every node when the process (re)connects
-                registerAllNodes();
-            }
-            else if (status == "gateway")
-            {
-                /* Only a host this end registered is tracked: anything else
-                 * could never be the target of a command anyway. */
-                if (knownHost)
-                    links.gatewayStatus(host, p["connected"] == "true");
-                cInfoDom(TAG) << "KLF 200 " << (knownHost ? host : string("unknown"))
-                              << (p["connected"] == "true" ? " connected" : " disconnected");
-            }
-            else if (status == "error")
-            {
-                /* "message" is the text of a pyvlx exception: nothing in this
-                 * tree constrains it, so only a code of the wire vocabulary
-                 * and a host this controller registered itself cross. */
-                const string code = p["code"];
-                cErrorDom(TAG) << "Klf200 process error: "
-                               << (Klf200Wire::isKnownErrorCode(code) ? code : string("unspecified"))
-                               << ", gateway " << (knownHost ? host : string("unknown"))
-                               << ", node " << Klf200Wire::nodeIdOf(p)
-                               << " (" << p["message"].size() << " bytes withheld)";
-            }
-        }
-        else if (p.Exists("event") && p.Exists("host"))
-        {
-            const string host = p["host"];
-            const int nodeId = Klf200Wire::nodeIdOf(p);
-
-            if (nodeId < 0)
-            {
-                cWarningDom(TAG) << "Event without a valid node_id, dropped";
-                return;
-            }
-
-            cDebugDom(TAG) << "Event " << p["event"] << " from " << host << " node " << nodeId
-                           << " position=" << p["position"] << " moving=" << p["moving"]
-                           << " rain=" << p["rain"];
-
-            registry.dispatch(Klf200Types::Host(host), Klf200Types::NodeId(nodeId), p);
-        }
-    });
+    process->messageReceived.connect(sigc::mem_fun(*this, &Klf200Ctrl::messageReceived));
 
     process->startProcess(exe, "klf200");
 }
 
-Klf200Ctrl::~Klf200Ctrl()
+void Klf200Ctrl::messageReceived(const string &msg)
 {
+    Params p;
+
+    //Never log msg itself: this channel carries the gateway password.
+    if (!Klf200Wire::decodeMessage(msg, p))
+    {
+        cWarningDom(TAG) << "Error parsing json message (" << msg.size() << " bytes)";
+        return;
+    }
+
+    if (p.Exists("status"))
+    {
+        const string status = p["status"];
+        const string host = p["host"];
+        const bool knownHost = registry.hasHost(host);
+
+        if (status == "connected")
+        {
+            links.processConnected();
+            cInfoDom(TAG) << "Klf200 process connected";
+
+            //Re-register every node when the process (re)connects
+            registerAllNodes();
+        }
+        else if (status == "gateway")
+        {
+            //Only a host this end registered can be the target of a command
+            if (knownHost)
+                links.gatewayStatus(host, p["connected"] == "true");
+            cInfoDom(TAG) << "KLF 200 " << (knownHost ? host : string("unknown"))
+                          << (p["connected"] == "true" ? " connected" : " disconnected");
+        }
+        else if (status == "error")
+        {
+            //"message" is pyvlx exception text: only a known code and a
+            //registered host reach the log
+            const string code = p["code"];
+            cErrorDom(TAG) << "Klf200 process error: "
+                           << (Klf200Wire::isKnownErrorCode(code) ? code : string("unspecified"))
+                           << ", gateway " << (knownHost ? host : string("unknown"))
+                           << ", node " << Klf200Wire::nodeIdOf(p)
+                           << " (" << p["message"].size() << " bytes withheld)";
+        }
+    }
+    else if (p.Exists("event") && p.Exists("host"))
+    {
+        const string host = p["host"];
+        const int nodeId = Klf200Wire::nodeIdOf(p);
+
+        if (nodeId < 0)
+        {
+            cWarningDom(TAG) << "Event without a valid node_id, dropped";
+            return;
+        }
+
+        cDebugDom(TAG) << "Event " << p["event"] << " from " << host << " node " << nodeId
+                       << " position=" << p["position"] << " moving=" << p["moving"]
+                       << " rain=" << p["rain"];
+
+        registry.dispatch(Klf200Types::Host(host), Klf200Types::NodeId(nodeId), p);
+    }
 }
 
 Klf200Ctrl::RegistrationId Klf200Ctrl::registerNode(Klf200Types::Host host,
@@ -127,15 +125,16 @@ Klf200Ctrl::RegistrationId Klf200Ctrl::registerNode(Klf200Types::Host host,
 
     cDebugDom(TAG) << "Registering node " << key << (rain ? " (rain sensor)" : "");
 
+    if (registry.passwordConflicts(reg))
+        cWarningDom(TAG) << "Node " << key << ": password differs from first registration of this gateway, keeping the first one";
+
     RegistrationId id = registry.add(reg, std::move(callback));
 
-    /* Sent even when another IO already registered this node: the sidecar
-     * merges the registration and answers every register with the current
-     * node state (and a fresh rain reading when asked), which is the only way
-     * an IO created while the process runs learns the state before the node
-     * next changes. */
+    /* Sent even for a node already registered: the process answers every
+     * register with the node state, which is how a new IO learns it. What is
+     * sent is the merged record (first password, OR of the rain flags). */
     if (links.processUp())
-        doRegisterNode(reg);
+        doRegisterNode(*registry.registrationOf(id));
     else
         cDebugDom(TAG) << "Process not connected, node will be registered when it connects";
 
@@ -144,14 +143,22 @@ Klf200Ctrl::RegistrationId Klf200Ctrl::registerNode(Klf200Types::Host host,
 
 void Klf200Ctrl::unregisterNode(RegistrationId id)
 {
+    const Klf200Registry::NodeRegistration *reg = registry.registrationOf(id);
+    if (!reg)
+        return;
+
+    const Klf200Types::Host host(reg->host);
+    const Klf200Types::NodeId nodeId(reg->nodeId);
+
     string key;
-    if (registry.remove(id, &key))
-    {
-        //Last callback for this node gone. The external process keeps
-        //watching the node until it restarts, which is harmless: its events
-        //find no callback here.
-        cDebugDom(TAG) << "Last callback removed for node " << key;
-    }
+    if (!registry.remove(id, &key))
+        return;
+
+    //Last IO of this node gone: the process stops watching it, and closes
+    //the gateway session once no node of it is left.
+    cDebugDom(TAG) << "Last callback removed for node " << key;
+    if (links.processUp())
+        process->sendMessage(Klf200Wire::buildUnregisterMessage(host, nodeId));
 }
 
 void Klf200Ctrl::doRegisterNode(const Klf200Registry::NodeRegistration &reg)

@@ -799,6 +799,10 @@ pas celui de l'interface web. Le KLF 150 n'a pas cette API. La passerelle tolèr
 sessions simultanées : un autre client (pont MQTT, Home Assistant) sur la même passerelle entre en
 conflit avec ce driver.
 
+Sécurité : pyvlx ne vérifie **pas** le certificat TLS de la passerelle (certificat auto-signé,
+`ssl.CERT_NONE` dans `pyvlx/connection.py`), et le mot de passe circule dans cette session. Le
+KLF 200 doit donc rester sur un LAN ou un VLAN de confiance.
+
 ### Types XML
 
 | Type | Hérite de | Rôle |
@@ -806,7 +810,7 @@ conflit avec ce driver.
 | `Klf200OutputShutterSmart` | `OutputShutterSmart` | Fenêtre ou volet, position réelle 0–100 % |
 | `Klf200InputSwitch` | `InputSwitch` | Capteur de pluie d'une fenêtre |
 
-(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:27](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)
+(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:29](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)
 et [IO/Klf200/Klf200InputSwitch.cpp:26](../src/bin/calaos_server/IO/Klf200/Klf200InputSwitch.cpp)).
 
 ### Paramètres
@@ -816,28 +820,42 @@ et [IO/Klf200/Klf200InputSwitch.cpp:26](../src/bin/calaos_server/IO/Klf200/Klf20
 | `host` | oui | IP ou nom d'hôte de la passerelle KLF 200 |
 | `password` | oui | Mot de passe de la passerelle (celui du Wi-Fi) |
 | `node_id` | oui | Numéro du nœud sur la passerelle, 0 à 255 |
-| `io_style` | non | `shutter` (défaut) ou `window` ; **le défaut `shutter` devient `window`** quand la passerelle annonce une fenêtre, une autre valeur n'est jamais modifiée |
+| `io_style` | oui (défaut `shutter`, posé s'il manque) | `shutter` ou `window` ; **le défaut `shutter` devient `window`** quand la passerelle annonce une fenêtre, une autre valeur n'est jamais modifiée |
 
 Le `node_id` s'obtient avec le wrapper installé :
 
 ```bash
-calaos_klf200 --list --host 192.168.1.50 --password klf200123
+read -rs KLF200_PASSWORD && export KLF200_PASSWORD
+calaos_klf200 --list --host 192.168.1.50
 ```
+
+Le mot de passe est lu dans `KLF200_PASSWORD`, ou demandé sur le terminal, jamais en argument
+(il serait visible dans `ps` et l'historique du shell).
 
 Les deux IOs d'une même fenêtre (le volet et la pluie) portent le même `host`/`node_id` : le
 registre `Klf200Registry` ne garde qu'un enregistrement par nœud et distribue chaque événement à
 tous les callbacks du nœud (dérivé,
-[IO/Klf200/Klf200Registry.h](../src/bin/calaos_server/IO/Klf200/Klf200Registry.h)).
+[IO/Klf200/Klf200Registry.h](../src/bin/calaos_server/IO/Klf200/Klf200Registry.h)). La passerelle
+n'a qu'un mot de passe : le premier enregistré est gardé et envoyé, un IO de la même passerelle
+qui en porte un autre provoque un avertissement (sans la valeur). Quand le dernier IO d'un nœud
+disparaît, `Klf200Ctrl` envoie `unregister` ; une passerelle sans nœud ferme sa session après
+30 s, et un mot de passe changé s'applique dès que plus aucun nœud n'utilise l'ancien.
+
+`Klf200Ctrl` n'est jamais détruit (singleton sur le tas, comme `ReolinkCtrl`) : il est créé par
+le premier IO, donc après `ListeRoom`, et `~ListeRoom()` détruit encore des IOs qui s'en
+désinscrivent (`tests/core/ControllerTeardownOrder_test.cpp`).
 
 ### Position réelle, pas de minuterie
 
 `Klf200OutputShutterSmart` est la « seconde option » décrite dans l'en-tête de
 `OutputShutterSmart` : le matériel possède la position. `readConfig()` épingle `time_up` et
 `time_down` à **100** pour que la position interne de la classe de base *soit* le pourcentage
-(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:95-105](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)),
+(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:105-115](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)),
 et `set_value()` est entièrement réécrit : chaque ordre devient une position absolue envoyée à la
 passerelle, aucun timer n'est armé. Les paramètres `time_up`, `time_down`, `impulse_time` et
-`stop_both` sont redéclarés en lecture seule pour que l'installeur ne les exige pas.
+`stop_both` sont redéclarés en lecture seule pour que l'installeur ne les exige pas. Le sens
+restauré du cache est remis à l'arrêt à la construction : seule la passerelle sait si
+l'actionneur bouge, et `toggle` ne doit pas décider sur un sens périmé.
 
 Un ordre n'est **jamais annoncé comme pris** quand il ne peut pas partir : si le sous-processus
 redémarre ou si la session avec la passerelle est tombée (dernier statut `gateway` reçu),
@@ -853,9 +871,11 @@ au dernier, ramène l'IO à la position réelle.
 Convention de position, identique aux deux bouts et dans le KLF 200 : **0 = ouvert** (volet en
 haut, fenêtre ouverte), **100 = fermé**.
 
-Actions acceptées : `up`, `down`, `stop`, `toggle`, `set N`, `up N`, `down N`, `set_state N`.
-`impulse up/down` et `calibrate` sont refusées (`false`) : elles n'ont pas de sens pour un
-actionneur qui rapporte sa position.
+Actions acceptées : `up`, `down`, `stop`, `toggle`, `set N`, `up N`, `down N`, `set_state N`
+(N borné à 0–100 avant d'être publié dans l'état de commande). `impulse up/down` et `calibrate`
+sont refusées (`false`) et retirées de l'IODoc (`IODoc::actionRemove()`) : l'installeur, l'éditeur
+de règles et le MCP ne les proposent pas. Un IO sans `host`, `password` ou `node_id` valide
+refuse tout ordre avec une erreur « not configured ».
 
 L'état affiché (`stop 42`, `up 30`…) vient des événements `node` de la passerelle, qui portent la
 position et le sens de déplacement ; un événement identique au précédent n'est pas republié.
@@ -880,6 +900,11 @@ Les deux classes de base `OutputShutter` et `OutputShutterSmart` déclarent dés
 `gui_type` ne change pas : un client qui ne connaît pas le style retombe sur le volet, un client qui
 le connaît dessine une fenêtre. Ce n'est pas propre au KLF 200 : une fenêtre motorisée sur KNX ou Wago
 peut le poser aussi.
+
+Impact sur les configurations existantes : comme `InputSwitch` et `OutputLight`, le paramètre est
+obligatoire avec un défaut posé à la construction, donc **tout volet** (Wago, GPIO, KNX…) reçoit
+`io_style="shutter"`, écrit dans `io.xml` à la première sauvegarde et exposé par l'API JSON. Un
+client qui ignore le champ n'est pas affecté (calaos_remote_ui ne le lit pas).
 
 ---
 

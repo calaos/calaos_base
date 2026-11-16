@@ -157,6 +157,45 @@ TEST(Klf200Registry, FirstPasswordOfANodeIsKept)
     EXPECT_EQ("first", pw);
 }
 
+TEST(Klf200Registry, ThePasswordConflictIsPerGateway)
+{
+    Klf200Registry r;
+    const auto first = Klf200Registry::NodeRegistration(Host("h"), Password("first"), NodeId(1), false);
+    EXPECT_FALSE(r.passwordConflicts(first));
+    r.add(first, [](const Params &)
+          {
+          });
+
+    //Another node of the same gateway, another password: still one gateway
+    EXPECT_TRUE(r.passwordConflicts(Klf200Registry::NodeRegistration(Host("h"), Password("second"), NodeId(2), false)));
+    EXPECT_FALSE(r.passwordConflicts(Klf200Registry::NodeRegistration(Host("h"), Password("first"), NodeId(2), false)));
+    EXPECT_FALSE(r.passwordConflicts(Klf200Registry::NodeRegistration(Host("other"), Password("second"), NodeId(1), false)));
+}
+
+TEST(Klf200Registry, RegistrationLookupsReturnTheMergedRecord)
+{
+    Klf200Registry r;
+    const auto a = r.add(reg("h", 1), [](const Params &)
+                         {
+                         });
+    const auto b = r.add(reg("h", 1, true), [](const Params &)
+                         {
+                         });
+
+    const Klf200Registry::NodeRegistration *byNode = r.registration(Host("h"), NodeId(1));
+    ASSERT_NE(nullptr, byNode);
+    EXPECT_TRUE(byNode->rain);
+    EXPECT_EQ(byNode, r.registrationOf(a));
+    EXPECT_EQ(byNode, r.registrationOf(b));
+    EXPECT_EQ(nullptr, r.registration(Host("h"), NodeId(2)));
+    EXPECT_EQ(nullptr, r.registrationOf(Klf200Registry::INVALID_ID));
+
+    r.remove(a);
+    r.remove(b);
+    EXPECT_EQ(nullptr, r.registrationOf(a));
+    EXPECT_EQ(nullptr, r.registration(Host("h"), NodeId(1)));
+}
+
 TEST(Klf200Registry, RemoveLastCallbackDropsTheRecord)
 {
     Klf200Registry r;

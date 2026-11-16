@@ -19,7 +19,7 @@ AM_CPPFLAGS =                                                 \
         -I$(top_srcdir)/src/bin/calaos_server/IO/OneWire      \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Ping         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Reolink      \
-        -I$(top_srcdir)/src/bin/calaos_server/IO/Klf200        \
+        -I$(top_srcdir)/src/bin/calaos_server/IO/Klf200       \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago/libmbus \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Wago         \
         -I$(top_srcdir)/src/bin/calaos_server/IO/Web          \
@@ -209,15 +209,15 @@ calaos_server_SOURCES = \
         IO/Reolink/ReolinkWire.h                        \
         IO/Reolink/ReolinkInputSwitch.h                 \
         IO/Reolink/ReolinkInputSwitch.cpp               \
-        IO/Klf200/Klf200Types.h                           \
-        IO/Klf200/Klf200Wire.h                            \
-        IO/Klf200/Klf200Registry.h                        \
-        IO/Klf200/Klf200Ctrl.h                            \
-        IO/Klf200/Klf200Ctrl.cpp                          \
-        IO/Klf200/Klf200OutputShutterSmart.h              \
-        IO/Klf200/Klf200OutputShutterSmart.cpp            \
-        IO/Klf200/Klf200InputSwitch.h                     \
-        IO/Klf200/Klf200InputSwitch.cpp                   \
+        IO/Klf200/Klf200Types.h                         \
+        IO/Klf200/Klf200Wire.h                          \
+        IO/Klf200/Klf200Registry.h                      \
+        IO/Klf200/Klf200Ctrl.h                          \
+        IO/Klf200/Klf200Ctrl.cpp                        \
+        IO/Klf200/Klf200OutputShutterSmart.h            \
+        IO/Klf200/Klf200OutputShutterSmart.cpp          \
+        IO/Klf200/Klf200InputSwitch.h                   \
+        IO/Klf200/Klf200InputSwitch.cpp                 \
         IO/OLA/OLACtrl.cpp                              \
         IO/OLA/OLACtrl.h                                \
         IO/OLA/OLAWire.h                                \
@@ -562,12 +562,14 @@ endif
 install-data-hook:
 if HAVE_PYTHON_ROON
 	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
-endif
+else
 if HAVE_PYTHON_REOLINK
 	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
-endif
+else
 if HAVE_PYTHON_KLF200
 	chmod +x $(DESTDIR)$(externalprocessdir)/*.py
+endif
+endif
 endif
 
 # No clean-local removing Audio/calaos_roon or IO/Reolink/calaos_reolink here:

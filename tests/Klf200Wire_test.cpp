@@ -20,7 +20,7 @@
  ******************************************************************************/
 
 /*
- * Characterization of the Klf200 wire (IO/Klf200/Klf200Wire.h): the three
+ * Characterization of the Klf200 wire (IO/Klf200/Klf200Wire.h): the four
  * messages Klf200Ctrl sends to calaos_klf200, the decoding of what comes back,
  * and the two field readers the IOs rely on. The other end is
  * IO/Klf200/ExternProcKlf200_main.py, pinned by tests/python/test_klf200.py.
@@ -231,4 +231,22 @@ TEST(Klf200WireReaders, PositionAnswersMinusOneOutsideZeroToHundred)
     EXPECT_EQ(100, Klf200Wire::positionOf(p));
     p.Add("position", "57.000000");
     EXPECT_EQ(57, Klf200Wire::positionOf(p));
+}
+
+TEST(Klf200WireReaders, PositionRefusesAFractionLikeNodeId)
+{
+    //Same rule as nodeIdOf(): a fraction is refused, not truncated
+    Params p;
+    p.Add("position", "57.5");
+    EXPECT_EQ(-1, Klf200Wire::positionOf(p));
+    p.Add("node_id", "3.5");
+    EXPECT_EQ(-1, Klf200Wire::nodeIdOf(p));
+    p.Add("position", "garbage");
+    EXPECT_EQ(-1, Klf200Wire::positionOf(p));
+}
+
+TEST(Klf200WireUnregister, CarriesHostAndNodeOnly)
+{
+    EXPECT_EQ("{\"action\":\"unregister\",\"host\":\"klf200.lan\",\"node_id\":3}",
+              Klf200Wire::buildUnregisterMessage(Host("klf200.lan"), NodeId(3)));
 }

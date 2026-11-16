@@ -21,8 +21,6 @@
 #ifndef S_KLF200_CTRL_H
 #define S_KLF200_CTRL_H
 
-#include <set>
-
 #include "Calaos.h"
 #include "ExternProc.h"
 #include "Params.h"
@@ -30,15 +28,8 @@
 #include "Klf200Registry.h"
 #include "Klf200Types.h"
 
-/*
- * Owner of the calaos_klf200 external process (IO/Klf200/ExternProcKlf200_main.py
- * through the configure-generated wrapper). One process for the whole server,
- * one pyvlx session per KLF 200 host inside it.
- *
- * IOs register the node they drive with a callback; the controller forwards
- * the registration to the process, re-sends every registration when the
- * process (re)connects, and dispatches the node events it gets back.
- */
+/* Owner of the calaos_klf200 process (one for the server, one pyvlx session
+ * per KLF 200 inside it). See docs/14_python_extern_proc.md. */
 class Klf200Ctrl: public sigc::trackable
 {
 public:
@@ -47,7 +38,9 @@ public:
 
 private:
     Klf200Ctrl();
-    ~Klf200Ctrl();
+    //Never destroyed: built by the first IO, after ListeRoom, whose
+    //destructor still reaches it through ~Klf200*() (same as ReolinkCtrl).
+    ~Klf200Ctrl() = delete;
 
     ExternProcServer *process;
     string exe;
@@ -57,6 +50,7 @@ private:
     //Process and per-gateway session state, as the process reports it
     Klf200GatewayLinks links;
 
+    void messageReceived(const string &msg);
     void doRegisterNode(const Klf200Registry::NodeRegistration &reg);
     void registerAllNodes();
     bool canSend(const Klf200Types::Host &host, const Klf200Types::NodeId &nodeId, const char *what) const;
@@ -77,12 +71,10 @@ public:
     bool setPosition(const Klf200Types::Host &host, const Klf200Types::NodeId &nodeId, int position);
     bool stop(const Klf200Types::Host &host, const Klf200Types::NodeId &nodeId);
 
-    bool isConnected() const { return links.processUp(); }
-
     static Klf200Ctrl &Instance()
     {
-        static Klf200Ctrl instance;
-        return instance;
+        static Klf200Ctrl *instance = new Klf200Ctrl();
+        return *instance;
     }
 };
 

@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 #
 # Calaos external process for the VELUX KLF 200 gateway.
 #
@@ -15,6 +15,7 @@
 #     {"action": "register", "host": H, "password": P, "node_id": N, "rain": bool}
 #     {"action": "set_position", "host": H, "node_id": N, "position": 0..100}
 #     {"action": "stop", "host": H, "node_id": N}
+#     {"action": "unregister", "host": H, "node_id": N}   last IO of the node gone
 #
 #   here -> server
 #     {"status": "connected"}                                   process ready
@@ -36,8 +37,12 @@
 
 import argparse
 import asyncio
+import getpass
 import json
 import logging
+import os
+import signal
+import sys
 import threading
 
 from calaos_extern_proc import (ExternProcClient, cCriticalDom, cDebugDom,
@@ -66,6 +71,20 @@ RAIN_LIMITATION_MIN_PERCENT = 89
 RECONNECT_DELAY_FIRST = 5
 RECONNECT_DELAY_MAX = 120
 
+# A peer gone silent (power or Wi-Fi loss, no FIN/RST) leaves pyvlx connected
+# until the TCP retransmit timeout, about 15 min, and its heartbeat swallows
+# the failures: a GetState every WATCHDOG_INTERVAL s, and the session is
+# dropped after WATCHDOG_MAX_FAILURES unanswered ones.
+WATCHDOG_INTERVAL = 45
+WATCHDOG_MAX_FAILURES = 2
+
+# A gateway left without any node (IOs deleted) closes its session after this
+# delay, unless a node registers again first (config reload).
+IDLE_GATEWAY_CLOSE_DELAY = 30
+
+# --list reads the gateway password here, never from argv (ps, shell history)
+PASSWORD_ENV = "KLF200_PASSWORD"
+
 # The error codes the C++ end knows (Klf200Wire::isKnownErrorCode). A code
 # outside this list is published as "unspecified" over there, so add it on
 # both sides.
@@ -87,7 +106,7 @@ def parse_command(data):
         return None, "message is not a JSON object"
 
     action = data.get("action")
-    if action not in ("register", "set_position", "stop"):
+    if action not in ("register", "unregister", "set_position", "stop"):
         return None, f"unknown action: {action!r}"
 
     host = data.get("host")
@@ -109,7 +128,9 @@ def parse_command(data):
         if not isinstance(password, str) or not password:
             return None, "missing password"
         cmd["password"] = password
-        cmd["rain"] = bool(data.get("rain", False))
+        # Strict: bool("false") is True
+        rain = data.get("rain", False)
+        cmd["rain"] = rain is True or rain == "true"
     elif action == "set_position":
         position = data.get("position")
         try:
@@ -184,10 +205,12 @@ class Gateway:
         self.registrations = {}   # node_id -> {"rain": bool}
         self.attached = set()     # node ids whose update callback is installed
         self.rain_state = {}      # node_id -> last published rain bool
+        self.idle_task = None     # pending close of a gateway left without nodes
         self._closed = asyncio.Event()
         self._opened = asyncio.Event()
         self._task = None
         self._rain_task = None
+        self._watchdog_task = None
 
     # -- session -----------------------------------------------------------
 
@@ -196,6 +219,9 @@ class Gateway:
             self._task = asyncio.create_task(self._run())
 
     async def _run(self):
+        """The only reconnection path: pyvlx's own (heartbeat -> send_frame ->
+        ensure_connected) is cut by stopping its heartbeat whenever the
+        session closes, so two sessions are never opened side by side."""
         delay = RECONNECT_DELAY_FIRST
         while True:
             try:
@@ -208,30 +234,36 @@ class Gateway:
             except Exception as e:  # PyVLXException, OSError, ssl errors...
                 cErrorDom(LOG_DOMAIN)("KLF 200 %s: connection failed: %s", self.host, e)
                 self.client.send_error(self.host, ERR_GATEWAY_CONNECT_FAILED, str(e))
-                self._drop_session()
+                await self._drop_session()
             self._set_connected(False)
             await self._wait_retry(delay)
             delay = min(delay * 2, RECONNECT_DELAY_MAX)
 
     async def _wait_retry(self, delay):
-        """Sleep before the next attempt, but wake up as soon as pyvlx reopens
-        the session on its own: its heartbeat keeps running after a drop and
-        reconnects through send_frame() -> ensure_connected(). Without this,
-        commands would be refused for the rest of a long backoff while the
-        session is in fact up again."""
+        """Sleep before the next attempt, but wake up if the session comes
+        back on its own (a command already past its connected check can still
+        reconnect through pyvlx)."""
         try:
             await asyncio.wait_for(self._opened.wait(), timeout=delay)
         except asyncio.TimeoutError:
             pass
 
-    def _drop_session(self):
-        """Close what a failed attempt left open. pyvlx.connect() opens the
-        TLS connection before it authenticates and does not close it when a
-        later step (password, version, house monitor) fails: the next
-        connect() would overwrite the transport and leak the socket, one per
-        retry, and the KLF 200 only accepts a couple of sessions."""
+    async def _stop_heartbeat(self):
         if self.pyvlx is None:
             return
+        try:
+            await self.pyvlx.heartbeat.stop()
+        except Exception as e:  # pragma: no cover - defensive
+            cDebugDom(LOG_DOMAIN)("KLF 200 %s: stopping the heartbeat: %s", self.host, e)
+
+    async def _drop_session(self):
+        """Close what a failed attempt left open. pyvlx.connect() opens the
+        TLS connection before it authenticates and does not close it when a
+        later step fails, and its heartbeat may already run (load_nodes()
+        failing after a successful connect)."""
+        if self.pyvlx is None:
+            return
+        await self._stop_heartbeat()
         try:
             self.pyvlx.connection.disconnect(notify_callbacks=False)
         except Exception as e:  # pragma: no cover - defensive
@@ -245,8 +277,8 @@ class Gateway:
             self.pyvlx.connection.register_connection_closed_cb(self._on_connection_closed)
             self.pyvlx.connection.register_connection_opened_cb(self._on_connection_opened)
         if self.pyvlx.get_connected():
-            # pyvlx's heartbeat reopened the session while this loop was
-            # waiting: connecting again would open a second TLS session.
+            # Reopened behind this loop's back: connecting again would open a
+            # second TLS session.
             cInfoDom(LOG_DOMAIN)("KLF 200 %s: session reopened by pyvlx", self.host)
         else:
             cInfoDom(LOG_DOMAIN)("KLF 200 %s: connecting", self.host)
@@ -256,10 +288,20 @@ class Gateway:
         self._set_connected(True)
         for node_id in list(self.registrations):
             await self._attach(node_id)
+        # The gateway never pushes the rain limitation: read it now rather
+        # than at the next poll, up to rain_poll_interval later.
+        try:
+            await self._poll_rain_once()
+        except Exception as e:
+            cWarningDom(LOG_DOMAIN)("KLF 200 %s: rain poll failed: %s", self.host, e)
         if self._rain_task is None:
             self._rain_task = asyncio.create_task(self._rain_poll())
+        if self._watchdog_task is None:
+            self._watchdog_task = asyncio.create_task(self._watchdog())
 
     async def _on_connection_closed(self):
+        # Before anything else: a running heartbeat would reconnect on its own
+        await self._stop_heartbeat()
         self._opened.clear()
         self._closed.set()
 
@@ -273,14 +315,54 @@ class Gateway:
         self.attached.clear()
         self.client.send_message(json.dumps({"status": "gateway", "host": self.host, "connected": connected}))
 
+    # -- watchdog ----------------------------------------------------------
+
+    async def _probe(self):
+        """One GetState. Only called while connected: pyvlx's do_api_call()
+        reconnects first when it is not, which is _run()'s job."""
+        try:
+            return bool(await self.pyvlx.klf200.get_state())
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # PyVLXException on no answer, OSError
+            cDebugDom(LOG_DOMAIN)("KLF 200 %s: GetState failed: %s", self.host, e)
+            return False
+
+    async def _watchdog(self):
+        failures = 0
+        while True:
+            await asyncio.sleep(WATCHDOG_INTERVAL)
+            if not self.connected or not self.pyvlx.get_connected():
+                failures = 0
+                continue
+            if await self._probe():
+                failures = 0
+                continue
+            failures += 1
+            cWarningDom(LOG_DOMAIN)("KLF 200 %s: no answer to GetState (%d/%d)",
+                                    self.host, failures, WATCHDOG_MAX_FAILURES)
+            if failures >= WATCHDOG_MAX_FAILURES:
+                failures = 0
+                cErrorDom(LOG_DOMAIN)("KLF 200 %s: gateway silent, dropping the session", self.host)
+                # Closing the transport also drops the frames still queued in
+                # it, so no stale order is replayed after the reconnection.
+                self.pyvlx.connection.disconnect(notify_callbacks=False)
+                await self._on_connection_closed()
+
     async def shutdown(self):
-        for task in (self._rain_task, self._task):
+        if self.idle_task is not None:
+            self.idle_task.cancel()
+        for task in (self._watchdog_task, self._rain_task, self._task):
             if task is not None:
                 task.cancel()
-        if self.pyvlx is not None and self.pyvlx.get_connected():
+        if self.pyvlx is None:
+            return
+        await self._stop_heartbeat()
+        if self.pyvlx.get_connected():
             # Not pyvlx.disconnect(): that one reboots the gateway, which
             # takes it offline for a couple of minutes at every calaos
-            # restart. Only close the session cleanly.
+            # restart. The house monitor must be off, or the next session
+            # fails on the TLS handshake.
             try:
                 if self.pyvlx.klf200.house_status_monitor_enabled:
                     await self.pyvlx.klf200.house_status_monitor_disable(pyvlx=self.pyvlx, timeout=5)
@@ -321,6 +403,9 @@ class Gateway:
         self.client.send_message(json.dumps(node_state_message(self.host, node)))
 
     async def register(self, node_id, rain):
+        if self.idle_task is not None:
+            self.idle_task.cancel()
+            self.idle_task = None
         reg = self.registrations.setdefault(node_id, {"rain": False})
         reg["rain"] = reg["rain"] or rain
         if rain:
@@ -333,6 +418,14 @@ class Gateway:
             await self._attach(node_id)
             if rain:
                 await self._poll_rain_node(node_id)
+
+    def unregister(self, node_id):
+        """Stop reporting a node. Answers whether the gateway has none left.
+        The pyvlx callback stays installed: _node_updated() filters on the
+        registrations, and a node registered again reuses it."""
+        self.registrations.pop(node_id, None)
+        self.rain_state.pop(node_id, None)
+        return not self.registrations
 
     def _command_target(self, node_id, what):
         """The node a command addresses, or None (an error frame is sent)."""
@@ -374,13 +467,13 @@ class Gateway:
 
     async def _rain_poll(self):
         while True:
+            await asyncio.sleep(self.rain_poll_interval)
             try:
                 await self._poll_rain_once()
             except asyncio.CancelledError:
                 raise
             except Exception as e:
                 cWarningDom(LOG_DOMAIN)("KLF 200 %s: rain poll failed: %s", self.host, e)
-            await asyncio.sleep(self.rain_poll_interval)
 
     async def _poll_rain_once(self):
         if not self.connected:
@@ -415,6 +508,17 @@ class Gateway:
                                              "node_id": node_id, "rain": rain}))
 
 
+def read_list_password(environ=None, prompt=getpass.getpass):
+    """The --list password: from the environment, else typed on the tty."""
+    environ = os.environ if environ is None else environ
+    password = environ.get(PASSWORD_ENV)
+    if password:
+        return password
+    if not sys.stdin.isatty():
+        return None
+    return prompt("KLF 200 password: ") or None
+
+
 class Klf200Client(ExternProcClient):
     def __init__(self):
         super().__init__()
@@ -429,28 +533,31 @@ class Klf200Client(ExternProcClient):
     # -- arguments ---------------------------------------------------------
 
     def parse_arguments(self):
-        parser = argparse.ArgumentParser(description="Calaos VELUX KLF 200 driver")
+        parser = argparse.ArgumentParser(
+            description="Calaos VELUX KLF 200 driver",
+            epilog=f"--list reads the gateway password from ${PASSWORD_ENV}, or asks for it.")
         parser.add_argument("--socket", help="ExternProc socket path")
         parser.add_argument("--namespace", help="ExternProc namespace")
         parser.add_argument("--list", action="store_true",
-                            help="List the nodes of a gateway and exit (needs --host and --password)")
+                            help="List the nodes of a gateway and exit (needs --host)")
         parser.add_argument("--host", help="KLF 200 host (with --list)")
-        parser.add_argument("--password", help="KLF 200 password (with --list)")
         parser.add_argument("--rain-poll", type=int, default=300,
                             help="Rain sensor poll interval in seconds (default 300)")
         args, _unknown = parser.parse_known_args()
 
         if args.list:
-            if not args.host or not args.password:
-                parser.error("--list needs --host and --password")
+            if not args.host:
+                parser.error("--list needs --host")
             if args.socket or args.namespace:
                 parser.error("--list cannot be combined with --socket or --namespace")
+            self.cli_password = read_list_password()
+            if not self.cli_password:
+                parser.error(f"--list needs the gateway password in ${PASSWORD_ENV}")
         elif not args.socket or not args.namespace:
             parser.error("--socket and --namespace are required")
 
         self.cli_list = args.list
         self.cli_host = args.host
-        self.cli_password = args.password
         self.rain_poll_interval = max(10, args.rain_poll)
         if not args.list:
             self.sockpath = args.socket
@@ -465,10 +572,10 @@ class Klf200Client(ExternProcClient):
             cCriticalDom(LOG_DOMAIN)("python module pyvlx is not installed (pip3 install pyvlx)")
             return False
 
-        # pyvlx logs every frame at DEBUG; keep its logger quiet unless calaos
-        # itself runs at the debug level.
-        if logging.getLogger().getEffectiveLevel() > logging.DEBUG:
-            logging.getLogger("pyvlx").setLevel(logging.WARNING)
+        # Never below INFO: at DEBUG pyvlx logs every frame, the password
+        # frame included (its first characters).
+        debug = logging.getLogger().getEffectiveLevel() <= logging.DEBUG
+        logging.getLogger("pyvlx").setLevel(logging.INFO if debug else logging.WARNING)
 
         if self.cli_list:
             return True
@@ -528,6 +635,7 @@ class Klf200Client(ExternProcClient):
                     except Exception as e:
                         extra += f" rain=? ({e})"
                 print(f"  node_id={node.node_id:<3} type={type(node).__name__:<18} name={node.name!r}{extra}")
+            await vlx.heartbeat.stop()
             vlx.connection.disconnect(notify_callbacks=False)
 
         try:
@@ -537,17 +645,32 @@ class Klf200Client(ExternProcClient):
             cCriticalDom(LOG_DOMAIN)("KLF 200 %s: %s", self.cli_host, e)
             return 1
 
-    def stop(self):
-        if self.event_loop is not None and not self.event_loop.is_closed():
-            async def _shutdown():
-                for gw in list(self.gateways.values()):
-                    await gw.shutdown()
-            try:
-                asyncio.run_coroutine_threadsafe(_shutdown(), self.event_loop).result(timeout=10)
-            except Exception as e:
-                cDebugDom(LOG_DOMAIN)("shutdown: %s", e)
-            self.event_loop.call_soon_threadsafe(self.event_loop.stop)
-        return super().stop()
+    def install_signal_handlers(self):
+        """SIGTERM (ExternProcServer::terminate(), systemd) only ends the run
+        loop: close() runs once run() has returned, outside the handler."""
+        def _handler(signum, _frame):
+            cInfoDom(LOG_DOMAIN)("signal %d, stopping", signum)
+            self.stop()
+        signal.signal(signal.SIGTERM, _handler)
+        signal.signal(signal.SIGINT, _handler)
+
+    def close(self):
+        """Close every gateway session cleanly (house monitor off, TLS closed),
+        then stop the loop. Without it the next session can fail on the TLS
+        handshake."""
+        if self.event_loop is None or self.event_loop.is_closed():
+            return
+
+        async def _shutdown():
+            for gw in list(self.gateways.values()):
+                await gw.shutdown()
+            self.gateways.clear()
+
+        try:
+            asyncio.run_coroutine_threadsafe(_shutdown(), self.event_loop).result(timeout=10)
+        except Exception as e:
+            cWarningDom(LOG_DOMAIN)("shutdown: %s", e)
+        self.event_loop.call_soon_threadsafe(self.event_loop.stop)
 
     # -- wire --------------------------------------------------------------
 
@@ -575,7 +698,26 @@ class Klf200Client(ExternProcClient):
             cErrorDom(LOG_DOMAIN)("Event loop not running, dropping %s", cmd["action"])
             return
 
-        asyncio.run_coroutine_threadsafe(self.dispatch(cmd), self.event_loop)
+        fut = asyncio.run_coroutine_threadsafe(self.dispatch(cmd), self.event_loop)
+        fut.add_done_callback(lambda f: log_future_failure(f, cmd["host"], cmd["action"]))
+
+    async def _replace_gateway(self, host, password):
+        old = self.gateways.pop(host, None)
+        if old is not None:
+            await old.shutdown()
+        gw = Gateway(self, host, password, self.rain_poll_interval)
+        self.gateways[host] = gw
+        gw.start()
+        return gw
+
+    async def _close_idle(self, host, gw):
+        await asyncio.sleep(IDLE_GATEWAY_CLOSE_DELAY)
+        if self.gateways.get(host) is not gw or gw.registrations:
+            return
+        cInfoDom(LOG_DOMAIN)("KLF 200 %s: no node left, closing the session", host)
+        del self.gateways[host]
+        gw.idle_task = None  # this very task: shutdown() must not cancel it
+        await gw.shutdown()
 
     async def dispatch(self, cmd):
         """Runs on the loop thread."""
@@ -584,12 +726,16 @@ class Klf200Client(ExternProcClient):
             if cmd["action"] == "register":
                 gw = self.gateways.get(host)
                 if gw is None:
-                    gw = Gateway(self, host, cmd["password"], self.rain_poll_interval)
-                    self.gateways[host] = gw
-                    gw.start()
+                    gw = await self._replace_gateway(host, cmd["password"])
                 elif gw.password != cmd["password"]:
-                    cWarningDom(LOG_DOMAIN)("KLF 200 %s: node %d registered with a different password, "
-                                            "keeping the first one", host, cmd["node_id"])
+                    if gw.registrations:
+                        cWarningDom(LOG_DOMAIN)("KLF 200 %s: node %d registered with a different password, "
+                                                "keeping the first one", host, cmd["node_id"])
+                    else:
+                        # Every node of the old session is gone: the new
+                        # password is the configuration now.
+                        cInfoDom(LOG_DOMAIN)("KLF 200 %s: new password, reopening the session", host)
+                        gw = await self._replace_gateway(host, cmd["password"])
                 await gw.register(cmd["node_id"], cmd["rain"])
                 return
 
@@ -597,7 +743,10 @@ class Klf200Client(ExternProcClient):
             if gw is None:
                 cWarningDom(LOG_DOMAIN)("KLF 200 %s: %s before any register, dropped", host, cmd["action"])
                 return
-            if cmd["action"] == "set_position":
+            if cmd["action"] == "unregister":
+                if gw.unregister(cmd["node_id"]) and gw.idle_task is None:
+                    gw.idle_task = asyncio.create_task(self._close_idle(host, gw))
+            elif cmd["action"] == "set_position":
                 await gw.set_position(cmd["node_id"], cmd["position"])
             elif cmd["action"] == "stop":
                 await gw.stop(cmd["node_id"])
@@ -605,16 +754,36 @@ class Klf200Client(ExternProcClient):
             cErrorDom(LOG_DOMAIN)("KLF 200 %s: %s failed: %s", host, cmd["action"], e)
 
 
-if __name__ == "__main__":
+def log_future_failure(fut, host, action):
+    """Done callback of a dispatched command: what dispatch() did not catch
+    (anything but an Exception) must not vanish with the future."""
+    if fut.cancelled():
+        return
+    e = fut.exception()
+    if e is not None:
+        cErrorDom(LOG_DOMAIN)("KLF 200 %s: %s aborted: %r", host, action, e)
+
+
+def main():
     configure_logger()
     cInfoDom(LOG_DOMAIN)("Starting VELUX KLF 200 driver")
 
     client = Klf200Client()
     if not client.setup():
         cCriticalDom(LOG_DOMAIN)("Failed to setup Klf200Client")
-        exit(1)
+        return 1
 
     if client.cli_list:
-        exit(client.list_nodes())
+        return client.list_nodes()
 
-    client.run(200)
+    client.install_signal_handlers()
+    try:
+        client.run(200)
+    finally:
+        # Also when the server closed the socket (run() returns on EOF)
+        client.close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

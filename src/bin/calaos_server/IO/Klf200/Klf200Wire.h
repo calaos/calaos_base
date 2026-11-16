@@ -28,26 +28,9 @@
 #include "StringUtils.h"
 #include "Klf200Types.h"
 
-/*
- * The two ends of the wire between Klf200Ctrl and the calaos_klf200 external
- * process (IO/Klf200/ExternProcKlf200_main.py, in this repository, decoding
- * with the stdlib "json" module). The message shapes are listed at the top
- * of that file; keep the two in sync.
- *
- * Free functions rather than Klf200Ctrl members for the same reason as
- * IO/Reolink/ReolinkWire.h: the controller is a singleton that spawns a
- * process in its constructor, so nothing can call it from a test, while
- * tests/Klf200Wire_test.cpp calls exactly these.
- *
- * Emission invariants, shared with every nlohmann emitter of the tree: keys
- * come out sorted, the wire stays pure ASCII (ensure_ascii), and an invalid
- * UTF-8 byte in an io.xml parameter is replaced rather than thrown on
- * (error_handler_t::replace) - these messages are built from process
- * callbacks with no try/catch on the path.
- *
- * NOTE: the register message carries the gateway password IN CLEAR. Never
- * log the message itself.
- */
+/* JSON messages between Klf200Ctrl and ExternProcKlf200_main.py (shapes at
+ * the top of that file, keep both in sync). The register message carries the
+ * gateway password in clear: never log a message. */
 namespace Klf200Wire
 {
 
@@ -89,6 +72,18 @@ inline std::string buildStopMessage(const Klf200Types::Host &host,
 {
     Json jroot;
     jroot["action"] = "stop";
+    jroot["host"] = host.v;
+    jroot["node_id"] = nodeId.v;
+
+    return jroot.dump(-1, ' ', true, Json::error_handler_t::replace);
+}
+
+//The last IO of a node is gone: the process stops watching it
+inline std::string buildUnregisterMessage(const Klf200Types::Host &host,
+                                          const Klf200Types::NodeId &nodeId)
+{
+    Json jroot;
+    jroot["action"] = "unregister";
     jroot["host"] = host.v;
     jroot["node_id"] = nodeId.v;
 
@@ -180,7 +175,8 @@ inline std::string styleOf(const Params &event)
 }
 
 /* The position of a node event: 0..100, or -1 when the gateway has not
- * reported one yet (or the field is missing/garbled). */
+ * reported one yet, or the field is missing, garbled or not an integer (same
+ * rule as nodeIdOf(): a fraction is refused, never truncated). */
 inline int positionOf(const Params &params)
 {
     if (!params.Exists("position"))
@@ -190,7 +186,7 @@ inline int positionOf(const Params &params)
     if (!Utils::is_of_type<double>(params["position"]))
         return -1;
     Utils::from_string(params["position"], d);
-    if (d < 0 || d > 100)
+    if (!(d >= 0 && d <= 100) || d != std::floor(d))
         return -1;
 
     return static_cast<int>(d);

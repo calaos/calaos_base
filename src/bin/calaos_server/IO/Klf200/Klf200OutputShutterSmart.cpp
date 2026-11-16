@@ -18,6 +18,8 @@
  **  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  **
  ******************************************************************************/
+#include <algorithm>
+
 #include "Klf200OutputShutterSmart.h"
 #include "Klf200Wire.h"
 #include "IOFactory.h"
@@ -46,8 +48,16 @@ Klf200OutputShutterSmart::Klf200OutputShutterSmart(Params &p):
     ioDoc->paramAddInt("impulse_time", _("Not used by this driver"), 0, 999999, false, 0, true);
     ioDoc->paramAdd("stop_both", _("Not used by this driver"), IODoc::TYPE_BOOL, false, string(), true);
 
+    //The gateway owns the motion: set_value() refuses these
+    ioDoc->actionRemove("impulse up 200");
+    ioDoc->actionRemove("impulse down 200");
+    ioDoc->actionRemove("calibrate");
+
     //Pin the time base to 100 so that position == percentage
     readConfig();
+
+    //The cached direction is stale: only the gateway knows if it moves
+    sens = SHUTTER_STOP;
 
     if (!get_params().Exists("host") || get_param("host").empty())
     {
@@ -109,39 +119,32 @@ bool Klf200OutputShutterSmart::sendPosition(int percent)
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
 
-    if (!ctrl)
-        return false;
-
     return ctrl->setPosition(Klf200Types::Host(host), Klf200Types::NodeId(nodeId), percent);
 }
 
 bool Klf200OutputShutterSmart::sendStop()
 {
-    if (!ctrl)
-        return false;
-
     return ctrl->stop(Klf200Types::Host(host), Klf200Types::NodeId(nodeId));
 }
 
-/* Grammar of OutputShutterSmart, minus what a gateway-managed device cannot
- * do (impulse up/down, calibrate): those are refused with false like any
- * other unknown action.
- *
- * Nothing here starts a timer: the movement state and the position come
- * back from the gateway through nodeEventReceived(). What is published right
- * away is the command state, so the UI shows the order was taken. */
+/* Grammar of OutputShutterSmart minus impulse and calibrate. No timer: the
+ * motion comes back through nodeEventReceived(); only cmd_state is published
+ * here, and nothing at all when the order could not be sent. */
 bool Klf200OutputShutterSmart::set_value(std::string val)
 {
     if (!isEnabled()) return true;
+
+    if (!ctrl)
+    {
+        cErrorDom(TAG) << "Klf200OutputShutterSmart(" << get_param("id")
+                       << "): not configured (host, password and node_id are required), action " << val << " refused";
+        return false;
+    }
 
     cInfoDom(TAG) << "Klf200OutputShutterSmart(" << get_param("id") << "): got action, " << val;
 
     const int current = (int)get_value_double();
 
-    /* Whether the order reached the gateway link. When it did not (process
-     * restarting, gateway session down), nothing is published: the IO keeps
-     * its state and the caller - a rule, the API - gets false instead of a
-     * success the window never saw. */
     const string previousCmdState = cmd_state;
     bool sent = true;
 
@@ -197,6 +200,7 @@ bool Klf200OutputShutterSmart::set_value(std::string val)
             return false;
         int percent;
         Utils::from_string(val, percent);
+        percent = std::clamp(percent, 0, 100);
         cmd_state = "up " + Utils::to_string(percent);
         sent = sendPosition(current - percent);
     }
@@ -207,6 +211,7 @@ bool Klf200OutputShutterSmart::set_value(std::string val)
             return false;
         int percent;
         Utils::from_string(val, percent);
+        percent = std::clamp(percent, 0, 100);
         cmd_state = "down " + Utils::to_string(percent);
         sent = sendPosition(current + percent);
     }
@@ -253,12 +258,9 @@ void Klf200OutputShutterSmart::nodeEventReceived(const Params &event)
     if (event["event"] != "node")
         return; //rain events are for Klf200InputSwitch
 
-    /* A window is a window: the base class defaults io_style to "shutter",
-     * and that default is upgraded to the style of what the gateway says the
-     * node is. Keyed on the value, not on io.xml carrying the attribute: the
-     * default is written to io.xml at the first save, and must not pin a
-     * window to a shutter icon from then on. A style the user chose (any
-     * value but the default) is never touched. */
+    /* The default "shutter" style becomes what the gateway says the node is.
+     * Keyed on the value, not on its presence: the default is saved to io.xml,
+     * and must not pin a window to a shutter icon. */
     const string style = Klf200Wire::styleOf(event);
     const string current = get_param("io_style");
     if ((current.empty() || current == "shutter") && current != style)
@@ -271,10 +273,8 @@ void Klf200OutputShutterSmart::nodeEventReceived(const Params &event)
     if (moving == "up") newSens = SHUTTER_UP;
     else if (moving == "down") newSens = SHUTTER_DOWN;
 
-    /* Nothing new, do not flood the clients. Compared with what the IO
-     * shows, not with the previous report: a set_state writes the position
-     * without the gateway knowing, and the next report, even identical to
-     * the last one, has to bring the IO back to the real position. */
+    /* Nothing new. Compared with what the IO shows, not with the last report:
+     * after a set_state, the next report must restore the real position. */
     if ((reported < 0 || reported == (int)get_value_double()) && newSens == sens)
         return;
 
