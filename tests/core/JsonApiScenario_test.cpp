@@ -72,6 +72,7 @@
 
 #include "AutoScenario.h"
 #include "EventManager.h"
+#include "IOChangeHub.h"
 #include "InPlageHoraire.h"
 #include "ListeRoom.h"
 #include "ListeRule.h"
@@ -162,6 +163,19 @@ std::string houseIosXml()
 
 } //namespace
 
+namespace
+{
+
+Json validRange(const std::string &day, const std::string &startHour)
+{
+    return Json{{ "day", day }, { "start_hour", startHour }, { "start_min", "0" }, { "start_sec", "0" },
+                { "start_type", "0" }, { "start_offset", "0" },
+                { "end_hour", "23" }, { "end_min", "0" }, { "end_sec", "0" },
+                { "end_type", "0" }, { "end_offset", "0" }};
+}
+
+} //namespace
+
 class JsonApiScenarioTest: public JsonApiCharacterizationTest
 {
 protected:
@@ -176,6 +190,16 @@ protected:
      * much its deliberate sparseness is worth, and this file has no need to
      * touch it.
      */
+    //The house's range as loaded: four slots, january/february/december.
+    void expectInitialRange(WsTestSession &ws)
+    {
+        ws.clear();
+        ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
+        ASSERT_EQ(1u, ws.count());
+        EXPECT_EQ(4u, ws.lastData()["ranges"].size());
+        EXPECT_EQ(MONTHS_JAN_FEB_DEC, ws.lastData().value("months", std::string()));
+    }
+
     void loadScenarioHouse()
     {
         loadConfig(ioXmlDocument(roomXml(E40C_ROOM_NAME, E40C_ROOM_TYPE, houseIosXml(), 0)),
@@ -630,15 +654,14 @@ TEST_F(JsonApiScenarioTest, GetTimerangeOfAnEmptyTimeRangeStillCarriesBothMember
 /*******************************************************************************
  * set_timerange
  *
- * buildJsonSetTimerange() (JsonApi.cpp:1586-1652). Destructive by design: it
- * calls InPlageHoraire::clear() BEFORE reading anything, so whatever it fails
- * to parse is simply lost.
+ * buildJsonSetTimerange(). The whole request is validated before anything is
+ * applied; an absent "ranges" or "months" keeps its value.
  ******************************************************************************/
 
 TEST_F(JsonApiScenarioTest, SetTimerangeRoundTripsWhatGetTimerangeAnswered)
 {
     //THE round trip of this file: the day+1 of toParams() and the "1".."7"
-    //read back by buildJsonSetTimerange() (JsonApi.cpp:1610-1616) have to
+    //read back by buildJsonSetTimerange() have to
     //agree, and the reversed months string has to survive its second reversal.
     //An off by one on either side moves a range to another day and shows here.
     loadScenarioHouse();
@@ -697,91 +720,242 @@ TEST_F(JsonApiScenarioTest, SetTimerangeMapsDayOneToMondayAndDaySevenToSunday)
     EXPECT_FALSE(range->months.test(InPlageHoraire::JANUARY));
 }
 
-TEST_F(JsonApiScenarioTest, SetTimerangeSilentlyDropsARangeWhoseDayIsOutOfRange)
+TEST_F(JsonApiScenarioTest, SetTimerangeRejectsAnOutOfRangeDayAndLeavesTheRangeUntouched)
 {
-    //FROZEN: the seven `if (p["day"] == ...)` of JsonApi.cpp:1610-1616 have no
-    //else. A range with day 0, day 8 or no day at all is parsed, logged on
-    //stdout, and then dropped - and the answer is still success:true.
+    loadScenarioHouse();
+
+    for (const char *day : { "0", "8", "x", "" })
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("set_timerange", Json{
+            { "id", IO_RANGE },
+            { "months", "111111111111" },
+            { "ranges", Json::array({ validRange("2", "4"), validRange(day, "5") }) }}));
+        ASSERT_EQ(1u, ws.count()) << day;
+        EXPECT_JSON_EQ(std::string(R"({"error":"invalid day"})"), ws.lastData()) << day;
+        expectInitialRange(ws);
+    }
+
+    //a missing "day" is the same error
+    WsTestSession ws;
+    Json noDay = validRange("1", "3");
+    noDay.erase("day");
+    ws.send(wsRequest("set_timerange", Json{
+        { "id", IO_RANGE }, { "ranges", Json::array({ noDay }) }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid day"})"), ws.lastData());
+    expectInitialRange(ws);
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeRejectsAnInvalidRangeBoundAndLeavesTheRangeUntouched)
+{
+    loadScenarioHouse();
+
+    struct Case { const char *field; const char *value; };
+    const std::vector<Case> cases = {
+        { "start_hour", "24" }, { "start_hour", "-1" }, { "start_hour", "" }, { "start_hour", "a" },
+        { "start_min", "60" }, { "start_sec", "60" }, { "start_type", "4" }, { "start_type", "-1" },
+        { "start_offset", "1.5" }, { "start_offset", "x" },
+        { "end_hour", "24" }, { "end_min", "60" }, { "end_sec", "60" }, { "end_type", "4" },
+        { "end_offset", "x" },
+    };
+    for (const Case &c : cases)
+    {
+        WsTestSession ws;
+        Json r = validRange("3", "6");
+        r[c.field] = c.value;
+        ws.send(wsRequest("set_timerange", Json{
+            { "id", IO_RANGE }, { "months", "111111111111" },
+            { "ranges", Json::array({ validRange("2", "4"), r }) }}));
+        ASSERT_EQ(1u, ws.count()) << c.field << "=" << c.value;
+        EXPECT_JSON_EQ(std::string(R"({"error":"invalid range"})"), ws.lastData())
+                << c.field << "=" << c.value;
+        expectInitialRange(ws);
+    }
+
+    //a field that is missing altogether
+    for (const char *field : { "start_hour", "start_min", "start_sec", "start_type", "start_offset",
+                               "end_hour", "end_min", "end_sec", "end_type", "end_offset" })
+    {
+        WsTestSession ws;
+        Json r = validRange("3", "6");
+        r.erase(field);
+        ws.send(wsRequest("set_timerange", Json{
+            { "id", IO_RANGE }, { "ranges", Json::array({ r }) }}));
+        ASSERT_EQ(1u, ws.count()) << field;
+        EXPECT_JSON_EQ(std::string(R"({"error":"invalid range"})"), ws.lastData()) << field;
+        expectInitialRange(ws);
+    }
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeAcceptsTheBoundsOfEveryField)
+{
     loadScenarioHouse();
 
     WsTestSession ws;
+    Json r = validRange("7", "23");
+    r["start_min"] = "59"; r["start_sec"] = "59"; r["start_type"] = "3"; r["start_offset"] = "-120";
+    r["end_hour"] = "0"; r["end_min"] = "0"; r["end_sec"] = "0"; r["end_type"] = "0"; r["end_offset"] = "0";
     ws.send(wsRequest("set_timerange", Json{
-        { "id", IO_RANGE },
-        { "ranges", Json::array({
-            Json{{ "day", "0" }, { "start_hour", "1" }},
-            Json{{ "day", "8" }, { "start_hour", "2" }},
-            Json{{ "start_hour", "3" }},
-            Json{{ "day", "2" }, { "start_hour", "4" }, { "start_min", "0" }, { "start_sec", "0" },
-                 { "start_type", "0" }, { "start_offset", "1" },
-                 { "end_hour", "5" }, { "end_min", "0" }, { "end_sec", "0" },
-                 { "end_type", "0" }, { "end_offset", "1" }}
-        }) }}));
-
+        { "id", IO_RANGE }, { "ranges", Json::array({ r }) }}));
     ASSERT_EQ(1u, ws.count());
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData());
 
-    ws.clear();
-    ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
-    ASSERT_EQ(1u, ws.count());
-    const Json ranges = ws.lastData()["ranges"];
-    ASSERT_EQ(1u, ranges.size()) << ranges.dump();
-    EXPECT_EQ("2", ranges[0].value("day", std::string()));
-    EXPECT_EQ("4", ranges[0].value("start_hour", std::string()));
+    InPlageHoraire *range = dynamic_cast<InPlageHoraire *>(io(IO_RANGE));
+    ASSERT_TRUE(range != nullptr);
+    ASSERT_EQ(1u, range->getSunday().size());
+    EXPECT_EQ("23", range->getSunday()[0].shour);
+    EXPECT_EQ(0u, range->getMonday().size());
 }
 
-TEST_F(JsonApiScenarioTest, SetTimerangeWithoutRangesWipesEveryRange)
+TEST_F(JsonApiScenarioTest, SetTimerangeRejectsMalformedRangesContainer)
 {
-    //o->clear() runs before anything is read (JsonApi.cpp:1596): a request
-    //that carries no "ranges" member at all empties the IO. There is no
-    //partial update in this API.
+    loadScenarioHouse();
+
+    for (const Json &bad : { Json("nope"), Json(3), Json{{ "a", "b" }},
+                             Json::array({ "x" }), Json::array({ 1 }) })
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "ranges", bad }}));
+        ASSERT_EQ(1u, ws.count()) << bad.dump();
+        EXPECT_JSON_EQ(std::string(R"({"error":"invalid ranges"})"), ws.lastData()) << bad.dump();
+        expectInitialRange(ws);
+    }
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeRejectsInvalidMonthsAndLeavesTheRangeUntouched)
+{
+    loadScenarioHouse();
+
+    for (const Json &bad : { Json("12x"), Json("1"), Json("1111111111111"), Json(""),
+                             Json("11111111111 "), Json(110000000001LL), Json::array({ "1" }) })
+    {
+        WsTestSession ws;
+        ws.send(wsRequest("set_timerange", Json{
+            { "id", IO_RANGE }, { "months", bad },
+            { "ranges", Json::array({ validRange("2", "4") }) }}));
+        ASSERT_EQ(1u, ws.count()) << bad.dump();
+        EXPECT_JSON_EQ(std::string(R"({"error":"invalid months"})"), ws.lastData()) << bad.dump();
+        //valid ranges next to bad months must not be applied either
+        expectInitialRange(ws);
+    }
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeKeepsWhatTheRequestDoesNotCarry)
+{
     loadScenarioHouse();
 
     WsTestSession ws;
-    ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
-    ASSERT_EQ(1u, ws.count());
-    ASSERT_EQ(4u, ws.lastData()["ranges"].size());
-
-    ws.clear();
     ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }}));
     ASSERT_EQ(1u, ws.count());
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData());
+    expectInitialRange(ws);
 
+    //months only: the four ranges stay
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "months", "100000000000" }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData());
     ws.clear();
     ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
     ASSERT_EQ(1u, ws.count());
-    const Json after = ws.lastData();
-    EXPECT_TRUE(after["ranges"].is_array());
-    EXPECT_EQ(0u, after["ranges"].size());
-    //months, on the other hand, is only touched when the member is present
-    EXPECT_EQ(MONTHS_JAN_FEB_DEC, after.value("months", std::string()));
+    EXPECT_EQ(4u, ws.lastData()["ranges"].size());
+    EXPECT_EQ("100000000000", ws.lastData().value("months", std::string()));
+
+    //ranges only: the months stay
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{
+        { "id", IO_RANGE }, { "ranges", Json::array({ validRange("4", "9") }) }}));
+    ASSERT_EQ(1u, ws.count());
+    ws.clear();
+    ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ(1u, ws.lastData()["ranges"].size());
+    EXPECT_EQ("100000000000", ws.lastData().value("months", std::string()));
 }
 
-TEST_F(JsonApiScenarioTest, SetTimerangeKeepsTheOldMonthsWhenTheNewOneIsUnparsable)
+TEST_F(JsonApiScenarioTest, SetTimerangeWithAnEmptyRangesArrayClearsEveryRange)
 {
-    //bitset<12>(string) throws on any character other than 0/1, and the catch
-    //logs and keeps the previous value (JsonApi.cpp:1626-1634). A shorter
-    //string is NOT an error: bitset zero fills the high bits, so "1" means
-    //january alone.
     loadScenarioHouse();
 
     WsTestSession ws;
-    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "months", "12x" }}));
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "ranges", Json::array() }}));
     ASSERT_EQ(1u, ws.count());
     EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData());
 
     ws.clear();
     ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
     ASSERT_EQ(1u, ws.count());
+    EXPECT_TRUE(ws.lastData()["ranges"].is_array());
+    EXPECT_EQ(0u, ws.lastData()["ranges"].size());
     EXPECT_EQ(MONTHS_JAN_FEB_DEC, ws.lastData().value("months", std::string()));
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeReevaluatesTheStateBeforeAnswering)
+{
+    loadScenarioHouse();
+
+    InPlageHoraire *range = dynamic_cast<InPlageHoraire *>(io(IO_RANGE));
+    ASSERT_TRUE(range != nullptr);
+
+    //Every day, all day, every month: true at any wall-clock time.
+    Json ranges = Json::array();
+    for (int d = 1; d <= 7; d++)
+    {
+        Json r = validRange(std::to_string(d), "0");
+        r["end_hour"] = "23"; r["end_min"] = "59"; r["end_sec"] = "59";
+        ranges.push_back(r);
+    }
+
+    WsTestSession ws;
+    ws.send(wsRequest("set_timerange", Json{
+        { "id", IO_RANGE }, { "months", "111111111111" }, { "ranges", ranges }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData());
+    EXPECT_TRUE(range->get_value_bool());
+
+    //and back to false as soon as the ranges are cleared, again with no pump
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "ranges", Json::array() }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_FALSE(range->get_value_bool());
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeNotifiesTheOwnerDeviceOnlyAfterAValidModification)
+{
+    loadScenarioHouse();
+
+    InPlageHoraire *range = dynamic_cast<InPlageHoraire *>(io(IO_RANGE));
+    ASSERT_TRUE(range != nullptr);
+
+    int notified = 0;
+    auto sub = IOChangeHub::Instance().subscribe(IO_RANGE, [&notified](IOBase &) { notified++; });
+
+    //not owned by a device: nobody to tell
+    WsTestSession ws;
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "months", "111111111111" }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ(0, notified);
+
+    range->setOwnerDevice("climate_owner");
+
+    //invalid request: no notification
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "months", "bad" }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_EQ(0, notified);
+
+    //valid request, even one that changes nothing
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "months", "111111111111" }}));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData());
+    EXPECT_EQ(1, notified);
 
     ws.clear();
-    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "months", "1" }}));
+    ws.send(wsRequest("set_timerange", Json{{ "id", IO_RANGE }, { "ranges", Json::array() }}));
     ASSERT_EQ(1u, ws.count());
-
-    ws.clear();
-    ws.send(wsRequest("get_timerange", Json{{ "id", IO_RANGE }}));
-    ASSERT_EQ(1u, ws.count());
-    EXPECT_EQ("100000000000", ws.lastData().value("months", std::string()));
+    EXPECT_EQ(2, notified);
 }
 
 TEST_F(JsonApiScenarioTest, SetTimerangeOnAnUnknownIdIsWrongInputOnBothTransports)

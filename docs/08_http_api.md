@@ -2813,12 +2813,7 @@ Réponse (capturé, `tests/core/golden/e40c_http_get_timerange.json`, extrait) :
 ([JsonApi.cpp:1800-1804](../src/bin/calaos_server/JsonApi.cpp)). IO qui n'est
 pas une plage horaire → `{"error":"wrong input"}`.
 
-### `set_timerange` (contrat cible, CP-BASE-TR)
-
-> **Contrat cible, pas encore sur master.** Il est livré par CP-BASE-TR ; d'ici là le serveur
-> garde le comportement gelé décrit dans [04_scenarios.md](04_scenarios.md) (`clear()` avant
-> lecture, aucune validation, prise en compte au tick suivant), et les chaînes `invalid *`
-> ci-dessous n'existent pas.
+### `set_timerange`
 
 Écrit une plage horaire (`InPlageHoraire`) : toute plage, y compris celle possédée par un
 climate. Refusé en session service (`scope denied`). Requête (WS ; en HTTP le même objet, corps
@@ -3224,7 +3219,7 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
 | `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
-| `invalid months` / `invalid day` / `invalid range` / `invalid ranges` | `set_timerange` (contrat cible, livré par CP-BASE-TR, pas encore sur master) | validation du corps, rien n'est modifié ; voir [`set_timerange`](#set_timerange-contrat-cible-cp-base-tr) |
+| `invalid months` / `invalid day` / `invalid range` / `invalid ranges` | `set_timerange` | validation du corps, rien n'est modifié ; voir [`set_timerange`](#set_timerange) |
 | `config_not_loaded` | `CONFIG_NOT_LOADED`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario` : un fichier à écrire n'a pas été chargé, rien n'a changé, voir [Fichier non chargé](#fichier-non-chargé) |
 | `config_not_written` | `CONFIG_NOT_WRITTEN`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario`, `set_timerange` : changement en mémoire, pas sur le disque, voir [Fichier non écrit](#fichier-non-écrit) |
 | `uuid not found` | [HistLogger.cpp:292](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |

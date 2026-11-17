@@ -28,12 +28,15 @@
 #include "CameraTokens.h"
 #include "HistLogger.h"
 #include "Device.h"
+#include "IOChangeHub.h"
 
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
 #include <arpa/inet.h>
 
 #include <cerrno>
+#include <climits>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
@@ -2714,6 +2717,25 @@ Json JsonApi::buildJsonGetTimerange(const Params &jParam)
  *    would have terminated the process tomorrow. Same tripwire as ScriptWire,
  *    ReolinkWire, WagoWire, OLAWire and the two KNX ends carry.
  */
+//The whole string must be the integer: "", " 5", "5x" and "5.5" are refused.
+static bool parseStrictInt(const string &s, int &out)
+{
+    if (s.empty() || s.size() > 11) return false;
+    char *end = nullptr;
+    errno = 0;
+    long v = strtol(s.c_str(), &end, 10);
+    if (errno != 0 || *end != '\0' || isspace((unsigned char)s[0])) return false;
+    if (v < INT_MIN || v > INT_MAX) return false;
+    out = (int)v;
+    return true;
+}
+
+static Json errorJson(const char *msg)
+{
+    Params p = {{ "error", msg }};
+    return p.toJson();
+}
+
 Json JsonApi::buildJsonSetTimerange(const Json &jdata)
 {
     string id = jsonStringGet(jdata, "id");
@@ -2724,70 +2746,103 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
         return p.toJson();
     }
 
-    o->clear();
-
-    /* json_array_foreach() ran json_array_size(NULL) == 0 and never entered
-     * the loop: an absent "ranges", or one that is not an array, must stay a
-     * no-op and NOT an error - the caller still gets success:true, and
-     * o->clear() above has already run. Frozen, not tidied.
-     */
-    Json jranges = Json::array();
+    //Everything is validated into locals first: a refused request must leave
+    //the IO exactly as it was.
+    Json jranges;
+    bool hasRanges = false;
+    bool hasMonths = false;
+    bitset<12> newMonths;
     if (jdata.is_object())
     {
-        const Json::const_iterator it = jdata.find("ranges");
-        if (it != jdata.cend() && it->is_array())
-            jranges = *it;
+        const Json::const_iterator mit = jdata.find("months");
+        if (mit != jdata.cend())
+        {
+            string m = mit->is_string()? mit->get<string>(): string();
+            if (m.size() != 12 || m.find_first_not_of("01") != string::npos)
+            {
+                std::reverse(m.begin(), m.end());
+                cErrorDom("network") << "wrong parameters for months: "
+                                     << logToken(m, MaxLoggedValue);
+                return errorJson("invalid months");
+            }
+
+            //reverse to have a left to right months representation
+            std::reverse(m.begin(), m.end());
+            newMonths = bitset<12>(m);
+            hasMonths = true;
+        }
+
+        const Json::const_iterator rit = jdata.find("ranges");
+        if (rit != jdata.cend())
+        {
+            if (!rit->is_array())
+                return errorJson("invalid ranges");
+            jranges = *rit;
+            hasRanges = true;
+        }
     }
 
+    static const char *const intFields[] = { "start_hour", "start_min", "start_sec", "start_type",
+                                             "start_offset", "end_hour", "end_min", "end_sec",
+                                             "end_type", "end_offset" };
+    static const int lowBound[] = { 0, 0, 0, 0, INT_MIN, 0, 0, 0, 0, INT_MIN };
+    static const int highBound[] = { 23, 59, 59, 3, INT_MAX, 23, 59, 59, 3, INT_MAX };
+
+    vector<TimeRange> days[7];
     for (const Json &value: jranges)
     {
+        if (!value.is_object())
+            return errorJson("invalid ranges");
+
         Params p;
         decodeJsonObject(value, p);
 
-        TimeRange tr(p);
+        int day = 0;
+        if (!parseStrictInt(p["day"], day) || day < 1 || day > 7)
+            return errorJson("invalid day");
 
-        /* A bare cout answered to no level at all, so nothing an installer
-         * sets could quiet it. And Params keeps EVERY key of the object the
-         * client sent, not the six a range is made of, so whatever was put
-         * beside them went out too. Bounded because a bound is one or two
-         * digits: anything longer is not one, and a control byte in it would
-         * forge a second line.
-         */
+        for (size_t i = 0; i < sizeof(intFields) / sizeof(intFields[0]); i++)
+        {
+            int v = 0;
+            if (!parseStrictInt(p[intFields[i]], v) || v < lowBound[i] || v > highBound[i])
+            {
+                cErrorDom("network") << "wrong parameters for time range field " << intFields[i];
+                return errorJson("invalid range");
+            }
+            //canonical form: the bounds are stored as text
+            p.Add(intFields[i], Utils::to_string(v));
+        }
+
         cDebugDom("network") << "Adding timerange on io " << id
-                             << ": day " << logToken(p["day"], 8) << " "
-                             << logToken(p["start_hour"], 8) << ":"
-                             << logToken(p["start_min"], 8) << ":"
-                             << logToken(p["start_sec"], 8) << " -> "
-                             << logToken(p["end_hour"], 8) << ":"
-                             << logToken(p["end_min"], 8) << ":"
-                             << logToken(p["end_sec"], 8);
+                             << ": day " << day << " "
+                             << p["start_hour"] << ":" << p["start_min"] << ":" << p["start_sec"]
+                             << " -> "
+                             << p["end_hour"] << ":" << p["end_min"] << ":" << p["end_sec"];
 
-        if (p["day"] == "1") o->AddMonday(tr);
-        if (p["day"] == "2") o->AddTuesday(tr);
-        if (p["day"] == "3") o->AddWednesday(tr);
-        if (p["day"] == "4") o->AddThursday(tr);
-        if (p["day"] == "5") o->AddFriday(tr);
-        if (p["day"] == "6") o->AddSaturday(tr);
-        if (p["day"] == "7") o->AddSunday(tr);
+        days[day - 1].push_back(TimeRange(p));
     }
 
-    //set months
-    string m = jsonStringGet(jdata, "months");
-    if (!m.empty())
+    if (hasRanges)
     {
-        //reverse to have a left to right months representation
-        std::reverse(m.begin(), m.end());
-
-        try
-        {
-            bitset<12> mset(m);
-            o->months = mset;
-        }
-        catch(...)
-        {
-            cErrorDom("network") << "wrong parameters for months: " << m;
-        }
+        o->setMonday(days[0]);
+        o->setTuesday(days[1]);
+        o->setWednesday(days[2]);
+        o->setThursday(days[3]);
+        o->setFriday(days[4]);
+        o->setSaturday(days[5]);
+        o->setSunday(days[6]);
     }
+    if (hasMonths)
+        o->months = newMonths;
+
+    //Not left to the next RunEventLoop tick: the state is current before the
+    //answer and before timerange_changed.
+    o->hasChanged();
+
+    //The owner publishes its io_changed even when the range state did not
+    //change: the program it exposes (next change) may have.
+    if (!o->getOwnerDevice().empty())
+        IOChangeHub::Instance().notify(o->get_param("id"));
 
     EventManager::create(CalaosEvent::EventTimeRangeChanged,
                          { { "id", o->get_param("id") } });
