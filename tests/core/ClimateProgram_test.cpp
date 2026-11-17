@@ -122,7 +122,7 @@ std::string levels(int heat, int cool)
 const std::vector<std::string> DEVICES = { "prog", "gap", "coolset", "wide", "heatonly",
                                            "big", "neg", "frac", "uniq", "off", "boot",
                                            "zh", "zc", "zr", "zn", "cl", "tg", "tm", "au",
-                                           "wi", "rs", "gr", "rd", "ml", "nm", "ow", "vb", "nr" };
+                                           "wi", "rs", "gr", "rd", "ml", "nm", "ow", "vb", "nr", "res" };
 
 std::string house()
 {
@@ -1104,4 +1104,43 @@ TEST_F(ClimateProgramTest, LevelSetpointsCopyTheBoundsOfTheTarget)
         EXPECT_EQ(io(id)->get_param("value_max"), "30") << id;
         EXPECT_EQ(io(id)->get_param("step"), "2") << id;
     }
+}
+
+TEST_F(ClimateProgramTest, AnIdKeptByAnInertElementIsNotTakenByAProgramIo)
+{
+    //The element sits after the thermostat and is kept as is: its ids are
+    //not in the model, only reserved.
+    const std::string inert =
+        "    <calaos:device id=\"future\" type=\"climate\" impl=\"future_impl\" name=\"F\">\n" +
+        ownedXml("InternalBool", "res_heat_level1") + ownedXml("InternalInt", "res_heat_default") +
+        "    </calaos:device>\n";
+    load(solo("res", false, levels(1, 0), inert), "res");
+
+    ASSERT_TRUE(ListeRoom::Instance().isIdReserved("res_heat_level1"));
+    EXPECT_EQ(io("res_heat_level1"), nullptr);
+    EXPECT_EQ(io("res_heat_default"), nullptr);
+    for (const char *role: { "heat_level1", "heat_default" })
+    {
+        const std::string id = linked("res", role);
+        EXPECT_EQ(id.rfind(std::string("res_") + role + "_", 0), 0u) << role << " -> " << id;
+        EXPECT_NE(io(id), nullptr) << id;
+    }
+    EXPECT_EQ(linked("res", "heat_level1_setpoint"), "res_heat_level1_setpoint");
+    expectUniqueIds();
+}
+
+TEST_F(ClimateProgramTest, ResolvingTheLinksAgainCreatesNothing)
+{
+    load();
+    const int before = ioCount();
+    const std::vector<std::string> ids = allIds();
+    const std::string level = linked("prog", "heat_level1");
+
+    dev("prog")->resolveLinks();
+    dev("prog")->resolveLinks();
+
+    EXPECT_EQ(ioCount(), before);
+    EXPECT_EQ(allIds(), ids);
+    EXPECT_EQ(linked("prog", "heat_level1"), level);
+    expectUniqueIds();
 }
