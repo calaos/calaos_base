@@ -1030,6 +1030,26 @@ private:
         {
             res.body = ok({ { "hostname", "calaos" }, { "uptime", 1234 }, { "cpu_usage", 3 }, { "mem_usage", 41 } });
         }
+        else if (req.method == "GET" && req.path == "/api/v2/system/snapshots")
+        {
+            res.body = ok({ { "booted", nullptr }, { "snapshots", { { { "id", 12 }, { "date", "2026-11-16T10:00:00Z" }, { "type", "pre" }, { "description", "apt" }, { "current", true }, { "default", true }, { "bootable", true } } } } });
+        }
+        else if (req.method == "GET" && req.path == "/api/v2/system/rescue")
+        {
+            //"extra" is not in the contract: a household client must not see it
+            res.body = ok({ { "rescue", true }, { "snapshot", 12 }, { "overlay", true }, { "extra", "secret" } });
+        }
+        else if (req.method == "POST" && (req.path == "/api/v2/system/snapshots/boot" || req.path == "/api/v2/system/snapshots/rollback"))
+        {
+            //sessionRequired on the daemon: the bearer alone is refused
+            if (!hasSession)
+            {
+                res.status = 401;
+                res.body = err("unauthorized");
+            }
+            else
+                res.body = ok(nullptr);
+        }
         else if (req.method == "GET" && req.path == "/api/v2/system/versions")
         {
             res.body = ok(versionsData());

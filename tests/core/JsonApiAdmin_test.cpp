@@ -1671,6 +1671,172 @@ TEST_F(JsonApiAdminTest, VersionsAnswersAHouseholdSessionWithoutAdminSession)
     }
 }
 
+TEST_F(JsonApiAdminTest, RescueStatusNeedsNoAdminSessionAndOnlyShowsTheRescueState)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.clearLog();
+
+    //Even a session in the request is not sent: this read does not need one
+    const Json answer = ws.admin("admin", { { "action", "rescue_status" }, { "admin_session", "not-a-session" } });
+    ASSERT_EQ("true", str(answer, "success")) << answer.dump();
+    EXPECT_EQ((Json{ { "rescue", true }, { "snapshot", 12 }, { "overlay", true } }), answer["result"]);
+
+    const auto log = fakeDaemon.requests();
+    ASSERT_EQ(1u, log.size()) << requestPaths();
+    EXPECT_EQ("GET", log[0].method);
+    EXPECT_EQ("/api/v2/system/rescue", log[0].path);
+    EXPECT_EQ(0u, log[0].headers.count("x-calaos-admin-session"));
+}
+
+TEST_F(JsonApiAdminTest, RescueStatusAnswersWhileTheAdminIsNotDefinedAndRelaysDaemonErrors)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    EXPECT_EQ("true", str(ws.admin("admin", { { "action", "rescue_status" } }), "success"));
+
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/rescue")
+            return false;
+        res.status = 503;
+        res.body = FakeDaemon::err("rescue_unavailable");
+        return true;
+    });
+    expectError(ws.admin("admin", { { "action", "rescue_status" } }), "rescue_unavailable");
+}
+
+TEST_F(JsonApiAdminTest, SnapshotActionsNeedAnAdminSession)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    //A household session is not enough, with or without a malformed session
+    for (const char *action: { "snapshots_list", "snapshot_boot", "snapshot_rollback" })
+    {
+        for (const char *session: { "", "not-a-session" })
+        {
+            fakeDaemon.clearLog();
+            expectError(ws.admin("admin", { { "action", action }, { "admin_session", session }, { "params", { { "id", 12 } } } }), "bad_session");
+            EXPECT_TRUE(fakeDaemon.requests().empty()) << action << " " << requestPaths();
+        }
+    }
+}
+
+TEST_F(JsonApiAdminTest, SnapshotActionsRelayTheSessionAndOnlyTheValidatedId)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    fakeDaemon.clearLog();
+    const Json list = ws.admin("admin", { { "action", "snapshots_list" }, { "admin_session", FakeDaemon::Session } });
+    ASSERT_EQ("true", str(list, "success")) << list.dump();
+    EXPECT_EQ(12, list["result"]["snapshots"][0]["id"].get<int>());
+    auto log = fakeDaemon.requests();
+    ASSERT_EQ(1u, log.size());
+    EXPECT_EQ("GET", log[0].method);
+    EXPECT_EQ("/api/v2/system/snapshots", log[0].path);
+    EXPECT_EQ(FakeDaemon::Session, log[0].headers.at("x-calaos-admin-session"));
+
+    fakeDaemon.clearLog();
+    const Json boot = ws.admin("admin", { { "action", "snapshot_boot" },
+                                          { "admin_session", FakeDaemon::Session },
+                                          { "path", "system/reboot" },
+                                          { "params", { { "id", 12 }, { "force", true }, { "package", "x" } } } });
+    ASSERT_EQ("true", str(boot, "success")) << boot.dump();
+    EXPECT_TRUE(boot["result"].is_null());
+    log = fakeDaemon.requests();
+    ASSERT_EQ(1u, log.size());
+    EXPECT_EQ("POST", log[0].method);
+    EXPECT_EQ("/api/v2/system/snapshots/boot", log[0].path);
+    EXPECT_EQ(FakeDaemon::Session, log[0].headers.at("x-calaos-admin-session"));
+    EXPECT_EQ("Bearer " + std::string(kBearer), log[0].headers.at("authorization"));
+    EXPECT_EQ((Json{ { "id", 12 } }), parse(log[0].body));
+
+    fakeDaemon.clearLog();
+    const Json rollback = ws.admin("admin", { { "action", "snapshot_rollback" },
+                                              { "admin_session", FakeDaemon::Session },
+                                              { "params", { { "id", 3 } } } });
+    ASSERT_EQ("true", str(rollback, "success")) << rollback.dump();
+    log = fakeDaemon.requests();
+    ASSERT_EQ(1u, log.size());
+    EXPECT_EQ("/api/v2/system/snapshots/rollback", log[0].path);
+    EXPECT_EQ(FakeDaemon::Session, log[0].headers.at("x-calaos-admin-session"));
+    EXPECT_EQ("{}", log[0].body);
+}
+
+TEST_F(JsonApiAdminTest, SnapshotBootRefusesAnIdThatIsNotAPositiveInteger)
+{
+    for (const Json &id: { Json("12"), Json(12.5), Json(0), Json(-1), Json(2147483648LL), Json(true), Json(nullptr), Json::array() })
+        EXPECT_EQ("invalid_request", str(JsonApi::adminRequestRefusal("snapshot_boot", Json{ { "params", { { "id", id } } } }), "error")) << id.dump();
+    EXPECT_EQ("invalid_request", str(JsonApi::adminRequestRefusal("snapshot_boot", Json{ { "params", Json::object() } }), "error"));
+    EXPECT_EQ("invalid_request", str(JsonApi::adminRequestRefusal("snapshot_boot", Json::object()), "error"));
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("snapshot_boot", Json{ { "params", { { "id", 2147483647 } } } }).is_null());
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("snapshot_rollback", Json::object()).is_null());
+    EXPECT_TRUE(JsonApi::adminRequestRefusal("snapshots_list", Json::object()).is_null());
+
+    EXPECT_EQ(35, JsonApi::adminRelayTimeout("snapshot_boot"));
+    EXPECT_EQ(35, JsonApi::adminRelayTimeout("snapshot_rollback"));
+    EXPECT_EQ(4, JsonApi::adminRelayTimeout("snapshots_list"));
+    EXPECT_EQ(4, JsonApi::adminRelayTimeout("rescue_status"));
+}
+
+TEST_F(JsonApiAdminTest, SnapshotErrorsOfTheDaemonKeepTheirCode)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+
+    struct Case
+    {
+        const char *code;
+        int status;
+        const char *action;
+    };
+    for (const Case &c: std::vector<Case>{ { "invalid_snapshot", 400, "snapshot_boot" },
+                                           { "not_bootable", 409, "snapshot_boot" },
+                                           { "snapshot_too_old", 409, "snapshot_boot" },
+                                           { "not_in_rescue", 409, "snapshot_rollback" },
+                                           { "upgrade_in_progress", 409, "snapshot_rollback" },
+                                           { "rescue_unavailable", 503, "snapshots_list" } })
+    {
+        fakeDaemon.setOverride([c](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path.compare(0, 20, "/api/v2/system/snaps") != 0)
+                return false;
+            res.status = c.status;
+            res.body = FakeDaemon::err(c.code);
+            return true;
+        });
+        expectError(ws.admin("admin", { { "action", c.action }, { "admin_session", FakeDaemon::Session }, { "params", { { "id", 12 } } } }), c.code);
+    }
+
+    //The daemon's 401 for a session it does not know is the client's bad_session
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/snapshots/boot")
+            return false;
+        res.status = 401;
+        res.body = FakeDaemon::err("bad_session");
+        return true;
+    });
+    expectError(ws.admin("admin", { { "action", "snapshot_boot" }, { "admin_session", FakeDaemon::Session }, { "params", { { "id", 12 } } } }), "bad_session");
+
+    //A bearer the daemon refuses is not shown as such
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/snapshots/rollback")
+            return false;
+        res.status = 401;
+        res.body = FakeDaemon::err("unauthorized");
+        return true;
+    });
+    expectError(ws.admin("admin", { { "action", "snapshot_rollback" }, { "admin_session", FakeDaemon::Session } }), "daemon_unreachable");
+}
+
 TEST_F(JsonApiAdminTest, VersionsWithTheContainerDownKeepsTheServerVersion)
 {
     adminDefined();

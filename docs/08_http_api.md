@@ -623,7 +623,7 @@ de `API.md`) :
 | connexion refusée, délai dépassé, réponse invalide | `daemon_unreachable` ou `admin_unavailable`, selon [`AdminState`](#état-admin-et-règle-collante) |
 | `401` dont le `code` n'est pas `bad_session` (y compris un corps sans `code`), après relecture du token et **une** nouvelle tentative | `daemon_unreachable` |
 | `404` sur `GET /api/v2/admin/status` (quel que soit le corps), ou tout `404` sur `/api/v2/` dont le corps n'est pas une enveloppe avec un `code` | `daemon_too_old` |
-| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held`, `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`, `approver_last`, `code_required`, `bad_code`, `code_expired`, `console_limit`, `network_pending`, `service_unavailable` | le même code |
+| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held`, `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`, `approver_last`, `code_required`, `bad_code`, `code_expired`, `console_limit`, `network_pending`, `service_unavailable`, `invalid_snapshot`, `not_bootable`, `snapshot_too_old`, `in_rescue`, `not_in_rescue`, `rescue_unavailable` | le même code |
 | `invalid_request`, `package_not_found` | le même code, avec le `msg` du daemon (affichable sans risque) |
 | `not_found` sur une route de la table de relais (le chemin est fixé par la table : la route n'existe pas dans un daemon qui la précède) | `daemon_too_old`, pour cette action seulement |
 | `internal`, `not_found` sur tout autre appel de calaos_server (`admin/push/{code_id}`…), `method_not_allowed`, tout code inconnu | `internal` |
@@ -796,14 +796,18 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
   ci-dessous) et `versions`, dont le `result` est `{server, system, error?}`. C'est la troisième exception à la règle
   « tout est chaîne » (après l'objet `device` et `eventlog`) ; `success` reste une chaîne.
   Les formes des `result` sont définies par `API.md` (`<Job>`, `<Status>`, etc.).
-- `admin_session` est requise partout, **sauf** `update_status` et `versions` (qui n'en transmet
-  aucune au daemon).
+- `admin_session` est requise partout, **sauf** `update_status`, `versions` et `rescue_status`
+  (qui n'en transmettent aucune au daemon).
 
 | `action` | `params` | Appel du daemon | Session | `result` |
 |---|---|---|:---:|---|
 | `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
 | `versions` | | `GET system/versions` | non | `{"server": "<version>", "system": <réponse du daemon, liste blanche> ou null, "error"?: "<code>"}` |
 | `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
+| `rescue_status` | | `GET system/rescue` | non | `{"rescue": <bool>, "overlay": <bool>, "snapshot": <entier ou null>}` (liste blanche, tout autre champ est abandonné) |
+| `snapshots_list` | | `GET system/snapshots` | oui | liste des snapshots, recopiée du daemon |
+| `snapshot_boot` | `id` | `POST system/snapshots/boot` | oui | `null` ; `id` est un entier JSON de 1 à 2147483647 (chaîne ou flottant : `invalid_request`), le corps envoyé est `{"id": <id>}` et rien d'autre ; délai 35 s |
+| `snapshot_rollback` | | `POST system/snapshots/rollback` | oui | `null` ; aucun corps transmis ; délai 35 s |
 | `update_available` | | `GET update/available` | oui | idem, sans contacter les miroirs |
 | `update_upgrade_all` | | `POST update/upgrade-all` | oui | `<Job>` (le daemon répond 202 et le job tourne) |
 | `update_upgrade` | `package` | `POST update/upgrade` | oui | `<Job>` |
@@ -865,6 +869,15 @@ donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unk
 l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
 `time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
 
+- **`rescue_status`** : l'état de secours, pour le bandeau des clients. Comme `versions`, il ne
+  demande ni `admin_session` ni admin défini et ne transmet au daemon ni session ni `params` ;
+  il reste réservé à une connexion WebSocket déjà ouverte par le login foyer. Le `result` est
+  réduit à `{rescue, overlay, snapshot}` ; les erreurs du daemon sont relayées comme pour les
+  autres actions. `snapshots_list`, `snapshot_boot` et `snapshot_rollback` exigent une
+  `admin_session` valide, transmise telle quelle au daemon (`X-Calaos-Admin-Session`) : le bearer
+  seul recevrait un `401`. Sans session, `bad_session` sans appel au daemon. Les codes du daemon
+  `invalid_snapshot`, `not_bootable`, `snapshot_too_old`, `in_rescue`, `not_in_rescue`,
+  `rescue_unavailable` et `upgrade_in_progress` sont renvoyés tels quels.
 - **`versions`** : les numéros de version de la box, pour la page
   « Versions » des clients. Avec `update_status` sans session, c'est la seule action du relais
   ouverte à une session foyer : elle n'exige ni `admin_session` ni admin défini (elle ne dépend ni
