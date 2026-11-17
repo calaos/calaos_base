@@ -74,7 +74,7 @@ Klf200InputSwitch::Klf200InputSwitch(Params &p):
 
     cInfoDom(TAG) << "Klf200InputSwitch(" << get_param("id") << "): rain sensor of node " << nodeId
                   << " on " << get_param("host");
-}
+} // LCOV_EXCL_LINE exception-cleanup landing pad only
 
 Klf200InputSwitch::~Klf200InputSwitch()
 {

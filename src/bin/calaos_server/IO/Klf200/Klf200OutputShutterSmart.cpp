@@ -94,7 +94,7 @@ Klf200OutputShutterSmart::Klf200OutputShutterSmart(Params &p):
     });
 
     cInfoDom(TAG) << "Klf200OutputShutterSmart(" << get_param("id") << "): node " << nodeId << " on " << host;
-}
+} // LCOV_EXCL_LINE exception-cleanup landing pad only
 
 Klf200OutputShutterSmart::~Klf200OutputShutterSmart()
 {
