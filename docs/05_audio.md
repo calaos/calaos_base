@@ -18,9 +18,9 @@ Le sous-système audio couvre **deux familles qui n'ont pas la même nature** :
 
 ⚠️ **Un ampli AV n'est pas dans le cache audio.** `ListeRoom::addIOHash()` ne pousse dans
 `audioCache` que les IOs de `gui_type == "audio_player"`
-(dérivé, [ListeRoom.cpp:84-86](../src/bin/calaos_server/ListeRoom.cpp)), et c'est ce cache que
+(dérivé, [ListeRoom.cpp:95-97](../src/bin/calaos_server/ListeRoom.cpp)), et c'est ce cache que
 `buildJsonAudio()` parcourt
-(dérivé, [JsonApi.cpp:393](../src/bin/calaos_server/JsonApi.cpp)). Un ampli est un IO ordinaire
+(dérivé, [JsonApi.cpp:395](../src/bin/calaos_server/JsonApi.cpp)). Un ampli est un IO ordinaire
 de la pièce ; il n'est **rattaché** à un lecteur que par le paramètre `amp` de celui-ci
 (voir plus bas).
 
@@ -36,7 +36,7 @@ d'IO. L'IO, c'est `IOAVReceiver`
 **Fichier :** [src/bin/calaos_server/Audio/AudioPlayer.h](../src/bin/calaos_server/Audio/AudioPlayer.h)
 
 Classe de base des lecteurs. `get_type()` rend `TSTRING`
-(dérivé, [Audio/AudioPlayer.h:107](../src/bin/calaos_server/Audio/AudioPlayer.h)).
+(dérivé, [Audio/AudioPlayer.h:111](../src/bin/calaos_server/Audio/AudioPlayer.h)).
 
 Le constructeur pose `gui_type = "audio_player"` et `visible = "false"`, puis **réinscrit l'IO**
 dans les caches de `ListeRoom` parce que le `gui_type` a changé après la construction d'`IOBase` :
@@ -57,7 +57,7 @@ dans les caches de `ListeRoom` parce que le `gui_type` a changé après la const
 ### Méthodes virtuelles (extrait)
 
 ```cpp
-// (dérivé, Audio/AudioPlayer.h:46-105, extrait)
+// (dérivé, Audio/AudioPlayer.h:50-109, extrait)
 virtual void Play() { }
 virtual void Pause() { }
 virtual void Stop() { }
@@ -95,7 +95,7 @@ Toutes les méthodes de lecture sont **asynchrones** : elles ne rendent rien, el
 ### `set_value(string)` — le vocabulaire de commande
 
 C'est ce que reçoit une action de règle visant un lecteur. Les valeurs reconnues, **exactement**
-(dérivé, [Audio/AudioPlayer.cpp:115-177](../src/bin/calaos_server/Audio/AudioPlayer.cpp)) :
+(dérivé, [Audio/AudioPlayer.cpp:113-175](../src/bin/calaos_server/Audio/AudioPlayer.cpp)) :
 
 | Valeur | Action |
 |---|---|
@@ -122,13 +122,13 @@ l'`ioDoc` du lecteur, donc ce que propose calaos_installer
 
 ⚠️ **Une valeur non reconnue ne produit aucune erreur** : elle ne déclenche rien, mais
 l'événement `EventIOChanged` est émis **quand même**, avec la valeur brute
-(dérivé, [Audio/AudioPlayer.cpp:179-183](../src/bin/calaos_server/Audio/AudioPlayer.cpp) —
+(dérivé, [Audio/AudioPlayer.cpp:177-181](../src/bin/calaos_server/Audio/AudioPlayer.cpp) —
 l'émission est hors de la chaîne de `else if`). Une action mal orthographiée est donc
 silencieuse côté serveur et visible côté client.
 
 `volume up` / `volume down` sont **relatifs** : ils demandent d'abord le volume courant au
 lecteur, puis appliquent le delta dans le callback
-(dérivé, [Audio/AudioPlayer.cpp:162-177,186-191](../src/bin/calaos_server/Audio/AudioPlayer.cpp)).
+(dérivé, [Audio/AudioPlayer.cpp:160-175,186-191](../src/bin/calaos_server/Audio/AudioPlayer.cpp)).
 
 ### Conditions et actions publiées à l'installeur
 
@@ -137,7 +137,7 @@ Conditions : `onplay`, `onpause`, `onstop`, `onsongchange`, `onplaylistchange`, 
 `hasChanged()` traduit le statut interne en l'une de ces chaînes, plus `onerror` par défaut, la
 garde dans `lastEvent` (renvoyé par `get_value_string()`) et émet `EventIOChanged` avec
 `{id, state}`
-(dérivé, [Audio/AudioPlayer.cpp:75-98](../src/bin/calaos_server/Audio/AudioPlayer.cpp)).
+(dérivé, [Audio/AudioPlayer.cpp:75-96](../src/bin/calaos_server/Audio/AudioPlayer.cpp)).
 
 Ce sont des conditions d'**évènement**, pas d'état « en lecture » : une condition (standard ou
 de sortie) compare le **dernier** évènement reçu. `onsongchange` (à chaque piste) et
@@ -228,16 +228,16 @@ Trois défauts corrigés, tous observables :
   laissait `inProgress` posé pour toujours sur la commande de tête : **toute la file était
   gelée après un seul dépassement**. Le traitement retombe désormais dans le tronc commun, la
   commande est échouée, dépilée, et la file est relancée
-  (dérivé, [Audio/Squeezebox.cpp:386-416](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
+  (dérivé, [Audio/Squeezebox.cpp:385-415](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
 - **Le callback en échec est désormais appelé.** Il ne l'était **jamais** : l'appelant restait en
   attente indéfiniment. Il est maintenant émis avec `status = false`
-  (dérivé, [Audio/Squeezebox.cpp:398-410](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
+  (dérivé, [Audio/Squeezebox.cpp:397-409](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
 - **La reconnexion est effective.** `close()` seul ne déclenchait aucune reconnexion (la logique
   était accrochée aux seuls événements `Error`/`End`) : les deux connexions sont maintenant
   fermées et deux reconnexions sont planifiées explicitement
-  (dérivé, [Audio/Squeezebox.cpp:365-384](../src/bin/calaos_server/Audio/Squeezebox.cpp)). À la
+  (dérivé, [Audio/Squeezebox.cpp:364-383](../src/bin/calaos_server/Audio/Squeezebox.cpp)). À la
   reconnexion, une commande restée marquée en cours est **redéclenchée** au lieu d'attendre son
-  timeout (dérivé, [Audio/Squeezebox.cpp:175-183](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
+  timeout (dérivé, [Audio/Squeezebox.cpp:174-182](../src/bin/calaos_server/Audio/Squeezebox.cpp)).
 
 ### SqueezeboxDB
 
@@ -276,7 +276,7 @@ Python `ExternProcRoon_main.py`).
 ⚠️ **`port` est déclaré obligatoire et sans défaut — le « 9330 » de la ligne de code est un
 argument mal placé.** La signature est
 `paramAdd(name, description, ParamType type, bool mandatory, string defaultval = "", bool readonly = false)`
-(dérivé, [IO/IODoc.h:46](../src/bin/calaos_server/IO/IODoc.h)) : dans
+(dérivé, [IO/IODoc.h:50](../src/bin/calaos_server/IO/IODoc.h)) : dans
 `paramAdd("port", …, IODoc::TYPE_INT, 9330)` le `9330` occupe la place de **`mandatory`** et vaut
 donc `true`, tandis que `defaultval` reste **vide**
 (dérivé, [Audio/RoonPlayer.cpp:174](../src/bin/calaos_server/Audio/RoonPlayer.cpp)).
@@ -290,7 +290,7 @@ que `host` est posé. **Renseigner explicitement `port` si l'on renseigne `host`
 `docs/refactoring/FINDINGS.md`.
 
 ⚠️ **Roon ne fournit ni playlist ni base musicale** : `canPlaylist()` et `canDatabase()` rendent
-`false` (dérivé, [Audio/RoonPlayer.h:176-177](../src/bin/calaos_server/Audio/RoonPlayer.h)).
+`false` (dérivé, [Audio/RoonPlayer.h:180-181](../src/bin/calaos_server/Audio/RoonPlayer.h)).
 C'est visible dans la maison de référence :
 
 ```json
@@ -320,7 +320,7 @@ l'écran Médiathèque sur un lecteur Roon suffisait à faire tomber le serveur.
 La garde, appelée **juste avant le déréférencement** dans les seize builders :
 
 ```cpp
-// (dérivé, JsonApi.cpp:976-985, intégral)
+// (dérivé, JsonApi.cpp:1139-1148, intégral)
 bool JsonApi::audioDbUnavailable(AudioPlayer *player,
                                  const std::function<void(json_t *)> &result_lambda)
 {
@@ -337,7 +337,7 @@ bool JsonApi::audioDbUnavailable(AudioPlayer *player,
 seulement **publiée** dans `get_home` ; la précondition du déréférencement est
 `database != nullptr`. Les deux ne coïncident qu'accidentellement aujourd'hui, et les deux sens
 de l'écart sont épinglés par les tests
-(dérivé, [JsonApi.cpp:948-956](../src/bin/calaos_server/JsonApi.cpp),
+(dérivé, [JsonApi.cpp:1111-1119](../src/bin/calaos_server/JsonApi.cpp),
 [tests/core/JsonApiInputGuards_test.cpp](../tests/core/JsonApiInputGuards_test.cpp)).
 
 La réponse **réutilise le vocabulaire d'erreur existant**, aucune forme nouvelle n'est
@@ -376,7 +376,7 @@ Deux classes distinctes :
 - **`AVReceiver`** — le transport vers l'ampli. **N'hérite pas d'`IOBase`.** Il est
   **partagé et compté en références** : `AVRManager::Create()` retrouve l'instance par `host` et
   incrémente `ref_count` au lieu d'en créer une seconde
-  (dérivé, [Audio/AVRManager.cpp:50-78](../src/bin/calaos_server/Audio/AVRManager.cpp)). Trois
+  (dérivé, [Audio/AVRManager.cpp:45-73](../src/bin/calaos_server/Audio/AVRManager.cpp)). Trois
   zones d'un même ampli partagent donc **une** connexion.
 - **`IOAVReceiver`** — l'IO, `TSTRING`, une instance **par zone**
   (dérivé, [Audio/AVReceiver.h:141-166](../src/bin/calaos_server/Audio/AVReceiver.h)).
@@ -407,7 +407,7 @@ Deux classes distinctes :
 | `yamaha` | `AVRYamaha` | YNCA Yamaha |
 | **`hifirose`** | `AVRRose` | API HTTP HiFi Rose |
 
-(dérivé, [Audio/AVRManager.cpp:55-71](../src/bin/calaos_server/Audio/AVRManager.cpp).)
+(dérivé, [Audio/AVRManager.cpp:50-66](../src/bin/calaos_server/Audio/AVRManager.cpp).)
 
 ⚠️ La valeur pour un ampli Rose est **`hifirose`**. La description du paramètre `model` publiée à
 l'installeur ne liste que cinq modèles et **omet `hifirose`**
@@ -416,7 +416,7 @@ l'installeur ne liste que cinq modèles et **omet `hifirose`**
 
 Un `model` inconnu ne crée **pas** l'ampli : `AVRManager::Create()` journalise
 `AVRManager(): Unknown A/V Receiver model <model>` et rend `NULL`
-(dérivé, [Audio/AVRManager.cpp:67-71](../src/bin/calaos_server/Audio/AVRManager.cpp)). L'IO
+(dérivé, [Audio/AVRManager.cpp:62-66](../src/bin/calaos_server/Audio/AVRManager.cpp)). L'IO
 existe alors sans transport et ses commandes sont sans effet
 (dérivé, [Audio/AVReceiver.cpp:328](../src/bin/calaos_server/Audio/AVReceiver.cpp) :
 `if (!isEnabled() || !receiver) return false;`).
@@ -494,7 +494,7 @@ Le préfixe dépend de la zone : `MV` en zone 1, `Z2` en zone 2, `Z3` en zone 3
 
 Registre singleton des amplis, **indexé par `host`**. `Create()` incrémente `ref_count`,
 `Delete()` le décrémente ; l'objet n'est détruit qu'au dernier relâchement
-(dérivé, [Audio/AVRManager.cpp:43-48,50-78,80…](../src/bin/calaos_server/Audio/AVRManager.cpp)).
+(dérivé, [Audio/AVRManager.cpp:35-43,50-78,80…](../src/bin/calaos_server/Audio/AVRManager.cpp)).
 
 ### AVRRoseNotifServer
 
@@ -562,18 +562,18 @@ que **deux** actions audio, chacune portant une clé **`audio_action`** qui nomm
 
 | action | sous-actions | dispatch |
 |---|---|---|
-| `audio` | `get_playlist_size`, `get_time`, `get_playlist_item`, `get_cover_url` (+ `get_cover` **en HTTP seulement**) | [JsonApiHandlerWS.cpp:350-374](../src/bin/calaos_server/JsonApiHandlerWS.cpp), [JsonApiHandlerHttp.cpp:691-716](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) |
-| `audio_db` | seize sous-actions | [JsonApiHandlerWS.cpp:376-461](../src/bin/calaos_server/JsonApiHandlerWS.cpp), [JsonApiHandlerHttp.cpp:781-862](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) |
+| `audio` | `get_playlist_size`, `get_time`, `get_playlist_item`, `get_cover_url` (+ `get_cover` **en HTTP seulement**) | [JsonApiHandlerWS.cpp:403-461](../src/bin/calaos_server/JsonApiHandlerWS.cpp), [JsonApiHandlerHttp.cpp:929-954](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) |
+| `audio_db` | seize sous-actions | [JsonApiHandlerWS.cpp:463-548](../src/bin/calaos_server/JsonApiHandlerWS.cpp), [JsonApiHandlerHttp.cpp:1021-1146](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) |
 
 ⚠️ **Divergence de nom entre transports sur les albums** : la même sous-action s'appelle
 `get_albums` en HTTP et `get_album` en WebSocket
-(dérivé, [JsonApiHandlerHttp.cpp:781](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
-[JsonApiHandlerWS.cpp:380](../src/bin/calaos_server/JsonApiHandlerWS.cpp)). Un client
+(dérivé, [JsonApiHandlerHttp.cpp:1021](../src/bin/calaos_server/JsonApiHandlerHttp.cpp),
+[JsonApiHandlerWS.cpp:467](../src/bin/calaos_server/JsonApiHandlerWS.cpp)). Un client
 multi-transport doit écrire les deux.
 
 Une sous-action inconnue ou absente est refusée par
 `{"error": "unkown audio_action"}` (la coquille est dans le code, elle est gelée)
-(dérivé, [JsonApiHandlerWS.cpp:374,461](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
+(dérivé, [JsonApiHandlerWS.cpp:461,461](../src/bin/calaos_server/JsonApiHandlerWS.cpp)).
 
 ⚠️ **`audio_action` n'est pas repris dans toutes les réponses.** `get_stats` le renvoie,
 `get_playlist_size` et `get_time` l'avalent. Un client ne peut donc pas s'en servir pour
@@ -618,10 +618,10 @@ décrit dans [08_http_api.md](08_http_api.md).
 `buildJsonAudio()` rend, pour chaque lecteur du cache audio : `id`, `name`, `type`,
 `playlist` (`canPlaylist()`), `database` (`canDatabase()`), et `avr` **si et seulement si** le
 lecteur porte un paramètre `amp`
-(dérivé, [JsonApi.cpp:389-419](../src/bin/calaos_server/JsonApi.cpp)). Les informations
+(dérivé, [JsonApi.cpp:525-573](../src/bin/calaos_server/JsonApi.cpp)). Les informations
 détaillées (titre, volume, position) ne sont **délibérément pas** demandées ici, pour ne pas
 retarder `get_home` par un aller-retour vers chaque lecteur : elles s'obtiennent par `get_state`
-(dérivé, [JsonApi.cpp:412-414](../src/bin/calaos_server/JsonApi.cpp)).
+(dérivé, [JsonApi.cpp:566-568](../src/bin/calaos_server/JsonApi.cpp)).
 
 ### Plus de plantage sur déconnexion en cours de requête (T3.17a/b/c)
 

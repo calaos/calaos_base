@@ -16,20 +16,20 @@ d'exécution des actions (dérivé, `Rule.h:76-81`).
 
 Les règles sont déclenchées par :
 1. le signal d'un IO qui change de valeur → `ListeRule::ExecuteRuleSignal(id)`
-   (dérivé, `ListeRule.cpp:388-408`) ;
+   (dérivé, `ListeRule.cpp:394-414`) ;
 2. un balayage périodique des IOs qui se sont **eux-mêmes inscrits** dans `in_event` —
    `InputTime`, `InputAnalog` et `InPlageHoraire`, et **eux seuls** (dérivé, recherche exhaustive
    de `ListeRule::Instance().Add(this)` sur `src/bin/calaos_server/IO/` :
-   `InputTime.cpp:52`, `InputAnalog.cpp:64`, `InPlageHoraire.cpp:48`) →
+   `InputTime.cpp:52`, `InputAnalog.cpp:72`, `InPlageHoraire.cpp:48`) →
    `ListeRule::RunEventLoop()`, armé par un `Timer` de **0,1 s**
-   (dérivé, `main.cpp:194`, `ListeRule.cpp:208-221`).
+   (dérivé, `main.cpp:194`, `ListeRule.cpp:209-222`).
    ⚠️ **`InputTimer` n'en fait pas partie**, et il ne passe pas non plus par `hasChanged()` — le
    sien a un **corps vide** (dérivé, `IO/InputTimer.cpp:186-189`). Il porte son propre `Timer` et,
    à l'expiration, `TimerDone()` pose `value = "true"` puis appelle `EmitSignalIO()`
    (dérivé, `IO/InputTimer.cpp:154-156`, `:168-174`) : il retombe donc dans le **cas 1** ci-dessus,
-   via `IOBase::EmitSignalIO()` → `ListeRule::ExecuteRuleSignal(id)` (dérivé, `IOBase.cpp:157-162`) ;
+   via `IOBase::EmitSignalIO()` → `ListeRule::ExecuteRuleSignal(id)` (dérivé, `IOBase.cpp:163-168`) ;
 3. au démarrage, pour les règles portant une `ConditionStart` → `ListeRule::ExecuteStartRules()`
-   (dérivé, `ListeRule.cpp:464-487`).
+   (dérivé, `ListeRule.cpp:470-493`).
 
 ⚠️ `RunEventLoop()` n'est **pas** une boucle : c'est **une passe** sur la liste `in_event`, qui
 appelle `hasChanged()` sur chaque IO enregistré. C'est le `Timer` de `main.cpp` qui la répète.
@@ -55,21 +55,21 @@ lr.RunEventLoop();                   // une passe sur les IOs temporels enregist
 Deux conteneurs auxiliaires, tous deux **non propriétaires** (dérivé, `ListeRule.h:57-76`) :
 - `in_event` — les IOs qui se sont eux-mêmes inscrits au balayage périodique ;
 - `rules_scenarios` — index des règles d'auto-scénario. Il admet **deux clés** : une règle y entre
-  si elle porte `auto_scenario` **ou** `autoscenario_uid` (dérivé, `ListeRule.cpp:120-126`). Deux
+  si elle porte `auto_scenario` **ou** `autoscenario_uid` (dérivé, `ListeRule.cpp:121-127`). Deux
   lectures le servent : `getRuleAutoScenario()` (par `auto_scenario`, la clé historique) et
   `getRulesOfScenarioUid()` (par l'uid de la définition, la seule qui autorise une destruction)
-  (dérivé, `ListeRule.cpp:502-530`, `ListeRule.h:214-222`). ⚠️ Un uid **vide** n'est pas une
+  (dérivé, `ListeRule.cpp:508-536`, `ListeRule.h:214-222`). ⚠️ Un uid **vide** n'est pas une
   identité : `getRulesOfScenarioUid("")` rend une liste vide plutôt que toutes les règles dont le
-  param est absent (dérivé, `ListeRule.cpp:521-524`).
+  param est absent (dérivé, `ListeRule.cpp:527-530`).
 
 ### Réentrance
 
 Une action modifie un IO, qui re-signale dans `ExecuteRuleSignal()` **pendant** que la marche
 courante est encore sur la pile. Les déclencheurs reçus dans cette fenêtre sont **différés** dans
 `pendingTriggers` et rejoués par la marche la plus externe quand elle rend la main
-(dérivé, `ListeRule.cpp:388-408`, `:377-386`, `ListeRule.h:95`). Les conditions script asynchrones
+(dérivé, `ListeRule.cpp:394-414`, `:383-392`, `ListeRule.h:95`). Les conditions script asynchrones
 ne tiennent **pas** ce verrou : leur protection est le jeton de durée de vie de la `Rule`
-(`Rule::aliveToken()`, dérivé, `ListeRule.cpp:332-344`, `Rule.h:114-122`, `:131-132`).
+(`Rule::aliveToken()`, dérivé, `ListeRule.cpp:338-350`, `Rule.h:114-122`, `:131-132`).
 
 ---
 
@@ -111,9 +111,9 @@ Rule::Execute()
 (dérivé, `Rule.cpp:120-138`, `:140-166`, `:233-265`)
 
 ⚠️ `Rule::Execute()` n'est employée **que** par `ExecuteStartRules()`
-(dérivé, `ListeRule.cpp:485`). Le chemin de déclenchement ordinaire ne passe pas par elle : il
+(dérivé, `ListeRule.cpp:491`). Le chemin de déclenchement ordinaire ne passe pas par elle : il
 collecte les règles avec `collectTriggeredRules()` — qui évalue les conditions — puis appelle
-directement `ExecuteActions()` (dérivé, `ListeRule.cpp:316-330`).
+directement `ExecuteActions()` (dérivé, `ListeRule.cpp:317-336`).
 
 Version asynchrone, pour les règles portant une `ConditionScript` :
 ```cpp
@@ -152,12 +152,12 @@ l'exécution, et le refus est posé à **six endroits indépendants** :
 
 | Porte | Emplacement | Effet |
 |---|---|---|
-| Collecte des déclencheurs | `ListeRule.cpp:241-242` | la règle n'est même pas regardée |
+| Collecte des déclencheurs | `ListeRule.cpp:242-243` | la règle n'est même pas regardée |
 | `Rule::Execute()` | `Rule.cpp:124-130` | refus + log |
 | `Rule::CheckConditions()` | `Rule.cpp:147-153` | renvoie **false** (fail closed) |
 | `Rule::CheckConditionsAsync()` | `Rule.cpp:171-178` | `cb(false)` **avant** tout spawn de script |
 | `Rule::ExecuteActions()` | `Rule.cpp:239-245` | aucune action n'est exécutée |
-| `ExecuteStartRules()` | `ListeRule.cpp:472-473` | la règle ne tourne pas non plus au boot |
+| `ExecuteStartRules()` | `ListeRule.cpp:478-479` | la règle ne tourne pas non plus au boot |
 
 La porte de `CheckConditions()` est indispensable : une règle dont **toutes** les conditions
 avaient été rejetées répondait `true` — pour zéro condition (dérivé, `Rule.cpp:142-146`).
@@ -167,18 +167,18 @@ avaient été rejetées répondait `true` — pour zéro condition (dérivé, `R
 Les loaders `ConditionStd`, `ConditionOutput`, `ConditionScript` et `ActionStd` **n'amputent
 plus** : ils gardent l'id, l'opérateur, la valeur et `val_var` tels que le fichier les décrit, et
 enregistrent l'id dans `missingIoIds` (dérivé, `ConditionStd.cpp:476-513`,
-`ActionStd.cpp:322-348`, `ConditionOutput.cpp:237-273`, `ConditionScript.cpp:118-143`).
+`ActionStd.cpp:325-351`, `ConditionOutput.cpp:237-273`, `ConditionScript.cpp:118-143`).
 
 Conséquence : **`SaveToXml()` réécrit la référence morte à l'identique** — le id **est** la
 référence, la sauvegarde ne résout plus rien (dérivé, `ConditionStd.cpp:525-539`,
-`ActionStd.cpp:360-372`). Réécrire la configuration ne détruit donc plus ce que l'utilisateur avait
+`ActionStd.cpp:363-375`). Réécrire la configuration ne détruit donc plus ce que l'utilisateur avait
 écrit ; c'était exactement ce qui faisait disparaître l'id à la sauvegarde suivante.
 
 ### Un id vide est une dépendance manquante, sous une sentinelle
 
 Une balise `<calaos:input>` sans attribut `id`, ou avec `id=""`, est traitée **avant** toute
 tentative de résolution et enregistrée sous la sentinelle **`"<no id>"`**
-(dérivé, `Condition.h:91`, `Action.h:75`, `ConditionStd.cpp:431-452`, `ActionStd.cpp:279-292`).
+(dérivé, `Condition.h:91`, `Action.h:75`, `ConditionStd.cpp:431-452`, `ActionStd.cpp:282-295`).
 
 Deux raisons, toutes deux mesurées :
 - `Add("")` est un no-op, donc laisser passer un id vide laissait la condition avec **zéro
@@ -209,7 +209,7 @@ non résolu, `missingIoIds` reste vide, la règle repart. `Rule.h:106-109` le di
 | Chemin | Quand | Mécanisme |
 |---|---|---|
 | **Chargement** | l'id n'existe pas dans `io.xml` | `Condition/Action::addMissingIo()` puis `Rule::AddCondition()/AddAction()` remontent l'id (dérivé, `Rule.cpp:50-83`) |
-| **À chaud** | l'IO est supprimé alors que le serveur tourne | `ListeRule::RemoveRule(io)` avec la politique par défaut **`RuleDetachPolicy::Disable`** : la règle est **conservée**, seulement marquée par `Rule::markIoMissing(id)` (dérivé, `ListeRule.cpp:437-461`, `Rule.h:36-56`) |
+| **À chaud** | l'IO est supprimé alors que le serveur tourne | `ListeRule::RemoveRule(io)` avec la politique par défaut **`RuleDetachPolicy::Disable`** : la règle est **conservée**, seulement marquée par `Rule::markIoMissing(id)` (dérivé, `ListeRule.cpp:443-467`, `Rule.h:36-56`) |
 
 C'est **T3.18** qui a introduit `RuleDetachPolicy`. Auparavant `RemoveRule()` **détruisait** les
 règles citant l'IO. `Destroy` reste la politique **explicite** de quatre sites de démontage —
@@ -226,25 +226,25 @@ champ stocké côté règle (dérivé, `Rule.h:171-179`).
 
 `ListeRule::getDisabledRules()` donne la vue programmatique (dérivé, `ListeRule.h:230`).
 `Config::LoadConfigRule()` en fait, au démarrage, un **rapport agrégé** envoyé par le canal
-mail + push déjà utilisé pour les configurations corrompues (dérivé, `CalaosConfig.cpp:402-457`).
+mail + push déjà utilisé pour les configurations corrompues (dérivé, `CalaosConfig.cpp:500-555`).
 
 Le rapport nomme la règle **et son scénario** quand la règle porte le paramètre
 **`autoscenario_uid`** — `<id>_step` ne dit rien à personne — et ajoute alors un avertissement
-spécifique (dérivé, `CalaosConfig.cpp:431-444`) :
+spécifique (dérivé, `CalaosConfig.cpp:529-542`) :
 
 > `A SCENARIO is among them: a scenario disabled this way stays disabled even once the missing IOs
 > are back, and has to be re-enabled explicitly (autoscenario reenable).`
 
-(capturé, `CalaosConfig.cpp:451-453`, intégral)
+(capturé, `CalaosConfig.cpp:549-551`, intégral)
 
 ⚠️ **Le prédicat est l'uid, pas le marqueur historique `auto_scenario`.** Ce dernier vit aussi sur
 des règles qu'aucun scénario ne revendique plus ; les annoncer comme les étapes d'un scénario
 envoyait l'utilisateur chercher un scénario introuvable. Seule une règle que la projection a écrite
-porte l'uid (dérivé, `CalaosConfig.cpp:426-431`). Une règle héritée est **toujours signalée**, mais
+porte l'uid (dérivé, `CalaosConfig.cpp:524-529`). Une règle héritée est **toujours signalée**, mais
 comme une règle ordinaire — rien n'est masqué.
 
 ⚠️ **Et le paragraphe « *A SCENARIO is among them* » n'est ajouté que si au moins une des règles
-désactivées est réellement une étape de scénario** (dérivé, `CalaosConfig.cpp:449-454`) : une règle
+désactivées est réellement une étape de scénario** (dérivé, `CalaosConfig.cpp:547-552`) : une règle
 ordinaire, elle, se remet à fonctionner toute seule après un rechargement.
 
 C'est la différence de fond avec les règles ordinaires : voir
@@ -267,7 +267,7 @@ C'est la différence de fond avec les règles ordinaires : voir
 
 (dérivé, `RulesFactory.cpp:64-86` pour la fabrique, et les `SaveToXml()` respectifs :
 `ConditionStd.cpp:522`, `ConditionStart.cpp:61`, `ConditionScript.cpp:152`,
-`ConditionOutput.cpp:283`)
+`ConditionOutput.cpp:303`)
 
 ⚠️ Ce sont bien `"standard"`, `"start"`, `"script"`, `"output"` — **pas** les noms de classe C++.
 Un `type` inconnu fait renvoyer `NULL` par la fabrique et la condition est simplement ignorée.
@@ -326,11 +326,11 @@ valeur de comparaison — écrit seulement s'il est non vide).
 ### ConditionOutput
 
 Compare l'état actuel d'une **sortie**. Elle ne porte qu'**un seul** output — `outputId`, `ops`,
-`params`, `params_var` sont des scalaires, pas des listes (dérivé, `ConditionOutput.cpp:280-294`).
+`params`, `params_var` sont des scalaires, pas des listes (dérivé, `ConditionOutput.cpp:299-313`).
 
 Pour les IOs `TSTRING`, la comparaison est déléguée à `IOBase::check_condition_value(val, equal)`,
 que redéfinissent `OutputShutter`, `OutputShutterSmart`, `OutputLightDimmer` et `OutputLightRGB`
-(dérivé, `ConditionOutput.cpp:201-210`, `IOBase.h:181`). Seuls `==` et `!=` sont acceptés dans ce
+(dérivé, `ConditionOutput.cpp:201-210`, `IOBase.h:214`). Seuls `==` et `!=` sont acceptés dans ce
 cas (dérivé, `ConditionOutput.cpp:203-207`).
 
 ```xml
@@ -338,13 +338,13 @@ cas (dérivé, `ConditionOutput.cpp:203-207`).
   <calaos:output id="id-volet" oper="==" val="up"/>
 </calaos:condition>
 ```
-(dérivé, `ConditionOutput.cpp:280-294`)
+(dérivé, `ConditionOutput.cpp:299-313`)
 
 ### ConditionStart
 
 Vraie **une seule fois**, au premier appel à `Evaluate()`, qu'elle latche à `false`
 (dérivé, `ConditionStart.cpp:36-51`). En pratique cela arrive dans `ExecuteStartRules()`, qui
-n'exécute que les règles portant une telle condition (dérivé, `ListeRule.cpp:470-480`).
+n'exécute que les règles portant une telle condition (dérivé, `ListeRule.cpp:476-486`).
 
 Elle ne porte aucun paramètre et ne se sérialise qu'en un nœud vide :
 ```xml
@@ -408,23 +408,23 @@ télécharger un instantané de caméra (dérivé, `RulesFactory.cpp:101-148` �
 **Fichier :** [src/bin/calaos_server/Rules/ActionStd.h](../src/bin/calaos_server/Rules/ActionStd.h)
 
 Action la plus courante. Applique une valeur à une **liste** de sorties (dérivé,
-`ActionStd.cpp:91-218`). Comme `ConditionStd`, elle référence les sorties **par id**, résolus une
-fois par sortie et par exécution (dérivé, `ActionStd.cpp:95-97`).
+`ActionStd.cpp:92-221`). Comme `ConditionStd`, elle référence les sorties **par id**, résolus une
+fois par sortie et par exécution (dérivé, `ActionStd.cpp:96-98`).
 
 Deux refus, tous deux journalisés et sans déréférencement :
-- l'id ne résout plus → l'action sur cette sortie est sautée (dérivé, `ActionStd.cpp:99-106`) ;
+- l'id ne résout plus → l'action sur cette sortie est sautée (dérivé, `ActionStd.cpp:100-107`) ;
 - l'id résout vers un IO qui **n'est pas une sortie** → sautée aussi. `Add()` refuse déjà les
   non-sorties, donc ce cas signifie qu'un autre IO a repris l'id depuis la construction de la règle
-  (dérivé, `ActionStd.cpp:108-118`).
+  (dérivé, `ActionStd.cpp:109-119`).
 
 La valeur appliquée peut être :
 - une **constante** (`"true"`, `"false"`, `"50"`, `"up"`) ;
 - la **valeur courante d'un autre IO**, via `val_var` : la valeur est lue avec
   `get_command_bool()` / `get_command_double()` / `get_command_string()` sur cet IO
-  (dérivé, `ActionStd.cpp:125-136`, `:158-167`, `:188-202`). Une source `TBOOL` alimentant une
-  cible `TSTRING` est convertie en `"true"` / `"false"` (dérivé, `ActionStd.cpp:197-201`).
+  (dérivé, `ActionStd.cpp:128-139`, `:161-170`, `:191-205`). Une source `TBOOL` alimentant une
+  cible `TSTRING` est convertie en `"true"` / `"false"` (dérivé, `ActionStd.cpp:200-204`).
 
-**Exemple XML** (dérivé, `ActionStd.cpp:355-375`) :
+**Exemple XML** (dérivé, `ActionStd.cpp:358-378`) :
 ```xml
 <calaos:action type="standard">
   <calaos:output id="id-def" val="true"/>
@@ -514,7 +514,7 @@ nouveau protocole.
 Fichier de config : **`rules.xml`**. Racine `<calaos:rules xmlns:calaos="http://www.calaos.fr">`,
 chaque règle est un `<calaos:rule>` portant obligatoirement les attributs `name` **et** `type`
 — une règle à qui il manque l'un des deux est **ignorée au chargement**
-(dérivé, `CalaosConfig.cpp:382-398`, et `Config::SaveConfigRule()` en `:461-495`).
+(dérivé, `CalaosConfig.cpp:480-496`, et `Config::SaveConfigRule()` en `:559-584`).
 
 Tous les autres attributs du nœud `<calaos:rule>` sont chargés tels quels dans `params` et
 réécrits tels quels (dérivé, `Rule.cpp:311-315`, `:361-366`). C'est ainsi qu'une règle générée par
@@ -536,13 +536,13 @@ un auto-scénario porte ses **quatre** marqueurs : `auto_scenario` (l'id histori
   </calaos:rule>
 </calaos:rules>
 ```
-(dérivé, `CalaosConfig.cpp:361-363` pour l'en-tête, `Rule.cpp:357-375`,
-`ConditionStd.cpp:519-542` et `ActionStd.cpp:355-375` pour le corps)
+(dérivé, `CalaosConfig.cpp:463-463` pour l'en-tête, `Rule.cpp:357-375`,
+`ConditionStd.cpp:519-542` et `ActionStd.cpp:358-378` pour le corps)
 
 ⚠️ Les noms d'éléments sont **préfixés `calaos:`** et les attributs sont **`oper`** et **`val`**.
 Une configuration écrite avec `<condition>` / `<input operator= value=>` n'est pas lue : les
 comparaisons de nom d'élément sont exactes (dérivé, `Rule.cpp:321`, `:327`,
-`ConditionStd.cpp:422`, `ActionStd.cpp:271`) et les attributs `operator` / `value` ne sont jamais
+`ConditionStd.cpp:422`, `ActionStd.cpp:274`) et les attributs `operator` / `value` ne sont jamais
 consultés.
 
 ---
@@ -568,11 +568,11 @@ consultés.
           → EventManager::create(EventIOChanged, …)
     → ListeRule::drainPendingTriggers()
 ```
-(dérivé, `ListeRule.cpp:388-408`, `:316-330`, `:228-314`, `:377-386`)
+(dérivé, `ListeRule.cpp:394-414`, `:317-336`, `:229-315`, `:383-392`)
 
 Une règle portant une `ConditionScript` déclenchée par cet id part dans une seconde liste et est
 dispatchée de façon **asynchrone**, une seule fois par règle quel que soit le nombre de conditions
-script concernées (dérivé, `ListeRule.cpp:286-298`, `:332-344`).
+script concernées (dérivé, `ListeRule.cpp:287-299`, `:338-350`).
 
 ---
 
