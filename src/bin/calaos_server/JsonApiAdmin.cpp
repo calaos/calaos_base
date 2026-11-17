@@ -1027,6 +1027,8 @@ Json versionsWhitelist(const Json &data)
 //message; an error is kept briefly so that a container coming back is seen quickly.
 constexpr double CacheOkTtl = 60.0;
 constexpr double CacheErrorTtl = 3.0;
+//A pipelining client must not grow the queue of one daemon call without bound
+constexpr size_t MaxCacheWaiters = 256;
 
 struct CachedAnswer
 {
@@ -1036,22 +1038,22 @@ struct CachedAnswer
     std::vector<std::function<void(const Json &)>> waiters;
 };
 
-struct VersionsCache
+struct RelayCache
 {
     std::function<double()> clock;
     CachedAnswer versions;
     CachedAnswer rescue;
 };
 
-VersionsCache &versionsCache()
+RelayCache &relayCache()
 {
-    static VersionsCache cache;
+    static RelayCache cache;
     return cache;
 }
 
-double versionsNow()
+double relayNow()
 {
-    const auto &clock = versionsCache().clock;
+    const auto &clock = relayCache().clock;
     if (clock)
         return clock();
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -1059,16 +1061,21 @@ double versionsNow()
 
 //One call in flight at most per slot, whatever the number of pipelined messages.
 //build returns the whole answer and sets ok when it may be kept for CacheOkTtl.
-void relayCached(CachedAnswer VersionsCache::*slot, const DaemonClient::Request &req,
+void relayCached(CachedAnswer RelayCache::*slot, const DaemonClient::Request &req,
                  const std::function<Json(const DaemonReply &, bool &ok)> &build, const std::function<void(const Json &)> &answer)
 {
-    CachedAnswer &cache = versionsCache().*slot;
-    if (!cache.answer.is_null() && versionsNow() < cache.expires)
+    CachedAnswer &cache = relayCache().*slot;
+    if (!cache.answer.is_null() && relayNow() < cache.expires)
     {
         answer(cache.answer);
         return;
     }
 
+    if (cache.waiters.size() >= MaxCacheWaiters)
+    {
+        answer(JsonApi::adminError("admin_unavailable", string()));
+        return;
+    }
     cache.waiters.push_back(answer);
     if (cache.waiters.size() > 1)
         return;
@@ -1077,9 +1084,9 @@ void relayCached(CachedAnswer VersionsCache::*slot, const DaemonClient::Request 
                                   {
         bool ok = false;
         const Json result = build(reply, ok);
-        CachedAnswer &c = versionsCache().*slot;
+        CachedAnswer &c = relayCache().*slot;
         c.answer = result;
-        c.expires = versionsNow() + (ok ? CacheOkTtl : CacheErrorTtl);
+        c.expires = relayNow() + (ok ? CacheOkTtl : CacheErrorTtl);
         auto waiters = std::move(c.waiters);
         c.waiters.clear();
         for (const auto &w: waiters)
@@ -1093,7 +1100,7 @@ void relayVersions(const DaemonClient::Request &req, const std::function<void(co
 {
     const string server = ServerInfo::toJson()["version"].get<string>();
     relayCached(
-        &VersionsCache::versions, req, [server](const DaemonReply &reply, bool &ok)
+        &RelayCache::versions, req, [server](const DaemonReply &reply, bool &ok)
         {
         Json result;
         if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
@@ -1128,7 +1135,7 @@ Json rescueAnswer(const DaemonReply &reply, bool &ok)
 
 void relayRescue(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
 {
-    relayCached(&VersionsCache::rescue, req, rescueAnswer, answer);
+    relayCached(&RelayCache::rescue, req, rescueAnswer, answer);
 }
 
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
@@ -1289,10 +1296,10 @@ Json JsonApi::adminRelayFailure(const DaemonReply &reply)
     return relayFailure(reply);
 }
 
-void JsonApi::resetVersionsCache(std::function<double()> clock)
+void JsonApi::resetRelayCache(std::function<double()> clock)
 {
-    versionsCache() = VersionsCache();
-    versionsCache().clock = std::move(clock);
+    relayCache() = RelayCache();
+    relayCache().clock = std::move(clock);
 }
 
 void JsonApi::relayAdmin(const string &action, const Json &request, const string &session, const AdminAnswer &answer)

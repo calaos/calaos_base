@@ -192,7 +192,7 @@ public:
     static Json adminRelayFailure(const DaemonReply &reply);
 
     //Seconds on a monotonic clock; tests inject theirs. Both drop the cached versions answer.
-    static void resetVersionsCache(std::function<double()> clock = nullptr);
+    static void resetRelayCache(std::function<double()> clock = nullptr);
 
     //The package rule of calaos-container's docs/API.md (Upgrade jobs)
     static bool isValidPackageName(const string &name);

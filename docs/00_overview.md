@@ -14,8 +14,8 @@ Il expose un système d'automatisation basé sur des **règles** (conditions →
 WebSocket) à ses clients UI.
 
 Le binaire principal est `calaos_server`. Des sous-processus sont lancés pour de nombreux drivers
-via le framework `ExternProc` — MQTT, KNX, Wago, OneWire, OLA (C++), Reolink et Roon (Python),
-scripts Lua (dérivé, [src/bin/calaos_server/Makefile.am:396-505](../src/bin/calaos_server/Makefile.am)).
+via le framework `ExternProc` — MQTT, KNX, Wago, OneWire, OLA (C++), Reolink, Roon et KLF 200 (Python),
+scripts Lua (dérivé, [src/bin/calaos_server/Makefile.am:406-515](../src/bin/calaos_server/Makefile.am)).
 Un sous-processus Python supplémentaire, `calaos_mcp`, expose l'installation aux LLM via le Model
 Context Protocol (voir [15_mcp_server.md](15_mcp_server.md)).
 
@@ -40,6 +40,7 @@ src/
         OneWire/           # Bus 1-Wire (via owfs)
         RemoteUI/          # IOs pour appareils embarqués RemoteUI
         Reolink/           # Caméras Reolink
+        Klf200/             # Fenêtres et volets VELUX via passerelle KLF 200
         Wago/              # Automates Wago (Modbus TCP), + libmbus/ vendorisé
         Web/               # IOs HTTP/Web
       IPCam/               # Caméras IP
@@ -74,7 +75,7 @@ src/
 | Config & Persistence | Chargement/sauvegarde XML, cache d'état | [11_config_persistence.md](11_config_persistence.md) |
 | ExternProc IPC | Framework sous-processus (MQTT, KNX) | [12_extern_proc.md](12_extern_proc.md) |
 | Utility Library | Utils, Params, Timer, Logger… | [13_utility_lib.md](13_utility_lib.md) |
-| ExternProc Python | Côté Python du framework (Reolink, Roon) | [14_python_extern_proc.md](14_python_extern_proc.md) |
+| ExternProc Python | Côté Python du framework (Reolink, Roon, KLF 200) | [14_python_extern_proc.md](14_python_extern_proc.md) |
 | MCP Server | Sidecar calaos_mcp (contrôle par LLM) | [15_mcp_server.md](15_mcp_server.md) |
 | Options de config | Registre des options de `local_config.xml` | [16_config_options.md](16_config_options.md) |
 
