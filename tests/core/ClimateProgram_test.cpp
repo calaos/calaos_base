@@ -122,7 +122,7 @@ std::string levels(int heat, int cool)
 const std::vector<std::string> DEVICES = { "prog", "gap", "coolset", "wide", "heatonly",
                                            "big", "neg", "frac", "uniq", "off", "boot",
                                            "zh", "zc", "zr", "zn", "cl", "tg", "tm", "au",
-                                           "wi", "rs", "gr", "rd", "ml", "nm", "ow", "vb" };
+                                           "wi", "rs", "gr", "rd", "ml", "nm", "ow", "vb", "nr" };
 
 std::string house()
 {
@@ -1067,6 +1067,11 @@ TEST_F(ClimateProgramTest, AutoWritesNothingWhileABoundWasNeverReceived)
     set("nr_heat_default", 22);
     EXPECT_EQ(num("nr_low"), 22);
     EXPECT_TRUE(io("nr_high")->hasValue());
+    EXPECT_EQ(num("nr_high"), 26);
+
+    //Cooling off at level 0: the high bound goes to its maximum, not to a setpoint.
+    setBool("nr_cool_default_off", true);
+    EXPECT_EQ(num("nr_high"), 35);
 }
 
 TEST_F(ClimateProgramTest, AUserIoLinkedAsProgramEnabledOutlivesTheLevels)
