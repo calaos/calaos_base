@@ -122,7 +122,7 @@ std::string levels(int heat, int cool)
 const std::vector<std::string> DEVICES = { "prog", "gap", "coolset", "wide", "heatonly",
                                            "big", "neg", "frac", "uniq", "off", "boot",
                                            "zh", "zc", "zr", "zn", "cl", "tg", "tm", "au",
-                                           "wi", "rs", "gr", "rd" };
+                                           "wi", "rs", "gr", "rd", "ml", "nm", "ow", "vb" };
 
 std::string house()
 {
@@ -970,4 +970,133 @@ TEST_F(ClimateProgramTest, NoRuleIsGeneratedWhateverTheProgramDoes)
     EXPECT_EQ(ListeRule::Instance().size(), 0);
     saveConfig();
     EXPECT_EQ(rulesXmlOnDisk().find("calaos:rule "), std::string::npos) << rulesXmlOnDisk();
+}
+
+//Reports no mode, as an override whose state is unreadable would.
+class TestBlindThermostat: public InternalThermostat
+{
+public:
+    TestBlindThermostat(Params &p):
+        InternalThermostat(p)
+    {
+    }
+
+    bool blind = false;
+
+protected:
+    bool currentMode(ClimateMode &mode) override
+    {
+        return !blind && InternalThermostat::currentMode(mode);
+    }
+};
+
+REGISTER_DEVICE(test_blind_thermostat, TestBlindThermostat)
+
+TEST_F(ClimateProgramTest, ALevelSetpointThatVanishedLeavesTheTargetAlone)
+{
+    load(solo("ml", false, levels(1, 0)), "ml");
+    set("ml_heat_default", 20);
+    set("ml_heat_level1_setpoint", 23);
+    ASSERT_TRUE(mode("ml", "heat"));
+    activate("ml_heat_level1");
+    ASSERT_EQ(num("ml_target"), 23);
+
+    set("ml_target", 21);
+    ASSERT_EQ(num("ml_target"), 21);
+    ASSERT_TRUE(ListeRoom::Instance().deleteIO(must("ml_heat_level1_setpoint")));
+    ASSERT_EQ(io("ml_heat_level1_setpoint"), nullptr);
+    ASSERT_EQ(linked("ml", "heat_level1_setpoint"), "ml_heat_level1_setpoint");
+
+    //The level is still the active one: neither its setpoint nor the default is known.
+    setBool("ml_program_enabled", false);
+    setBool("ml_program_enabled", true);
+    pumpFor(5);
+    EXPECT_EQ(num("ml_target"), 21);
+    EXPECT_EQ(num("ml_heat_default"), 20);
+}
+
+TEST_F(ClimateProgramTest, AnUnreadableModeStopsAChangeFromApplyingTheProgram)
+{
+    load(replaced(solo("nm", false, levels(1, 0)), "impl=\"thermostat\"",
+                  "impl=\"test_blind_thermostat\""),
+         "nm");
+    auto *blindDev = ListeRoom::Instance().findIOAs<TestBlindThermostat>("nm");
+    ASSERT_NE(blindDev, nullptr);
+    ASSERT_TRUE(mode("nm", "heat"));
+    set("nm_heat_level1_setpoint", 22);
+    activate("nm_heat_level1");
+    ASSERT_EQ(num("nm_target"), 22);
+
+    set("nm_target", 19);
+    blindDev->blind = true;
+    set("nm_heat_level1_setpoint", 24);
+    pumpFor(5);
+    EXPECT_EQ(num("nm_target"), 19) << "no mode, no write";
+
+    blindDev->blind = false;
+    set("nm_heat_level1_setpoint", 25);
+    EXPECT_EQ(num("nm_target"), 25) << "readable again, the change applies";
+}
+
+TEST_F(ClimateProgramTest, AutoWritesNothingWhileABoundWasNeverReceived)
+{
+    //Not saved: an entry of the state cache would make the bounds known, and it cannot be erased.
+    std::string xml = solo("nr", true, levels(1, 1));
+    for (const char *bound: { "nr_low", "nr_high" })
+        xml = replaced(xml, ownedXml("InternalInt", bound, SAVED), ownedXml("InternalInt", bound));
+    load(xml, "nr");
+    ASSERT_FALSE(io("nr_low")->hasValue());
+    ASSERT_FALSE(io("nr_high")->hasValue());
+
+    ASSERT_TRUE(mode("nr", "auto"));
+    set("nr_heat_default", 20);
+    pumpFor(5);
+    EXPECT_FALSE(io("nr_low")->hasValue());
+    EXPECT_FALSE(io("nr_high")->hasValue());
+
+    //One known bound is not enough: the pair is written whole or not at all.
+    set("nr_low", 18);
+    ASSERT_TRUE(io("nr_low")->hasValue());
+    ASSERT_FALSE(io("nr_high")->hasValue());
+    set("nr_heat_default", 21);
+    pumpFor(5);
+    EXPECT_EQ(num("nr_low"), 18);
+    EXPECT_FALSE(io("nr_high")->hasValue());
+
+    set("nr_high", 26);
+    set("nr_heat_default", 22);
+    EXPECT_EQ(num("nr_low"), 22);
+    EXPECT_TRUE(io("nr_high")->hasValue());
+}
+
+TEST_F(ClimateProgramTest, AUserIoLinkedAsProgramEnabledOutlivesTheLevels)
+{
+    std::string xml = solo("ow", false, levels(1, 0), roomIo("InternalBool", "ow_flag"));
+    xml = replaced(xml, linkXml("output_heat", "ow_heat"),
+                   linkXml("output_heat", "ow_heat") + linkXml("program_enabled", "ow_flag"));
+    load(xml, "ow");
+    ASSERT_EQ(linked("ow", "program_enabled"), "ow_flag");
+    EXPECT_EQ(io("ow_program_enabled"), nullptr) << "the user's IO is the flag, none is created";
+
+    changeParam("ow", "heat_levels", "1", "0");
+    EXPECT_EQ(linked("ow", "program_enabled"), "");
+    EXPECT_NE(io("ow_flag"), nullptr) << "not owned by the device: it stays";
+    EXPECT_EQ(io("ow_heat_default"), nullptr);
+    expectUniqueIds();
+}
+
+TEST_F(ClimateProgramTest, LevelSetpointsCopyTheBoundsOfTheTarget)
+{
+    const std::string plain = ownedXml("InternalInt", "vb_target", SAVED);
+    load(replaced(solo("vb", false, levels(1, 0)), plain,
+                  ownedXml("InternalInt", "vb_target",
+                           std::string(SAVED) + R"( value_min="10" value_max="30" step="2")")),
+         "vb");
+    for (const char *id: { "vb_heat_default", "vb_heat_level1_setpoint" })
+    {
+        ASSERT_NE(io(id), nullptr) << id;
+        EXPECT_EQ(io(id)->get_param("value_min"), "10") << id;
+        EXPECT_EQ(io(id)->get_param("value_max"), "30") << id;
+        EXPECT_EQ(io(id)->get_param("step"), "2") << id;
+    }
 }
