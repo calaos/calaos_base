@@ -556,7 +556,7 @@ Toute erreur admin a la même charge utile, aux deux transports :
   par `,`), `failed` (étape en échec) et `restart_required` (`"true"` ou `"false"`) avec
   l'`internal` d'un `time_set` partiellement appliqué, `outcome` (`"unknown"`) avec le
   `daemon_unreachable` ou l'`admin_unavailable` d'un `time_set`, `network_apply`,
-  `network_confirm` ou `network_revert` resté sans réponse (voir ci-dessous).
+  `network_confirm`, `network_revert`, `snapshot_boot` ou `snapshot_rollback` resté sans réponse (voir ci-dessous).
 - En WS la charge utile est sous `data`, avec `msg` et `msg_id` de l'enveloppe habituelle
   (attention : le `msg` de l'enveloppe est le nom du message, le `msg` de `data` est le texte
   d'erreur) :
@@ -804,7 +804,7 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
 | `versions` | | `GET system/versions` | non | `{"server": "<version>", "system": <réponse du daemon, liste blanche> ou null, "error"?: "<code>"}` |
 | `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
-| `rescue_status` | | `GET system/rescue` | non | `{"rescue": <bool>, "overlay": <bool>, "snapshot": <entier ou null>}` (liste blanche, tout autre champ est abandonné ; `rescue` et `overlay` valent `false` s'ils manquent ou ne sont pas booléens). La réponse est gardée 60 s (3 s pour une erreur) et un seul appel au daemon est en vol à la fois |
+| `rescue_status` | | `GET system/rescue` | non | `{"rescue": <bool>, "overlay": <bool>, "snapshot": <entier ou null>}` (liste blanche, tout autre champ est abandonné ; `rescue` et `overlay` valent `false` s'ils manquent ou ne sont pas booléens). La réponse est gardée 60 s (3 s pour une erreur) et un seul appel au daemon est en vol à la fois ; au-delà de 256 messages en attente de cet appel, les suivants reçoivent `admin_unavailable` |
 | `snapshots_list` | | `GET system/snapshots` | oui | liste des snapshots, recopiée du daemon |
 | `snapshot_boot` | `id` | `POST system/snapshots/boot` | oui | `null` ; `id` est un entier JSON de 1 à 2147483647 (chaîne ou flottant : `invalid_request`), le corps envoyé est `{"id": <id>}` et rien d'autre ; délai 35 s |
 | `snapshot_rollback` | | `POST system/snapshots/rollback` | oui | `null` ; corps vide `{}` ; délai 35 s |
@@ -858,8 +858,9 @@ partir des `params` validés ; un malformé n'atteint jamais le daemon (deux bar
 applique les mêmes limites). `result` est le `data` du daemon, types compris, comme pour les
 actions de phase 1. Délais de calaos_server : 4 s, sauf `logs_query` (10 s), 15 s pour
 `services_start` et `services_stop` (le client attend 20 s ; pires cas du daemon plus longs, voir `services_start`), et 35 s pour `services_enable`,
-`services_disable`, `time_set`, `network_apply`, `network_confirm` et `network_revert` ; le
-client attend 40 s pour `services_enable`, `services_disable`, `time_set` et les trois `network_*`.
+`services_disable`, `time_set`, `network_apply`, `network_confirm`, `network_revert`,
+`snapshot_boot` et `snapshot_rollback` ; le client attend 40 s pour `services_enable`,
+`services_disable`, `time_set`, les trois `network_*` et les deux `snapshot_*` d'écriture.
 Le daemon peut dépasser 35 s sur `time_set` et les trois `network_*` : chaque commande y a son propre délai, `timedatectl` 10 s
 (`time_set` en enchaîne jusqu'à six : liste des fuseaux, lecture de l'état, trois étapes, relecture),
 `networkctl` 30 s (`network_apply` en enchaîne trois, plus deux pour revenir en arrière si
@@ -868,7 +869,7 @@ changement concurrent). Sur ces quatre écritures, un délai dépassé ou une r�
 donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unknown"`** :
 l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
 `time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
-`snapshot_boot` et `snapshot_rollback` (délai 35 s, sondes de 10 s puis `grub-reboot`) ont le
+`snapshot_boot` et `snapshot_rollback` (délai 35 s ; sondes `findmnt` et `snapper` de 10 s, puis `grub-reboot` et `grub-editenv`, ou `calaos_rollback`, sans délai propre) ont le
 même `outcome: "unknown"` : la box a pu armer le démarrage et redémarrer ; le client ne renvoie
 pas l'action et attend le retour de la box pour relire `rescue_status`.
 

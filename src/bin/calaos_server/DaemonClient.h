@@ -75,7 +75,8 @@ public:
     static constexpr long TimeSetTimeout = 35;
     //network/apply, confirm and revert wait for networkctl, up to 30 s each
     static constexpr long NetworkChangeTimeout = 35;
-    //snapshots/boot and rollback chain findmnt, snapper and grub-reboot probes of 10 s each
+    //snapshots/boot and rollback: findmnt and snapper probes of 10 s each, then grub-reboot/grub-editenv
+    //or calaos_rollback with no limit of their own
     static constexpr long SnapshotActionTimeout = 35;
 
     struct Request
