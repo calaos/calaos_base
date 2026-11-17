@@ -546,6 +546,14 @@ modèle lise les consignes et les capacités sans autre outil.
   Le client invalide sur `io_added`, `io_deleted` et `room_changed` (émis quand un IO change de
   pièce), applique `io_changed` (état, et objet `device` remplacé en entier) et vide le cache à
   chaque déconnexion, le serveur pouvant revenir avec une autre topologie.
+- **IOs du programme refusés** (contrat cible, pas encore sur master ; livré par
+  CP-MCP-GUARD) : `set_io_state` refuse les IOs du programme horaire d'un climate (plages et
+  consignes des niveaux, consignes par défaut, `cool_default_off`, `program_enabled`, repérés
+  par leur rôle dans `device.ios`, comme les sorties protégées) et ne contacte pas le serveur.
+  Erreur, dans le style des refus ci-dessus : `IO '<io_id>' is the <role> of the program of the
+  climate '<device_id>' and cannot be written through MCP. Ask the user to change the program
+  in the Calaos app.` D'ici là, ces IOs sont écrits comme tout IO interne inscriptible.
+  Lecture (`get_io_state`, `get_home`) inchangée (docs/08, « Écrire le programme »).
 - **Description de `set_io_state`** : générée au démarrage depuis `io_doc.json`
   (`command_format`, `command_fields`, valeurs, bornes, `requires_links`,
   `value_requires_links`), jamais écrite à la main. `calaos_server --gendoc` l'écrit au build dans

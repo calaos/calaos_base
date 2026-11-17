@@ -2717,9 +2717,12 @@ se suivent par les `io_changed` de ces IOs ; les créneaux d'une plage, par `get
   d'un booléen : `"true"` ou `"false"`. Le champ `program` n'est **pas** accepté dans
   l'objet JSON de `set_state` du climate : `{"program":…}` est un champ inconnu, refusé et
   journalisé comme tout champ inconnu ;
-- MCP : seul `set_timerange` y est refusé (docs/15_mcp_server.md). Les IOs du programme sont
-  des IOs internes ordinaires, inscriptibles : `set_io_state` du MCP les écrit comme les
-  autres.
+- MCP (contrat cible, pas encore sur master ; livré par CP-MCP-GUARD) : le MCP n'écrit pas le
+  programme. `set_timerange` y est refusé par la portée service, et `set_io_state` refuse les
+  IOs du programme (plages et consignes des niveaux, consignes par défaut, `cool_default_off`,
+  `program_enabled`) avec une erreur qui nomme le climate (docs/15_mcp_server.md). D'ici là,
+  `set_io_state` les écrit comme tout IO interne. Le client web et l'API directe gardent
+  `set_state`.
 
 Exemples :
 ```json
