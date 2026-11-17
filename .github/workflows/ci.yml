@@ -297,14 +297,22 @@ jobs:
       # Pull requests only; every other event keeps measuring.
       - name: Decide whether the diff touches compiled or tested code
         id: guard
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          # Fail open: any doubt about the diff means building.
+          if [ "$EVENT" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          if ! files=$(git diff --name-only "origin/${BASE_REF}...HEAD") || [ -z "$files" ]; then
+            echo "Cannot list the changed files: building."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           printf 'changed files:\n%s\n' "$files"
-          if printf '%s\n' "$files" | grep -qE '^(src|tests|data|po|m4)/|^(configure\.ac|Makefile\.am|autogen\.sh|version)$|^scripts/(check-diff-coverage\.py|gcov-exit-shim\.c)$'; then
+          if printf '%s\n' "$files" | grep -qE '^(src|tests|data|po|m4|scripts)/|^(configure\.ac|Makefile\.am|autogen\.sh|version)$'; then
             echo "code=true" >> "$GITHUB_OUTPUT"
           else
             echo "code=false" >> "$GITHUB_OUTPUT"
@@ -378,7 +386,7 @@ jobs:
 
       # The make check output names a failing program only; its own log says why
       - name: Show test logs on failure
-        if: steps.guard.outputs.code == 'true' && (failure())
+        if: steps.guard.outputs.code == 'true' && failure()
         run: |
           find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + | while read -r trs; do
             echo "--- $trs ---"
@@ -421,7 +429,7 @@ jobs:
       # step prints how many the PR adds. Run it locally the same way:
       #   scripts/check-diff-coverage.py --info coverage.info --base origin/master
       - name: Diff coverage gate
-        if: steps.guard.outputs.code == 'true' && (github.event_name == 'pull_request')
+        if: steps.guard.outputs.code == 'true' && github.event_name == 'pull_request'
         run: |
           python3 scripts/check-diff-coverage.py --info coverage.info \
               --base "origin/${{ github.base_ref }}"
