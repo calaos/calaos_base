@@ -958,23 +958,19 @@ Un changement émet l'événement `timerange_changed`
 
 ⚠️ `type_str` est **`timerange_changed`**, pas le nom de l'enum C++ `EventTimeRangeChanged`.
 
-> Ces trois comportements seront corrigés par CP-BASE-TR (pas encore sur master) ; le contrat
-> cible est dans [08_http_api.md](08_http_api.md#set_timerange-contrat-cible-cp-base-tr).
-
-**Trois comportements de `set_timerange` à connaître, gelés tels quels** (mesurés par E4.0c) :
-- **`ranges` absent ⇒ toutes les plages sont effacées.** `o->clear()` est appelé **avant** la
-  lecture, et un `ranges` absent — ou qui n'est pas un tableau — reste un no-op sans erreur. Une
-  requête qui ne voulait changer que `months` vide donc l'agenda
-  (dérivé, `JsonApi.cpp:2304-2317`).
-- **Un `months` plus court que 12 est accepté sans erreur** (zéro-extension implicite du
-  `bitset<12>`), ce qui éteint silencieusement les mois manquants
-  (dérivé, `JsonApi.cpp:2338-2353`).
-- **Un `day` hors 1..7 est silencieusement perdu** : sept `if` indépendants, aucun `else`, aucune
-  erreur, et le client reçoit un succès (dérivé, `JsonApi.cpp:2328-2334`).
+**`set_timerange`** (contrat : [08_http_api.md](08_http_api.md#set_timerange)) :
+- **Champ absent = valeur conservée.** `ranges` absent garde toutes les plages, `months` absent
+  garde les mois ; `ranges: []` efface tous les créneaux.
+- **Validation avant toute écriture.** `months` doit faire 12 caractères `0`/`1`
+  (`invalid months`), `day` être dans 1..7 (`invalid day`), les bornes être des entiers dans leur
+  intervalle (`invalid range`), `ranges` un tableau d'objets (`invalid ranges`). Une requête
+  refusée laisse la plage strictement intacte.
+- **Prise en compte immédiate.** L'état est réévalué avant la réponse (`hasChanged()`), et le
+  climate propriétaire de la plage émet son `io_changed`.
 
 ⚠️ Modifier la plage horaire d'un scénario émet **deux** événements : `timerange_changed` sur l'IO,
 puis `scenario_changed` sur le scénario qui le porte — retrouvé par **lookup** dans le cache, jamais
-par un back-pointer (dérivé, `JsonApi.cpp:2355-2363`, `autoScenarioOfTimeRange()` en `:282-298`).
+par un back-pointer (dérivé, `JsonApi.cpp:2847-2855`, `autoScenarioOfTimeRange()` en `:329`).
 
 ---
 
