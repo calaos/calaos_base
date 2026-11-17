@@ -25,10 +25,12 @@
 
 #include "CalaosCoreFixture.h"
 #include "IO/InPlageHoraire.h"
+#include "IOChangeHub.h"
 #include "InternalThermostat.h"
 #include "ListeRule.h"
 #include "libuvw.h"
 
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <functional>
@@ -114,7 +116,9 @@ std::string levels(int heat, int cool)
 }
 
 const std::vector<std::string> DEVICES = { "prog", "gap", "coolset", "wide", "heatonly",
-                                           "big", "neg", "frac", "uniq", "off", "boot" };
+                                           "big", "neg", "frac", "uniq", "off", "boot",
+                                           "zh", "zc", "zr", "zn", "cl", "tg", "tm", "au",
+                                           "wi", "rs", "gr", "rd" };
 
 std::string house()
 {
@@ -137,6 +141,13 @@ std::string house()
     ios += thermostat("off", true, levels(0, 1) + paramXml("cool_default_off", "true"));
     ios += thermostat("boot", false, levels(1, 0) + paramXml("heat_default_setpoint", "18"));
     return ioXmlDocument(roomXml("Salon", "salon", ios));
+}
+
+//One device alone in its room.
+std::string solo(const std::string &id, bool cool, const std::string &params,
+                 const std::string &extraIos = std::string())
+{
+    return ioXmlDocument(roomXml("Salon", "salon", thermostat(id, cool, params) + extraIos));
 }
 
 std::string replaced(std::string text, const std::string &from, const std::string &to)
@@ -173,23 +184,54 @@ protected:
     }
 
     //Loads and waits for the start of every thermostat.
-    void load(const std::string &xml = house())
+    void load(const std::string &xml = house(), const std::string &id = "prog")
     {
         loadConfig(xml, rulesXmlDocument(""));
-        waitStarted();
+        waitStarted(id);
     }
 
-    void reload()
+    void reload(const std::string &id = "prog")
     {
         Config::Instance().loadStateCache();
         reloadFromDisk();
-        waitStarted();
+        waitStarted(id);
     }
 
-    static void waitStarted()
+    //What the installer does: edit a param of the device in io.xml, then the
+    //server loads the file again.
+    void changeParam(const std::string &id, const std::string &name, const std::string &from,
+                     const std::string &to)
     {
-        EXPECT_TRUE(pumpUntil([]() { return io("prog_action")->hasValue(); }));
+        saveConfig();
+        writeConfig(replaced(ioXmlOnDisk(), "name=\"" + name + "\" value=\"" + from + "\"",
+                             "name=\"" + name + "\" value=\"" + to + "\""),
+                    rulesXmlOnDisk());
+        reload(id);
+    }
+
+    static void waitStarted(const std::string &id = "prog")
+    {
+        EXPECT_TRUE(pumpUntil([id]() { return io(id + "_action")->hasValue(); }));
         pumpFor(5);
+    }
+
+    static int ioCount() { return ListeRoom::Instance().get_io_count(); }
+
+    //Every id found in the rooms, duplicates included.
+    static std::vector<std::string> allIds()
+    {
+        std::vector<std::string> ids;
+        for (int i = 0; i < ListeRoom::Instance().get_io_count(); i++)
+            ids.push_back(ListeRoom::Instance().get_io(i)->get_param("id"));
+        return ids;
+    }
+
+    static void expectUniqueIds()
+    {
+        std::vector<std::string> ids = allIds();
+        std::sort(ids.begin(), ids.end());
+        for (size_t i = 1; i < ids.size(); i++)
+            EXPECT_NE(ids[i - 1], ids[i]) << "id used by two IOs";
     }
 
     static InternalThermostat *dev(const std::string &id)
@@ -606,4 +648,312 @@ TEST_F(ClimateProgramTest, LevelParamsAreChecked)
     EXPECT_EQ(linked("heatonly", "heat_level1"), "heatonly_heat_level1");
     EXPECT_EQ(linked("heatonly", "cool_level1"), "");
     EXPECT_EQ(linked("heatonly", "cool_default"), "");
+}
+
+TEST_F(ClimateProgramTest, ZeroHeatLevelsRemoveTheHeatDefaultAndKeepTheCoolSet)
+{
+    load(solo("zh", true, levels(2, 2)), "zh");
+    ASSERT_NE(io("zh_heat_default"), nullptr);
+    changeParam("zh", "heat_levels", "2", "0");
+
+    for (const char *gone: { "zh_heat_level1", "zh_heat_level1_setpoint", "zh_heat_level2",
+                             "zh_heat_level2_setpoint", "zh_heat_default" })
+        EXPECT_EQ(io(gone), nullptr) << gone;
+    for (const char *kept: { "zh_cool_level1", "zh_cool_level2_setpoint", "zh_cool_default",
+                             "zh_cool_default_off", "zh_program_enabled" })
+        EXPECT_NE(io(kept), nullptr) << kept;
+    EXPECT_EQ(linked("zh", "heat_default"), "");
+    EXPECT_EQ(linked("zh", "cool_default"), "zh_cool_default");
+
+    //Heat has no program left: the cool set does not write in heat mode.
+    ASSERT_TRUE(mode("zh", "heat"));
+    set("zh_target", 20);
+    set("zh_cool_default", 24);
+    EXPECT_EQ(num("zh_target"), 20);
+
+    saveConfig();
+    EXPECT_EQ(ioXmlOnDisk().find("zh_heat_"), std::string::npos);
+    EXPECT_EQ(ListeRule::Instance().size(), 0);
+}
+
+TEST_F(ClimateProgramTest, ZeroCoolLevelsRemoveCoolDefaultOffAndItsState)
+{
+    load(solo("zc", true, levels(1, 2) + paramXml("cool_default_off", "false")), "zc");
+    setBool("zc_cool_default_off", true);
+    changeParam("zc", "cool_levels", "2", "0");
+
+    EXPECT_EQ(io("zc_cool_default_off"), nullptr);
+    EXPECT_EQ(io("zc_cool_default"), nullptr);
+    EXPECT_NE(io("zc_heat_default"), nullptr);
+    EXPECT_NE(io("zc_program_enabled"), nullptr);
+
+    changeParam("zc", "cool_levels", "0", "1");
+    ASSERT_NE(io("zc_cool_default_off"), nullptr);
+    EXPECT_FALSE(on("zc_cool_default_off")) << "the flag starts from the param";
+    EXPECT_EQ(linked("zc", "cool_default_off"), "zc_cool_default_off");
+}
+
+TEST_F(ClimateProgramTest, ZeroLevelsInTotalRemoveEveryProgramIoAndBringThemBackNew)
+{
+    load(solo("zr", true, levels(2, 1) + paramXml("heat_default_setpoint", "19")), "zr");
+    set("zr_heat_level2_setpoint", 23);
+    set("zr_heat_default", 21);
+    setBool("zr_program_enabled", false);
+
+    changeParam("zr", "heat_levels", "2", "0");
+    EXPECT_NE(io("zr_program_enabled"), nullptr) << "cool levels remain";
+    EXPECT_FALSE(on("zr_program_enabled")) << "the flag is kept while a set remains";
+    changeParam("zr", "cool_levels", "1", "0");
+    for (const char *gone: { "zr_heat_level1", "zr_heat_level2", "zr_heat_level2_setpoint",
+                             "zr_heat_default", "zr_cool_level1", "zr_cool_level1_setpoint",
+                             "zr_cool_default", "zr_cool_default_off", "zr_program_enabled" })
+        EXPECT_EQ(io(gone), nullptr) << gone;
+    for (const char *role: { "program_enabled", "heat_default", "cool_default", "heat_level1",
+                             "cool_level1_setpoint", "cool_default_off" })
+        EXPECT_EQ(linked("zr", role), "") << role;
+    EXPECT_NE(io("zr_target"), nullptr);
+    EXPECT_NE(io("zr_low"), nullptr);
+
+    ASSERT_TRUE(mode("zr", "heat"));
+    set("zr_target", 22);
+    EXPECT_EQ(num("zr_target"), 22) << "no program: the user's setpoint stays";
+
+    changeParam("zr", "heat_levels", "0", "2");
+    EXPECT_EQ(linked("zr", "heat_level2"), "zr_heat_level2") << "the freed id is reused";
+    EXPECT_EQ(num("zr_heat_default"), 19) << "from the param, not from the removed IO";
+    EXPECT_EQ(num("zr_heat_level2_setpoint"), 19);
+    EXPECT_TRUE(on("zr_program_enabled")) << "created enabled";
+    EXPECT_FALSE(on("zr_heat_level1"));
+    EXPECT_EQ(io("zr_cool_level1"), nullptr);
+    expectUniqueIds();
+    EXPECT_EQ(ListeRule::Instance().size(), 0);
+}
+
+TEST_F(ClimateProgramTest, AReducedLevelNoLongerDrivesTheSetpoint)
+{
+    load(solo("zn", false, levels(2, 0)), "zn");
+    ASSERT_TRUE(mode("zn", "heat"));
+    set("zn_heat_level2_setpoint", 23);
+    activate("zn_heat_level2");
+    EXPECT_EQ(num("zn_target"), 23);
+
+    changeParam("zn", "heat_levels", "2", "1");
+    EXPECT_EQ(io("zn_heat_level2"), nullptr);
+    EXPECT_EQ(num("zn_target"), 17) << "level 1 is not active: the default applies";
+}
+
+TEST_F(ClimateProgramTest, MoreLevelsStartFromTheCurrentDefaultAndKeepTheExisting)
+{
+    load(solo("gr", false, levels(1, 0)), "gr");
+    set("gr_heat_level1_setpoint", 22);
+    set("gr_heat_default", 19);
+    activate("gr_heat_level1");
+
+    changeParam("gr", "heat_levels", "1", "3");
+    EXPECT_EQ(num("gr_heat_level1_setpoint"), 22);
+    EXPECT_EQ(num("gr_heat_default"), 19);
+    for (const char *added: { "gr_heat_level2_setpoint", "gr_heat_level3_setpoint" })
+        EXPECT_EQ(linked("gr", std::string(added).substr(3)), added);
+    expectUniqueIds();
+}
+
+TEST_F(ClimateProgramTest, ResolvingTheLinksAgainChangesNothing)
+{
+    load(solo("rs", true, levels(2, 1)), "rs");
+    const size_t onRange = IOChangeHub::Instance().subscriberCount("rs_heat_level1");
+    const size_t onDefault = IOChangeHub::Instance().subscriberCount("rs_heat_default");
+    const std::vector<std::string> before = allIds();
+    ASSERT_TRUE(mode("rs", "heat"));
+    set("rs_heat_default", 18);
+    ASSERT_EQ(num("rs_target"), 18);
+
+    ListeRoom::Instance().resolveDeviceLinks();
+    pumpFor(5);
+    EXPECT_EQ(allIds(), before);
+    EXPECT_EQ(IOChangeHub::Instance().subscriberCount("rs_heat_level1"), onRange);
+    EXPECT_EQ(IOChangeHub::Instance().subscriberCount("rs_heat_default"), onDefault);
+    set("rs_heat_default", 20);
+    EXPECT_EQ(num("rs_target"), 20);
+}
+
+TEST_F(ClimateProgramTest, OwnedIdsAreUniqueAndTakeTheSmallestFreeNumber)
+{
+    //"_0" and "_2" are taken: the free hole is "_1".
+    load(solo("rd", true, levels(1, 1),
+              roomIo("InternalBool", "rd_heat_level1") +
+                  roomIo("InternalBool", "rd_heat_level1_0") +
+                  roomIo("InternalBool", "rd_heat_level1_2") +
+                  roomIo("InternalBool", "rd_program_enabled") +
+                  roomIo("InternalInt", "rd_cool_default")),
+         "rd");
+    EXPECT_EQ(linked("rd", "heat_level1"), "rd_heat_level1_1");
+    EXPECT_EQ(linked("rd", "program_enabled"), "rd_program_enabled_0");
+    EXPECT_EQ(linked("rd", "cool_default"), "rd_cool_default_0");
+    EXPECT_EQ(linked("rd", "heat_default"), "rd_heat_default");
+    expectUniqueIds();
+
+    EXPECT_EQ(dynamic_cast<InPlageHoraire *>(io("rd_heat_level1")), nullptr);
+    EXPECT_NE(dynamic_cast<InPlageHoraire *>(io("rd_heat_level1_1")), nullptr);
+
+    const int count = ioCount();
+    saveConfig();
+    reload("rd");
+    EXPECT_EQ(ioCount(), count) << "nothing created again";
+    EXPECT_EQ(linked("rd", "heat_level1"), "rd_heat_level1_1");
+    expectUniqueIds();
+
+    //The program's IO goes, never the one that held the conventional id.
+    changeParam("rd", "heat_levels", "1", "0");
+    EXPECT_EQ(io("rd_heat_level1_1"), nullptr);
+    EXPECT_NE(io("rd_heat_level1"), nullptr);
+    EXPECT_NE(io("rd_heat_level1_0"), nullptr);
+    EXPECT_NE(io("rd_heat_level1_2"), nullptr);
+    EXPECT_NE(io("rd_program_enabled"), nullptr);
+    changeParam("rd", "heat_levels", "0", "1");
+    EXPECT_EQ(linked("rd", "heat_level1"), "rd_heat_level1_1");
+    expectUniqueIds();
+}
+
+TEST_F(ClimateProgramTest, ADisabledProgramWritesNoPairInAutoUntilItIsTurnedOn)
+{
+    load();
+    set("prog_heat_default", 20);
+    set("prog_cool_default", 25);
+    ASSERT_TRUE(mode("prog", "auto"));
+    ASSERT_EQ(num("prog_low"), 20);
+    ASSERT_EQ(num("prog_high"), 25);
+
+    setBool("prog_program_enabled", false);
+    set("prog_heat_default", 22);
+    set("prog_cool_default", 28);
+    EXPECT_EQ(num("prog_low"), 20);
+    EXPECT_EQ(num("prog_high"), 25);
+
+    setBool("prog_program_enabled", true);
+    EXPECT_EQ(num("prog_low"), 22);
+    EXPECT_EQ(num("prog_high"), 28);
+}
+
+TEST_F(ClimateProgramTest, TurningTheProgramOnWithoutProgramModeWritesNothing)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "off"));
+    setBool("prog_program_enabled", false);
+    set("prog_target", 20);
+    setBool("prog_program_enabled", true);
+    EXPECT_EQ(num("prog_target"), 20);
+    EXPECT_EQ(dev("prog")->get_value_string(), "off");
+}
+
+TEST_F(ClimateProgramTest, ADisabledProgramStaysDisabledAfterARestart)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    setBool("prog_program_enabled", false);
+    set("prog_target", 24);
+    saveConfig();
+
+    reload();
+    EXPECT_FALSE(on("prog_program_enabled"));
+    EXPECT_EQ(num("prog_target"), 24) << "no application at start";
+}
+
+TEST_F(ClimateProgramTest, OnlyTheSetOfTheModeWrites)
+{
+    load();
+    set("coolset_target", 20);
+    ASSERT_TRUE(mode("coolset", "heat"));
+    set("coolset_cool_default", 23);
+    activate("coolset_cool_level1");
+    EXPECT_EQ(num("coolset_target"), 20) << "no heat set: nothing applied in heat";
+    ASSERT_TRUE(mode("coolset", "cool"));
+    EXPECT_EQ(num("coolset_target"), 22) << "the active level, at its initial value";
+    set("coolset_cool_level1_setpoint", 24);
+    EXPECT_EQ(num("coolset_target"), 24);
+}
+
+TEST_F(ClimateProgramTest, AutoUsesBothSetsAndLeavesTheTargetAlone)
+{
+    load();
+    set("prog_heat_default", 18);
+    set("prog_cool_default", 27);
+    set("prog_target", 21);
+    ASSERT_TRUE(mode("prog", "auto"));
+    EXPECT_EQ(num("prog_low"), 18);
+    EXPECT_EQ(num("prog_high"), 27);
+    EXPECT_EQ(num("prog_target"), 21);
+
+    set("prog_cool_level1_setpoint", 29);
+    activate("prog_cool_level1");
+    EXPECT_EQ(num("prog_high"), 29) << "the active cool level moves the high bound only";
+    EXPECT_EQ(num("prog_low"), 18);
+    set("prog_heat_level2_setpoint", 20);
+    activate("prog_heat_level2");
+    EXPECT_EQ(num("prog_low"), 20);
+    EXPECT_EQ(num("prog_high"), 29);
+}
+
+TEST_F(ClimateProgramTest, TheAutoPairKeepsTheGapForEverySetpointPair)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "auto"));
+    //The default bounds of the setpoints (ClimateBase::DEFAULT_TEMP_MIN/MAX).
+    const double min = 7, max = 35;
+    for (double heat = min; heat <= max; heat += 1)
+    {
+        for (double cool = min; cool <= max; cool += 3)
+        {
+            set("prog_heat_default", heat);
+            set("prog_cool_default", cool);
+            const double low = num("prog_low"), high = num("prog_high");
+            ASSERT_GE(high - low, 2) << heat << "/" << cool;
+            ASSERT_GE(low, min) << heat << "/" << cool;
+            ASSERT_LE(high, max) << heat << "/" << cool;
+            if (cool - heat >= 2)
+            {
+                ASSERT_EQ(low, heat) << heat << "/" << cool;
+                ASSERT_EQ(high, cool) << heat << "/" << cool;
+            }
+        }
+    }
+}
+
+TEST_F(ClimateProgramTest, APairThatCannotKeepTheGapWritesNothingAtAll)
+{
+    load();
+    set("wide_low", 18);
+    set("wide_high", 24);
+    ASSERT_TRUE(mode("wide", "auto"));
+    int changes = 0;
+    auto low = IOChangeHub::Instance().subscribe("wide_low", [&](IOBase &) { changes++; });
+    auto high = IOChangeHub::Instance().subscribe("wide_high", [&](IOBase &) { changes++; });
+    set("wide_heat_default", 20);
+    set("wide_cool_default", 30);
+    activate("wide_heat_level1");
+    deactivate("wide_heat_level1");
+    setBool("wide_program_enabled", false);
+    setBool("wide_program_enabled", true);
+    pumpFor(5);
+    EXPECT_EQ(changes, 0);
+    EXPECT_EQ(num("wide_low"), 18);
+    EXPECT_EQ(num("wide_high"), 24);
+}
+
+TEST_F(ClimateProgramTest, NoRuleIsGeneratedWhateverTheProgramDoes)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "auto"));
+    activate("prog_heat_level1");
+    activate("prog_cool_level2");
+    ASSERT_TRUE(mode("prog", "heat"));
+    setBool("prog_program_enabled", false);
+    setBool("prog_program_enabled", true);
+    EXPECT_EQ(ListeRule::Instance().size(), 0);
+
+    changeParam("prog", "heat_levels", "2", "0");
+    changeParam("prog", "cool_levels", "2", "0");
+    changeParam("prog", "heat_levels", "0", "3");
+    EXPECT_EQ(ListeRule::Instance().size(), 0);
+    saveConfig();
+    EXPECT_EQ(rulesXmlOnDisk().find("calaos:rule "), std::string::npos) << rulesXmlOnDisk();
 }
