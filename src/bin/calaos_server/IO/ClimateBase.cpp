@@ -745,12 +745,13 @@ void ClimateBase::setupProgram()
 
     //The bounds of the setpoint the program writes, copied once.
     const Bounds b = linkIo("target_temp") ? setpointBounds("target_temp") : rangeBounds();
-    const Params setpoint{ { "type", "InternalInt" },
-                           { "save", "true" },
-                           { "value_min", Utils::to_string(b.min) },
-                           { "value_max", Utils::to_string(b.max) },
-                           { "step", Utils::to_string(b.step) },
-                           { "unit", b.unit } };
+    Params setpoint;
+    setpoint.Add("type", "InternalInt");
+    setpoint.Add("save", "true");
+    setpoint.Add("value_min", Utils::to_string(b.min));
+    setpoint.Add("value_max", Utils::to_string(b.max));
+    setpoint.Add("step", Utils::to_string(b.step));
+    setpoint.Add("unit", b.unit);
     createProgramIos("heat", heatLevels, setpoint);
     createProgramIos("cool", coolLevels, setpoint);
     if (!linkIo(PROGRAM_ENABLED))
