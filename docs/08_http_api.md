@@ -623,7 +623,7 @@ de `API.md`) :
 | connexion refusée, délai dépassé, réponse invalide | `daemon_unreachable` ou `admin_unavailable`, selon [`AdminState`](#état-admin-et-règle-collante) |
 | `401` dont le `code` n'est pas `bad_session` (y compris un corps sans `code`), après relecture du token et **une** nouvelle tentative | `daemon_unreachable` |
 | `404` sur `GET /api/v2/admin/status` (quel que soit le corps), ou tout `404` sur `/api/v2/` dont le corps n'est pas une enveloppe avec un `code` | `daemon_too_old` |
-| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held`, `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`, `approver_last`, `code_required`, `bad_code`, `code_expired`, `console_limit`, `network_pending`, `service_unavailable` | le même code |
+| `bad_session`, `bad_password`, `rate_limited`, `password_too_short`, `admin_not_set`, `admin_already_set`, `upgrade_in_progress`, `not_allowed`, `package_held`, `approver_required`, `approver_limit`, `approver_exists`, `approver_not_found`, `approver_last`, `code_required`, `bad_code`, `code_expired`, `console_limit`, `network_pending`, `service_unavailable`, `invalid_snapshot`, `not_bootable`, `snapshot_too_old`, `in_rescue`, `not_in_rescue`, `rescue_unavailable` | le même code |
 | `invalid_request`, `package_not_found` | le même code, avec le `msg` du daemon (affichable sans risque) |
 | `not_found` sur une route de la table de relais (le chemin est fixé par la table : la route n'existe pas dans un daemon qui la précède) | `daemon_too_old`, pour cette action seulement |
 | `internal`, `not_found` sur tout autre appel de calaos_server (`admin/push/{code_id}`…), `method_not_allowed`, tout code inconnu | `internal` |
@@ -796,14 +796,18 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
   ci-dessous) et `versions`, dont le `result` est `{server, system, error?}`. C'est la troisième exception à la règle
   « tout est chaîne » (après l'objet `device` et `eventlog`) ; `success` reste une chaîne.
   Les formes des `result` sont définies par `API.md` (`<Job>`, `<Status>`, etc.).
-- `admin_session` est requise partout, **sauf** `update_status` et `versions` (qui n'en transmet
-  aucune au daemon).
+- `admin_session` est requise partout, **sauf** `update_status`, `versions` et `rescue_status`
+  (qui n'en transmettent aucune au daemon).
 
 | `action` | `params` | Appel du daemon | Session | `result` |
 |---|---|---|:---:|---|
 | `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
 | `versions` | | `GET system/versions` | non | `{"server": "<version>", "system": <réponse du daemon, liste blanche> ou null, "error"?: "<code>"}` |
 | `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
+| `rescue_status` | | `GET system/rescue` | non | `{"rescue": <bool>, "overlay": <bool>, "snapshot": <entier ou null>}` (liste blanche, tout autre champ est abandonné ; `rescue` et `overlay` valent `false` s'ils manquent ou ne sont pas booléens). La réponse est gardée 60 s (3 s pour une erreur) et un seul appel au daemon est en vol à la fois |
+| `snapshots_list` | | `GET system/snapshots` | oui | liste des snapshots, recopiée du daemon |
+| `snapshot_boot` | `id` | `POST system/snapshots/boot` | oui | `null` ; `id` est un entier JSON de 1 à 2147483647 (chaîne ou flottant : `invalid_request`), le corps envoyé est `{"id": <id>}` et rien d'autre ; délai 35 s |
+| `snapshot_rollback` | | `POST system/snapshots/rollback` | oui | `null` ; corps vide `{}` ; délai 35 s |
 | `update_available` | | `GET update/available` | oui | idem, sans contacter les miroirs |
 | `update_upgrade_all` | | `POST update/upgrade-all` | oui | `<Job>` (le daemon répond 202 et le job tourne) |
 | `update_upgrade` | `package` | `POST update/upgrade` | oui | `<Job>` |
@@ -864,10 +868,22 @@ changement concurrent). Sur ces quatre écritures, un délai dépassé ou une r�
 donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unknown"`** :
 l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
 `time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
+`snapshot_boot` et `snapshot_rollback` (délai 35 s, sondes de 10 s puis `grub-reboot`) ont le
+même `outcome: "unknown"` : la box a pu armer le démarrage et redémarrer ; le client ne renvoie
+pas l'action et attend le retour de la box pour relire `rescue_status`.
 
+- **`rescue_status`** : l'état de secours, pour le bandeau des clients. Comme `versions`, il ne
+  demande ni `admin_session` ni admin défini et ne transmet au daemon ni session ni `params` ;
+  il reste réservé à une connexion WebSocket déjà ouverte par le login foyer. Le `result` est
+  réduit à `{rescue, overlay, snapshot}` ; les erreurs du daemon sont relayées comme pour les
+  autres actions. `snapshots_list`, `snapshot_boot` et `snapshot_rollback` exigent une
+  `admin_session` valide, transmise telle quelle au daemon (`X-Calaos-Admin-Session`) : le bearer
+  seul recevrait un `401`. Sans session, `bad_session` sans appel au daemon. Les codes du daemon
+  `invalid_snapshot`, `not_bootable`, `snapshot_too_old`, `in_rescue`, `not_in_rescue`,
+  `rescue_unavailable` et `upgrade_in_progress` sont renvoyés tels quels.
 - **`versions`** : les numéros de version de la box, pour la page
-  « Versions » des clients. Avec `update_status` sans session, c'est la seule action du relais
-  ouverte à une session foyer : elle n'exige ni `admin_session` ni admin défini (elle ne dépend ni
+  « Versions » des clients. Avec `update_status` sans session et `rescue_status`, c'est une des seules actions du relais
+  ouvertes à une session foyer : elle n'exige ni `admin_session` ni admin défini (elle ne dépend ni
   de l'admin mode ni de l'état de l'admin, le daemon répondant sur le seul bearer), et ne transmet au daemon ni session ni `params`
   (aucune autre route du daemon n'en devient accessible). Sous `secureTransport()` comme les
   autres. `server` est le `version` de `get_server_info`. `system` est le `data` de
@@ -2636,6 +2652,110 @@ courant (refusé s'il n'a encore rien reçu) : si `high - low` est inférieur au
 de la commande s'appliquent quand même. Une écriture refusée par l'IO lié (entrée, IO en
 lecture seule) est journalisée avec la raison « the linked IO refused the value ».
 
+**Programme horaire** (docs/17_device_templates.md, « Programme horaire des climates »). Les
+champs sont ceux de CP-CONTRACT.
+
+> **Contrat cible, pas encore sur master.** `capabilities.program` et `state.program` sont
+> livrés par CP-BASE-LEVELS et CP-BASE-STATE ; d'ici là le climate ne les publie pas.
+
+`capabilities.program` est présente seulement si au moins un jeu a des niveaux :
+```json
+"program": {"heat_levels": 3, "cool_levels": 2, "max_levels": 6}
+```
+`heat_levels` et `cool_levels` sont toujours tous les deux présents quand `program` l'est, `0`
+pour un jeu sans niveau (`"cool_levels": 0`) ; `max_levels` vaut 6. Si les deux valent 0,
+`program` est absent de `capabilities` (et de l'état), comme pour « Aucun niveau » de
+docs/17.
+
+`state.program`, exemple (mode `heat`, 18 h 40, niveau 2 « soir » actif) :
+```json
+"program": {
+  "enabled": true,
+  "mode_set": "heat",
+  "heat": {"levels": 3, "active_level": 2, "setpoint": 21.0, "default": 17.0},
+  "cool": {"levels": 2, "active_level": null, "setpoint": null, "default": null},
+  "next_change": {"at": "2026-11-17T22:30:00+01:00", "set": "heat",
+                  "level": null, "setpoint": 17.0}
+}
+```
+
+- `enabled` : valeur de `<climate>_program_enabled`.
+- `mode_set` : le jeu qui pilote le mode courant, `"heat"`, `"cool"`, `"auto"`, ou `null`
+  (modes `off`, `dry`, `fan_only`, mode inconnu, ou jeu du mode absent). En `auto`, `mode_set`
+  vaut `"auto"` même si un seul jeu existe : seul l'objet du jeu absent manque.
+- `heat` / `cool` : un objet par jeu qui a des niveaux, absent sinon.
+  - `levels` : nombre de niveaux (1 à 6) ;
+  - `active_level` : numéro du niveau prioritaire dont la plage est active, ou `null` si
+    aucun (consigne par défaut) ;
+  - `setpoint` : la consigne cible que le programme écrit ou écrirait maintenant, en °C ; `null`
+    pour le jeu `cool` si l'arrêt par défaut est actif (exemple ci-dessus : `cool_default_off`
+    est vrai, donc `cool.setpoint` et `cool.default` sont `null`). En `auto`, c'est la valeur
+    **après** l'ajustement de l'écart `program_min_gap` (`heat.setpoint` = `target_temp_low`,
+    `cool.setpoint` = `target_temp_high`), donc elle peut différer de la consigne du niveau ;
+  - `default` : la consigne par défaut en °C ; `null` pour le jeu `cool` quand
+    `cool_default_off` est vrai.
+- `next_change` : prochain instant où le jeu **pertinent pour le mode** change de niveau actif,
+  ou `null`.
+  - Horizon : 7 jours glissants à partir de l'instant de calcul. Il couvre une semaine
+    complète, donc toute plage hebdomadaire ; un créneau solaire est évalué à sa date réelle.
+  - Format : `at` est une chaîne ISO 8601 avec décalage, en heure locale du serveur
+    (`2026-11-17T22:30:00+01:00`) : sans ambiguïté au changement d'heure et lisible sans
+    fuseau.
+  - `set` : le jeu concerné (`"heat"` ou `"cool"`) ; `level` : le niveau actif **après** le
+    changement (`null` = défaut) ; `setpoint` : la consigne après le changement (`null` pour
+    l'arrêt du froid).
+  - Rien dans les 7 jours (aucun créneau, plages vides, ou niveau actif en permanence), ou
+    programme désactivé, ou mode hors `heat`/`cool`/`auto` : `"next_change": null`. La clé est
+    toujours présente quand `program` l'est.
+  - En `auto`, c'est le plus proche des deux jeux.
+  - Un changement qui ne modifie pas la consigne (un niveau de même température qui en
+    remplace un autre) est quand même rendu : il s'agit du niveau.
+- Désactivé, `enabled` vaut `false` et le reste est l'état qui **serait** appliqué ; seul
+  `next_change` passe à `null`.
+- Ni `program` ni ses clés ne portent d'IO : les ids des IOs sont dans `device.ios`, aux rôles
+  `heat_level<n>`, `heat_level<n>_setpoint`, `heat_default`, `cool_level<n>`,
+  `cool_level<n>_setpoint`, `cool_default`, `cool_default_off` et `program_enabled`. Un client
+  ne reconstruit jamais un id : il lit ces rôles (le suffixe `_N` de collision est possible).
+- Le prochain changement est un instant calculé : le serveur republie `io_changed` du climate
+  quand le niveau actif change, et après tout `set_timerange` ou `set_state` d'un IO du
+  programme. Un client qui affiche un compte à rebours le calcule lui-même depuis `at`.
+
+**Lire le programme.** Pas de commande nouvelle : `device.state.program` donne l'état résumé ;
+la consigne de chaque niveau, les `_default` et `cool_default_off` se lisent avec `get_state` ou
+`get_io` sur les ids de `device.ios` (rôles `heat_level<n>_setpoint`, `heat_default`, etc.), et
+se suivent par les `io_changed` de ces IOs ; les créneaux d'une plage, par `get_timerange`.
+
+**Écrire le programme.** Pas de commande nouvelle :
+
+- une plage : `get_timerange` / `set_timerange` avec l'id du rôle `heat_level<n>` ou
+  `cool_level<n>` (voir `set_timerange`) ; événement `timerange_changed` ;
+- une consigne de niveau, une consigne par défaut, `cool_default_off`, `program_enabled` :
+  `set_state` sur l'id de l'IO (voir le rôle dans `device.ios`), comme pour tout IO interne.
+  Valeur d'une consigne : un nombre en chaîne (`"21.5"`), borné par l'IO mais **non arrondi**
+  au pas (l'arrondi se fait quand le programme écrit la consigne du climate, docs/17) ;
+  d'un booléen : `"true"` ou `"false"`. Le champ `program` n'est **pas** accepté dans
+  l'objet JSON de `set_state` du climate : `{"program":…}` est un champ inconnu, refusé et
+  journalisé comme tout champ inconnu ;
+- MCP (contrat cible, pas encore sur master ; livré par CP-MCP-GUARD) : le MCP n'écrit pas le
+  programme. `set_timerange` y est refusé par la portée service, et `set_io_state` refuse les
+  IOs du programme (plages et consignes des niveaux, consignes par défaut, `cool_default_off`,
+  `program_enabled`) avec une erreur qui nomme le climate (docs/15_mcp_server.md). D'ici là,
+  `set_io_state` les écrit comme tout IO interne. Le client web et l'API directe gardent
+  `set_state`.
+
+Exemples :
+```json
+{"msg": "set_state", "msg_id": "1",
+ "data": {"id": "salon_chauffage_heat_level2_setpoint", "value": "21.5"}}
+{"msg": "set_state", "msg_id": "2",
+ "data": {"id": "salon_chauffage_program_enabled", "value": "false"}}
+```
+
+Une écriture qui modifie la consigne du niveau actif réapplique la consigne tout de suite
+(docs/17). `set_state` garde son contrat : `{"success":"true"}` sans rien dire de la consigne
+écrite sur le climate ; le client lit l'`io_changed` suivant.
+
+
 ### `get_playlist`
 
 Réponse HTTP (capturé, `tests/core/golden/t317a_http_get_playlist.json`,
@@ -2711,6 +2831,62 @@ Réponse (capturé, `tests/core/golden/e40c_http_get_timerange.json`, extrait) :
 **inversé** à l'émission pour se lire de gauche à droite
 ([JsonApi.cpp:1800-1804](../src/bin/calaos_server/JsonApi.cpp)). IO qui n'est
 pas une plage horaire → `{"error":"wrong input"}`.
+
+### `set_timerange` (contrat cible, CP-BASE-TR)
+
+> **Contrat cible, pas encore sur master.** Il est livré par CP-BASE-TR ; d'ici là le serveur
+> garde le comportement gelé décrit dans [04_scenarios.md](04_scenarios.md) (`clear()` avant
+> lecture, aucune validation, prise en compte au tick suivant), et les chaînes `invalid *`
+> ci-dessous n'existent pas.
+
+Écrit une plage horaire (`InPlageHoraire`) : toute plage, y compris celle possédée par un
+climate. Refusé en session service (`scope denied`). Requête (WS ; en HTTP le même objet, corps
+JSON obligatoire) :
+```json
+{"msg": "set_timerange", "msg_id": "1",
+ "data": {"id": "salon_chauffage_heat_level1", "months": "111111111111",
+          "ranges": [{"day": "1", "start_hour": "6", "start_min": "30", "start_sec": "0",
+                      "start_type": "0", "start_offset": "0",
+                      "end_hour": "8", "end_min": "0", "end_sec": "0",
+                      "end_type": "0", "end_offset": "0"}]}}
+```
+Les champs sont les chaînes de `get_timerange` ; un entier JSON est accepté aussi.
+
+Ce qui changera par rapport à l'ancien comportement (« gelé tel quel » dans
+[04_scenarios.md](04_scenarios.md)) :
+
+- **Une seule validation, avant toute écriture.** Rien n'est modifié si une erreur est
+  rendue : le contenu de la plage reste intact. L'ancien `clear()` avant lecture disparaît.
+- **`ranges` absent** : les créneaux ne changent pas. **`ranges` présent** : la liste remplace
+  tous les créneaux ; `[]` les efface tous, c'est une demande explicite. **`months` absent** :
+  les mois ne changent pas.
+- **`months`** : exactement 12 caractères `0`/`1` (janvier à gauche). Sinon `invalid months`.
+- **`day`** : entier de 1 (lundi) à 7 (dimanche). Sinon `invalid day`.
+- **Créneau** : `start_hour`/`end_hour` 0 à 23, `*_min` et `*_sec` 0 à 59, `*_type` 0 à 3,
+  `*_offset` entier. Un champ absent ou illisible, ou une valeur hors bornes : `invalid range`.
+  Un `ranges` qui n'est pas un tableau, ou une entrée qui n'est pas un objet : `invalid ranges`.
+- **Prise en compte immédiate** (comme pour `autoscenario`) : la plage réévalue son état
+  dans l'appel même, sans attendre le tick de `RunEventLoop`. L'événement
+  `timerange_changed` part après la réévaluation, donc après le changement d'état de la plage ;
+  si elle appartient à un climate, la consigne est réappliquée et le `io_changed` du climate
+  (champ `program`) suit sous 100 ms. Le client reçoit la réponse avant de savoir si la
+  consigne a changé : c'est l'`io_changed` qui l'annonce.
+
+Erreurs, sur les deux transports, `{"error": "<chaîne>"}` (dans `data` en WS) :
+
+| Chaîne | Cas |
+|---|---|
+| `wrong input` | `id` absent ou inconnu, ou IO qui n'est pas une plage horaire (inchangé) |
+| `invalid months` | `months` présent et pas 12 fois `0`/`1` |
+| `invalid day` | `day` absent, non entier, hors 1 à 7 |
+| `invalid range` | un champ de créneau absent, non entier ou hors bornes |
+| `invalid ranges` | `ranges` n'est pas un tableau d'objets |
+| `config_not_written` | appliqué en mémoire, pas sur le disque (inchangé, [Fichier non écrit](#fichier-non-écrit)) |
+
+Succès : `{"success":"true"}` (inchangé). Les chaînes `invalid *` et `wrong input` ne
+changent rien ; `config_not_written` laisse le changement en mémoire. L'événement
+`timerange_changed` ne porte que l'`id` ; il ne rafraîchit pas l'état d'un climate, c'est
+l'`io_changed` qui le fait.
 
 ### `autoscenario` / `get` et `list`
 
@@ -3067,6 +3243,7 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
 | `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
+| `invalid months` / `invalid day` / `invalid range` / `invalid ranges` | `set_timerange` (contrat cible, livré par CP-BASE-TR, pas encore sur master) | validation du corps, rien n'est modifié ; voir [`set_timerange`](#set_timerange-contrat-cible-cp-base-tr) |
 | `config_not_loaded` | `CONFIG_NOT_LOADED`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario` : un fichier à écrire n'a pas été chargé, rien n'a changé, voir [Fichier non chargé](#fichier-non-chargé) |
 | `config_not_written` | `CONFIG_NOT_WRITTEN`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario`, `set_timerange` : changement en mémoire, pas sur le disque, voir [Fichier non écrit](#fichier-non-écrit) |
 | `uuid not found` | [HistLogger.cpp:292](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
