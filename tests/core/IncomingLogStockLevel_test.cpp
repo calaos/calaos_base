@@ -1279,7 +1279,8 @@ TEST_F(IncomingLogStockLevelTest, AnInvalidTimeRangeBoundIsRefusedWithoutBeingEc
     //A bound that is not a number is refused, and the refusal does not echo it.
     EXPECT_EQ(std::string::npos, ex.log.find(planted.substr(0, 9)))
         << "a value the client put under a range bound comes back in the "
-           "journal:\n" << ex.log;
+           "journal:\n"
+        << ex.log;
 }
 
 /*

@@ -2732,7 +2732,7 @@ static bool parseStrictInt(const string &s, int &out)
 
 static Json errorJson(const char *msg)
 {
-    Params p = {{ "error", msg }};
+    Params p = { { "error", msg } };
     return p.toJson();
 }
 
@@ -2757,7 +2757,7 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
         const Json::const_iterator mit = jdata.find("months");
         if (mit != jdata.cend())
         {
-            string m = mit->is_string()? mit->get<string>(): string();
+            string m = mit->is_string() ? mit->get<string>() : string();
             if (m.size() != 12 || m.find_first_not_of("01") != string::npos)
             {
                 std::reverse(m.begin(), m.end());
