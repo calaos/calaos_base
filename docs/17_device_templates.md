@@ -328,10 +328,9 @@ Un climate infrarouge (`climate_ir`) ne prend pas de température distante (spec
 Contrat de CP-CONTRACT (climate-program). Le code (CP-BASE-LEVELS, CP-BASE-PROXY,
 CP-BASE-STATE) et les interfaces se codent contre ce texte.
 
-> **Contrat cible : rien de cette section n'est encore sur master.** Il est livré par
-> CP-BASE-LEVELS (niveaux, IOs, application, InternalThermostat), CP-BASE-PROXY
-> (ProxyClimate) et CP-BASE-STATE (`state.program`). D'ici là, les climates n'ont ni ces
-> params ni ces IOs.
+> **Contrat en cours de livraison.** Les niveaux, leurs IOs, l'application et
+> `InternalThermostat` sont livrés par CP-BASE-LEVELS. Restent à livrer CP-BASE-PROXY
+> (ProxyClimate) et CP-BASE-STATE (`state.program`).
 
 ### Modèle
 
@@ -445,6 +444,9 @@ ajoutés aux templates par CP-BASE-LEVELS (thermostats) et CP-BASE-PROXY (`espho
   niveaux supérieurs au nouveau nombre (plage et consigne) sont supprimés du device et de
   `io.xml` : leurs créneaux et consignes sont perdus. Les augmenter crée les niveaux
   manquants, plages vides, consigne = valeur courante du `_default` du jeu.
+  À 0 niveau pour un jeu, son `_default` est supprimé, ainsi que `cool_default_off` pour le
+  jeu froid. À 0 niveau au total (chaud et froid), `program_enabled` est supprimé aussi. Cela
+  vaut au rechargement de la configuration comme après une modification des params.
 
 ### Application
 
