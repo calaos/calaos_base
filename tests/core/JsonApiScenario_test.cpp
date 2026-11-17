@@ -830,7 +830,9 @@ TEST_F(JsonApiScenarioTest, SetTimerangeRejectsMalformedRangesContainer)
     loadScenarioHouse();
 
     for (const Json &bad: { Json("nope"), Json(3), Json{ { "a", "b" } },
-                            Json::array({ "x" }), Json::array({ 1 }) })
+                            Json::array({ "x" }), Json::array({ 1 }),
+                            //an object of well-formed ranges is still not an array
+                            Json{ { "a", validRange("2", "4") } } })
     {
         WsTestSession ws;
         ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "ranges", bad } }));
@@ -946,6 +948,14 @@ TEST_F(JsonApiScenarioTest, SetTimerangeNotifiesTheOwnerDeviceOnlyAfterAValidMod
     InPlageHoraire *range = dynamic_cast<InPlageHoraire *>(io(IO_RANGE));
     ASSERT_TRUE(range != nullptr);
 
+    //The fixture's slots can contain "now": emptying them first, before the
+    //subscription, makes the state false whatever the wall clock says and keeps
+    //it false, so no state flip (and no hub notify of its own) can be counted.
+    WsTestSession ws;
+    ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "ranges", Json::array() } }));
+    ASSERT_EQ(1u, ws.count());
+    ASSERT_FALSE(range->get_value_bool());
+
     int notified = 0;
     auto sub = IOChangeHub::Instance().subscribe(IO_RANGE, [&notified](IOBase &)
                                                  {
@@ -953,7 +963,7 @@ TEST_F(JsonApiScenarioTest, SetTimerangeNotifiesTheOwnerDeviceOnlyAfterAValidMod
     });
 
     //not owned by a device: nobody to tell
-    WsTestSession ws;
+    ws.clear();
     ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "months", "111111111111" } }));
     ASSERT_EQ(1u, ws.count());
     EXPECT_EQ(0, notified);
