@@ -976,6 +976,24 @@ TEST_F(JsonApiScenarioTest, SetTimerangeNotifiesTheOwnerDeviceOnlyAfterAValidMod
     ASSERT_EQ(1u, ws.count());
     EXPECT_EQ(0, notified);
 
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "ranges", Json::array({ validRange("0", "4") }) } }));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid day"})"), ws.lastData());
+    EXPECT_EQ(0, notified);
+
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "ranges", Json::array({ validRange("1", "24") }) } }));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid range"})"), ws.lastData());
+    EXPECT_EQ(0, notified);
+
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "ranges", "nope" } }));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid ranges"})"), ws.lastData());
+    EXPECT_EQ(0, notified);
+
     //valid request, even one that changes nothing
     ws.clear();
     ws.send(wsRequest("set_timerange", Json{ { "id", IO_RANGE }, { "months", "111111111111" } }));
