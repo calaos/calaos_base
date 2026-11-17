@@ -659,6 +659,7 @@ struct Runs
     Exchange uploadBadContent;
     Exchange setState;
     Exchange setTimerange;
+    Exchange setTimerangeRanges;
     Exchange eventPicture;
 
     //Two exchanges carry no bound and no overlap, for the same reason: a stock
@@ -669,7 +670,7 @@ struct Runs
     {
         return { &loginThrottled, &webappPath, &debugPath, &handshakeRefused,
                  &frameError, &closeFrame, &uploadBadKey, &uploadBadContent,
-                 &setState, &setTimerange };
+                 &setState, &setTimerange, &setTimerangeRanges };
     }
 };
 
@@ -735,25 +736,33 @@ const Runs &theRuns()
                                                kSetStateValueSecret + " \""),
                                        credentialHeaders()));
 
-        //One range with the six bounds a range is made of, plus a seventh key
-        //nothing in this tree names: Params keeps every key of the object, so
-        //what is published of a range is published of anything put beside it.
+        //Months that are refused: the request ends there, whatever follows.
         LoginThrottle::clear();
         {
             std::ostringstream fields;
             fields << "\"action\":\"set_timerange\",\"id\":\"" << kTimeRangeId
-                   << "\",\"months\":\"" << kMonthsMark << "\",\"ranges\":[{"
+                   << "\",\"months\":\"" << kMonthsMark << "\",\"ranges\":[]";
+            r.setTimerange = exchange(jsonPost(apiBody(fields.str()), credentialHeaders()));
+        }
+
+        //A valid range with a key nothing in this tree names (Params keeps
+        //every key of the object), then one whose start_hour is not a bound.
+        LoginThrottle::clear();
+        {
+            std::ostringstream fields;
+            fields << "\"action\":\"set_timerange\",\"id\":\"" << kTimeRangeId
+                   << "\",\"ranges\":[{"
                    << "\"day\":\"1\",\"start_hour\":\"21\",\"start_min\":\"37\","
-                   << "\"start_sec\":\"11\",\"end_hour\":\"22\",\"end_min\":\"41\","
-                   << "\"end_sec\":\"09\","
+                   << "\"start_sec\":\"11\",\"start_type\":\"0\",\"start_offset\":\"0\","
+                   << "\"end_hour\":\"22\",\"end_min\":\"41\","
+                   << "\"end_sec\":\"09\",\"end_type\":\"0\",\"end_offset\":\"0\","
                    << "\"x-calaos-plage-inconnue\":\"" << kTimeRangeFieldSecret << "\"},{"
-                   //A second range whose start_hour is not a bound at all. The
-                   //six that stayed open take whatever the client sends, and a
-                   //closed bag says nothing about what goes through them.
                    << "\"day\":\"2\",\"start_hour\":\"" << kTimeRangeBoundSecret
                    << "\",\"start_min\":\"07\",\"start_sec\":\"03\","
-                   << "\"end_hour\":\"08\",\"end_min\":\"05\",\"end_sec\":\"02\"}]";
-            r.setTimerange = exchange(jsonPost(apiBody(fields.str()), credentialHeaders()));
+                   << "\"start_type\":\"0\",\"start_offset\":\"0\","
+                   << "\"end_hour\":\"08\",\"end_min\":\"05\",\"end_sec\":\"02\","
+                   << "\"end_type\":\"0\",\"end_offset\":\"0\"}]";
+            r.setTimerangeRanges = exchange(jsonPost(apiBody(fields.str()), credentialHeaders()));
         }
 
         LoginThrottle::clear();
@@ -1227,7 +1236,7 @@ TEST_F(IncomingLogStockLevelTest, ARefusedMonthParameterPublishesItselfAndNothin
  */
 TEST_F(IncomingLogStockLevelTest, AnAddedTimeRangeIsNotWrittenOutsideTheJournal)
 {
-    const Exchange &ex = theRuns().setTimerange;
+    const Exchange &ex = theRuns().setTimerangeRanges;
 
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
 
@@ -1250,17 +1259,12 @@ TEST_F(IncomingLogStockLevelTest, AnAddedTimeRangeIsNotWrittenOutsideTheJournal)
 }
 
 /*
- * AND THE CAP ON A BOUND, WHICH THE BAG BEING CLOSED SAYS NOTHING ABOUT.
- *
- * The six fields a range is made of stay open to whatever the client sends,
- * and the only thing between one of them and a whole value on a line is the
- * cap it is rendered under. Read on the FULL journal: the line is a debug one,
- * so the stock subset every other bound of this suite measures cannot see it,
- * and a cap held only there is a cap held by nothing.
+ * AND A BOUND THAT IS NOT A NUMBER: the request is refused, and what the
+ * client put under the bound must not reach the journal on the way.
  */
-TEST_F(IncomingLogStockLevelTest, AnOverlongTimeRangeBoundIsCutToItsCap)
+TEST_F(IncomingLogStockLevelTest, AnInvalidTimeRangeBoundIsRefusedWithoutBeingEchoed)
 {
-    const Exchange &ex = theRuns().setTimerange;
+    const Exchange &ex = theRuns().setTimerangeRanges;
 
     ASSERT_TRUE(ex.connected) << "no connection to the server, this case measures nothing";
 
@@ -1272,15 +1276,16 @@ TEST_F(IncomingLogStockLevelTest, AnOverlongTimeRangeBoundIsCutToItsCap)
         << "no range was added, so the site this case is written for never "
            "ran:\n" << ex.log;
 
-    //Cut AND rendered: plain absence is also what a line that stopped printing
-    //its bounds looks like, and that would pass a bound alone.
-    EXPECT_NE(std::string::npos, ex.log.find(planted.substr(0, 8) + "~"))
-        << "the trace no longer renders a range bound cut at its cap, so the "
-           "bound below would pass on a line that says nothing:\n" << ex.log;
+    //The refusal is journaled by field name, which is what a client reads.
+    EXPECT_NE(std::string::npos, ex.log.find("wrong parameters for time range field start_hour"))
+        << "the refusal of the bound left no line naming the field:\n"
+        << ex.log;
 
+    //A bound that is not a number is refused, and the refusal does not echo it.
     EXPECT_EQ(std::string::npos, ex.log.find(planted.substr(0, 9)))
-        << "a value the client put under a range bound comes back longer than "
-           "the cap that field is rendered under:\n" << ex.log;
+        << "a value the client put under a range bound comes back in the "
+           "journal:\n"
+        << ex.log;
 }
 
 /*
