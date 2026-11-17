@@ -1092,8 +1092,9 @@ void relayCached(CachedAnswer VersionsCache::*slot, const DaemonClient::Request 
 void relayVersions(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
 {
     const string server = ServerInfo::toJson()["version"].get<string>();
-    relayCached(&VersionsCache::versions, req, [server](const DaemonReply &reply, bool &ok)
-                {
+    relayCached(
+        &VersionsCache::versions, req, [server](const DaemonReply &reply, bool &ok)
+        {
         Json result;
         if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
         {
@@ -1103,15 +1104,16 @@ void relayVersions(const DaemonClient::Request &req, const std::function<void(co
         else
             result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(relayFailure(reply), "error") } };
         return Json{ { "success", "true" }, { "result", result } };
-    },
-                answer);
+        },
+        answer);
 }
 
 //Only the rescue state leaves for a caller with no admin session, whatever else the daemon adds
 void relayRescue(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
 {
-    relayCached(&VersionsCache::rescue, req, [](const DaemonReply &reply, bool &ok)
-                {
+    relayCached(
+        &VersionsCache::rescue, req, [](const DaemonReply &reply, bool &ok)
+        {
         if (reply.kind != DaemonReply::Kind::Ok || !reply.data.is_object())
             return reply.kind == DaemonReply::Kind::Ok ? JsonApi::adminError("internal", string()) : relayFailure(reply);
 
@@ -1125,8 +1127,8 @@ void relayRescue(const DaemonClient::Request &req, const std::function<void(cons
         const auto snapshot = reply.data.find("snapshot");
         result["snapshot"] = snapshot != reply.data.end() && snapshot->is_number_integer() ? *snapshot : Json();
         return Json{ { "success", "true" }, { "result", result } };
-    },
-                answer);
+        },
+        answer);
 }
 
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
