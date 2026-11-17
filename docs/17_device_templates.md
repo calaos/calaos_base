@@ -325,10 +325,13 @@ Un climate infrarouge (`climate_ir`) ne prend pas de température distante (spec
 
 ## Programme horaire des climates
 
-Contrat de CP-CONTRACT (climate-program). Les chaînes marquées **proposé** sont des choix
-techniques non encore validés par Raoul ; chacune donne son alternative en une ligne. Le
-code (CP-BASE-LEVELS, CP-BASE-PROXY, CP-BASE-STATE) et les interfaces se codent contre ce
-texte.
+Contrat de CP-CONTRACT (climate-program). Le code (CP-BASE-LEVELS, CP-BASE-PROXY,
+CP-BASE-STATE) et les interfaces se codent contre ce texte.
+
+> **Contrat cible : rien de cette section n'est encore sur master.** Il est livré par
+> CP-BASE-LEVELS (niveaux, IOs, application, InternalThermostat), CP-BASE-PROXY
+> (ProxyClimate) et CP-BASE-STATE (`state.program`). D'ici là, les climates n'ont ni ces
+> params ni ces IOs.
 
 ### Modèle
 
@@ -349,9 +352,8 @@ sous-classe fournit seulement l'écriture de la consigne (voir « Application »
 - **Niveaux actifs.** Un niveau est actif quand sa plage est active (`InPlageHoraire`, qui gère
   créneaux multiples par jour, mois, bornes solaires et passage de minuit). Si plusieurs sont
   actifs, le plus prioritaire l'emporte ; si aucun, la consigne par défaut du jeu s'applique.
-- **Priorité (proposé).** Le numéro du niveau : le niveau 1 l'emporte sur le 2, et ainsi de
-  suite. Alternative : un IO de priorité par niveau (`<climate>_<sens>_level<n>_prio`), réglable
-  et modifiable à l'exécution, au prix de 12 IOs de plus et d'un champ d'édition.
+- **Priorité.** Le numéro du niveau : le niveau 1 l'emporte sur le 2, et ainsi de suite. Elle
+  n'est pas réglable.
 
 ### IOs possédés
 
@@ -373,14 +375,24 @@ Dans la table, `<c>` est l'id du climate, `n` va de 1 au nombre de niveaux du je
 | `<c>_program_enabled` | `program_enabled` | `InternalBool` | `save="true"` | `heat_levels` + `cool_levels` ≥ 1 | programme activé |
 
 - **Consignes.** Les `InternalInt` de consigne portent `value_min`, `value_max`, `step` et
-  `unit` de la consigne cible du climate (7, 30, 0.5, `°C` dans les templates `thermostat_*`) ;
-  ils acceptent donc des demi-degrés et sont bornés et arrondis par l'IO lui-même. Un
+  `unit` de la consigne cible du climate, soit les bornes de `capabilities.target_temp` à la
+  création (7, 30, 0.5, `°C` pour un thermostat interne ; `temp_min` et `temp_max` pour un
+  proxy ; les bornes de la plage pour un climate à plage seule). Ils sont **bornés** par l'IO
+  (`AnalogBounds::clampToBounds`), **non arrondis** : l'arrondi au pas est fait à l'application
+  (voir « Écriture »), donc `21.3` écrit sur un IO se relit `21.3`. Les bornes copiées sur les
+  IOs à la création deviennent périmées si `temp_min` ou `temp_max` change ensuite. Un
   `InternalInt` ne représente pas « aucune » : c'est le rôle de `cool_default_off`.
-- **Valeurs initiales** (création du device, jamais réécrites ensuite) : consigne d'un niveau =
-  consigne par défaut de son jeu ; `heat_default` = `heat_default_setpoint` (défaut 17) ;
-  `cool_default` = `cool_default_setpoint` (défaut 26) ; `cool_default_off` =
-  `cool_default_off` (défaut `false`) ; `program_enabled` = `true`. Les plages démarrent vides :
-  un niveau sans créneau n'est jamais actif.
+- **Valeurs initiales** (à la création de l'IO, jamais réécrites ensuite, même si le param
+  change) : `heat_default` = param `heat_default_setpoint` (défaut 17) ; `cool_default` = param
+  `cool_default_setpoint` (défaut 26) ; `cool_default_off` = param `cool_default_off` (défaut
+  `false`) ; `program_enabled` = `true`. La consigne initiale d'un niveau est la **valeur
+  courante** de l'IO `_default` de son jeu au moment où le niveau est créé. Les plages
+  démarrent vides : un niveau sans créneau n'est jamais actif.
+- **Création par le serveur.** Les IOs de ce tableau sont créés par le serveur
+  (`Device::createOwnedLink`) à partir des params `heat_levels`, `cool_levels` et des
+  consignes par défaut, pas par la liste `ios` du template : elle est statique et ne peut pas
+  produire `n` niveaux. Le template ne fait que renseigner ces params (voir « Paramètres du
+  device »).
 - **Visibilité.** Tous les IOs ci-dessus sont `visible="false"` et `log_history` absent, comme
   `target_temp` : l'état du climate (`device.state.program`) est la vue destinée aux
   interfaces. Ils restent adressables par `set_state`, `get_timerange` et les règles.
@@ -399,12 +411,23 @@ Params du `<calaos:device>` (documentés dans l'IODoc, `descriptionBaseSet`/`par
 |---|---|---|
 | `heat_levels` | `0` | nombre de niveaux du jeu chaud, entier de 0 à 6 |
 | `cool_levels` | `0` | nombre de niveaux du jeu froid, entier de 0 à 6 |
-| `program_min_gap` | `2` | écart minimal, en °C, entre consigne basse et haute en mode `auto` quand le programme les pilote (**proposé**, voir « Mode auto ») |
+| `program_min_gap` | `2` | écart minimal, en °C, entre consigne basse et haute en mode `auto` quand le programme les pilote (voir « Mode auto ») |
+| `heat_default_setpoint` | `17` | valeur initiale de `heat_default` (°C) |
+| `cool_default_setpoint` | `26` | valeur initiale de `cool_default` (°C) |
+| `cool_default_off` | `false` | valeur initiale de l'IO `cool_default_off` : `true` si le défaut du froid est « arrêt » |
 
-Les consignes par défaut ne sont pas des params de device : ce sont les valeurs initiales
-des IOs `_heat_default`, `_cool_default` et `_cool_default_off`, que les champs de template
-`heat_default_setpoint`, `cool_default_setpoint` et `cool_default_off` fixent à la création
-(`value` de l'IO). Après la création, elles se changent comme n'importe quel IO.
+Les trois derniers params sont lus par le serveur quand il crée les IOs `_heat_default`,
+`_cool_default` et `_cool_default_off`, et seulement à ce moment : après la création, la valeur
+de l'IO fait foi et se change comme n'importe quel IO. C'est ainsi que l'installer configure les
+consignes par défaut. Quand les niveaux d'un jeu passent de 0 à au moins 1, son `_default` est
+créé avec la valeur du param.
+
+**Templates.** Les params sont des champs `number` (`bool` pour `cool_default_off`) renseignés
+dans l'assistant, valeur par défaut comprise (`{heat_levels}` etc. dans `params`) :
+`thermostat_heat` et `thermostat_floor_zone` portent `heat_levels`, `heat_default_setpoint` ;
+`thermostat_heat_cool`, `thermostat_floor_heat_cool` et `esphome_climate` portent en plus
+`cool_levels`, `cool_default_setpoint`, `cool_default_off` et `program_min_gap`. Les champs sont
+ajoutés aux templates par CP-BASE-LEVELS (thermostats) et CP-BASE-PROXY (`esphome_climate`).
 
 - **Aucun niveau** (`heat_levels` = 0 et `cool_levels` = 0, valeurs par défaut) : le climate n'a
   **pas de programme**. Aucun IO du tableau n'existe, `program_enabled` non plus, l'état n'a
@@ -418,21 +441,18 @@ des IOs `_heat_default`, `_cool_default` et `_cool_default_off`, que les champs 
   `heat_levels`.
 - **Au-delà de 6**, la valeur est ramenée à 6 au chargement avec un avertissement ; une valeur
   non entière ou négative vaut 0.
-- **Réduire le nombre de niveaux (proposé).** Au rechargement de la configuration, les IOs des
+- **Réduire le nombre de niveaux.** Au rechargement de la configuration, les IOs des
   niveaux supérieurs au nouveau nombre (plage et consigne) sont supprimés du device et de
   `io.xml` : leurs créneaux et consignes sont perdus. Les augmenter crée les niveaux
-  manquants, plages vides, consigne = défaut du jeu. Alternative : conserver les IOs
-  excédentaires, inertes et masqués, pour qu'un retour au nombre précédent retrouve les
-  créneaux, au prix d'IOs orphelins dans `io.xml` et dans les sélecteurs de règles.
+  manquants, plages vides, consigne = valeur courante du `_default` du jeu.
 
 ### Application
 
 **Déclencheurs.** Le device réévalue et écrit la consigne à chaque :
 changement d'état d'une plage de niveau, changement de `mode`, changement de
 `program_enabled`, changement de la consigne du niveau actif (ou de la consigne par défaut
-si aucun niveau n'est actif, ou de `cool_default_off`), et — **proposé** — une fois au
-démarrage, quand le mode et les consignes sont chargés. Alternative : ne rien appliquer au
-démarrage, la consigne restaurée restant celle d'avant l'arrêt jusqu'au premier changement.
+si aucun niveau n'est actif, ou de `cool_default_off`), et une fois au démarrage, quand le
+mode et les consignes sont chargés.
 Un changement de plage fait par `set_timerange` prend effet immédiatement (voir
 docs/08_http_api.md), sans attendre le tick suivant de `RunEventLoop`.
 
@@ -448,7 +468,7 @@ un programme natif : pas d'exclusion.
 **Consigne d'un jeu** `s` (`heat` ou `cool`), pour un instant donné :
 
 1. `L` = niveaux de `s` dont la plage est active.
-2. Si `L` n'est pas vide : le niveau le plus prioritaire (numéro le plus petit, **proposé**),
+2. Si `L` n'est pas vide : le niveau le plus prioritaire (numéro le plus petit),
    consigne = `<c>_<s>_level<n>_setpoint`.
 3. Sinon : consigne = `<c>_<s>_default`, sauf si `s` = `cool` et `<c>_cool_default_off` = `true`,
    auquel cas elle vaut **arrêt**.
@@ -462,25 +482,29 @@ un programme natif : pas d'exclusion.
 | `cool` | `target_temp` = consigne du jeu `cool` ; si elle vaut arrêt, voir ci-dessous. Jeu `cool` absent : aucune écriture |
 | `auto` | `target_temp_low` = consigne du jeu `heat`, `target_temp_high` = consigne du jeu `cool`, avec l'écart minimal. Un jeu absent laisse sa borne telle quelle |
 
-- **« Arrêt » du froid en `cool` (proposé).** Le serveur écrit `target_temp` au **maximum** de
+- **« Arrêt » du froid en `cool`.** Le serveur écrit `target_temp` au **maximum** de
   la capacité (`value_max` de la consigne, 30 par défaut) : la climatisation ne démarre que
   si la pièce dépasse cette borne, le mode reste `cool` et aucune information n'est perdue.
-  Alternative : passer le climate en mode `off`, qui coupe vraiment, mais perd le mode `cool`
-  que l'utilisateur ou une règle avait choisi (il faudrait le mémoriser puis le restaurer au
-  prochain niveau actif, et un `off` mis à la main serait ensuite écrasé).
-- **« Arrêt » du froid en `auto` (proposé).** Pas de borne haute : `target_temp_high` est écrit au
+  Le climate n'est jamais passé en mode `off` par le programme.
+- **« Arrêt » du froid en `auto`.** Pas de borne haute : `target_temp_high` est écrit au
   maximum de sa capacité (`value_max` de la plage), le froid est neutralisé, le chaud
-  continue de tenir la borne basse. Alternative : refuser l'arrêt en `auto`, c'est-à-dire
-  retomber sur `cool_default` quand `cool_default_off` est vrai.
-- **Mode `auto`, écart minimal (proposé).** Le serveur garantit
+  continue de tenir la borne basse.
+- **Mode `auto`, écart minimal.** Le serveur garantit
   `high - low ≥ max(min_range, program_min_gap)`. `program_min_gap` vaut 2 °C par défaut, la
   valeur de `min_range` de `thermostat_heat_cool` ; `min_range` du device (0 par défaut)
   s'applique toujours en plus. Quand l'écart n'est pas tenu, **la borne haute monte**
   (`high = low + écart`) : le jeu chaud commande, le confort d'hiver ne cède pas à un niveau de
   froid trop bas. Si `low + écart` dépasse le maximum de la borne haute, c'est la borne basse
   qui descend (`low = high - écart`). Les deux écritures se font en **une** commande de paire
-  (« validées ensemble »), jamais en deux temps. Alternative : la borne basse descend, ce qui
-  préserve la consigne de froid au prix d'un chaud qui baisse.
+  (« validées ensemble »), jamais en deux temps.
+  - L'ajustement (`écart = max(min_range, program_min_gap)`) est fait **avant**
+    `ClimateBase::applyRange`, et seulement pour une paire écrite par le programme : un
+    `set_state` manuel garde le refus de `applyRange` quand l'écart est trop petit.
+  - Un écart qui n'est pas un multiple du pas est arrondi au multiple supérieur.
+  - Si l'ajustement sort des bornes (ni `high = low + écart` ni `low = high - écart` ne tient
+    dans `capabilities`), la paire n'est pas écrite et le refus est journalisé.
+  - Comme pour `applyRange`, la paire n'est pas écrite si l'une des deux bornes n'a jamais
+    été reçue (proxy qui n'a pas encore publié) : le prochain déclencheur réessaie.
 - **Mode `auto` sur un seul jeu.** Si seul `heat_levels` > 0, le programme écrit `low` ; la borne
   haute n'est modifiée que pour respecter l'écart. Symétrique pour `cool_levels` seul.
 
@@ -488,13 +512,11 @@ un programme natif : pas d'exclusion.
 consigne appliquée reste (aucune consigne manuelle dédiée). À la réactivation, le niveau en
 cours est réappliqué (même règle que ci-dessus, aussi pour une consigne changée entre-temps).
 
-**Consigne affichée programme désactivé (proposé).** C'est la consigne cible du climate, la
+**Consigne affichée programme désactivé.** C'est la consigne cible du climate, la
 dernière écrite par le programme ou par l'utilisateur ; `device.state.program.enabled` vaut
 `false` et les interfaces l'affichent comme une consigne manuelle. L'état reste calculé
 (`active_level`, `setpoint` sont ceux que le programme **appliquerait**) pour que l'interface
-puisse afficher « programme en pause : niveau Soir (21 °C) ». Alternative : une consigne
-manuelle dédiée, un IO supplémentaire, que le programme ne touche pas et que l'utilisateur
-règle à part.
+puisse afficher « programme en pause : niveau Soir (21 °C) ».
 
 **État du climate.** Le climate expose le programme dans `device.state.program` (forme exacte
 dans docs/08_http_api.md, « Famille `climate` »). `device.capabilities.program` annonce le

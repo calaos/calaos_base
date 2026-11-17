@@ -2634,15 +2634,19 @@ de la commande s'appliquent quand même. Une écriture refusée par l'IO lié (e
 lecture seule) est journalisée avec la raison « the linked IO refused the value ».
 
 **Programme horaire** (docs/17_device_templates.md, « Programme horaire des climates »). Les
-champs sont ceux de CP-CONTRACT ; ceux marqués **proposé** attendent la validation de
-Raoul.
+champs sont ceux de CP-CONTRACT.
+
+> **Contrat cible, pas encore sur master.** `capabilities.program` et `state.program` sont
+> livrés par CP-BASE-LEVELS et CP-BASE-STATE ; d'ici là le climate ne les publie pas.
 
 `capabilities.program` est présente seulement si au moins un jeu a des niveaux :
 ```json
 "program": {"heat_levels": 3, "cool_levels": 2, "max_levels": 6}
 ```
-Chaque clé de jeu absente (`heat` ou `cool`) est omise quand son nombre de niveaux est 0 ; si
-les deux sont 0, `program` n'existe pas.
+`heat_levels` et `cool_levels` sont toujours tous les deux présents quand `program` l'est, `0`
+pour un jeu sans niveau (`"cool_levels": 0`) ; `max_levels` vaut 6. Si les deux valent 0,
+`program` est absent de `capabilities` (et de l'état), comme pour « Aucun niveau » de
+docs/17.
 
 `state.program`, exemple (mode `heat`, 18 h 40, niveau 2 « soir » actif) :
 ```json
@@ -2657,30 +2661,33 @@ les deux sont 0, `program` n'existe pas.
 ```
 
 - `enabled` : valeur de `<climate>_program_enabled`.
-- `mode_set` : le jeu qui pilote le mode courant, `"heat"`, `"cool"`, `"auto"` (les deux
-  jeux), ou `null` (modes `off`, `dry`, `fan_only`, mode inconnu, ou jeu du mode absent).
+- `mode_set` : le jeu qui pilote le mode courant, `"heat"`, `"cool"`, `"auto"`, ou `null`
+  (modes `off`, `dry`, `fan_only`, mode inconnu, ou jeu du mode absent). En `auto`, `mode_set`
+  vaut `"auto"` même si un seul jeu existe : seul l'objet du jeu absent manque.
 - `heat` / `cool` : un objet par jeu qui a des niveaux, absent sinon.
   - `levels` : nombre de niveaux (1 à 6) ;
   - `active_level` : numéro du niveau prioritaire dont la plage est active, ou `null` si
     aucun (consigne par défaut) ;
-  - `setpoint` : ce que le programme appliquerait maintenant, en °C ; `null` pour le jeu `cool`
-    si l'arrêt par défaut est actif ;
+  - `setpoint` : la consigne cible que le programme écrit ou écrirait maintenant, en °C ; `null`
+    pour le jeu `cool` si l'arrêt par défaut est actif (exemple ci-dessus : `cool_default_off`
+    est vrai, donc `cool.setpoint` et `cool.default` sont `null`). En `auto`, c'est la valeur
+    **après** l'ajustement de l'écart `program_min_gap` (`heat.setpoint` = `target_temp_low`,
+    `cool.setpoint` = `target_temp_high`), donc elle peut différer de la consigne du niveau ;
   - `default` : la consigne par défaut en °C ; `null` pour le jeu `cool` quand
     `cool_default_off` est vrai.
 - `next_change` : prochain instant où le jeu **pertinent pour le mode** change de niveau actif,
-  ou `null` (**proposé**).
+  ou `null`.
   - Horizon : 7 jours glissants à partir de l'instant de calcul. Il couvre une semaine
     complète, donc toute plage hebdomadaire ; un créneau solaire est évalué à sa date réelle.
-    Alternative : 24 h, moins chère à calculer mais vide la veille d'un week-end.
   - Format : `at` est une chaîne ISO 8601 avec décalage, en heure locale du serveur
     (`2026-11-17T22:30:00+01:00`) : sans ambiguïté au changement d'heure et lisible sans
-    fuseau. Alternative : un entier `epoch` en secondes UTC, que le client convertit.
+    fuseau.
   - `set` : le jeu concerné (`"heat"` ou `"cool"`) ; `level` : le niveau actif **après** le
     changement (`null` = défaut) ; `setpoint` : la consigne après le changement (`null` pour
     l'arrêt du froid).
   - Rien dans les 7 jours (aucun créneau, plages vides, ou niveau actif en permanence), ou
     programme désactivé, ou mode hors `heat`/`cool`/`auto` : `"next_change": null`. La clé est
-    toujours présente quand `program` l'est. Alternative : omettre la clé.
+    toujours présente quand `program` l'est.
   - En `auto`, c'est le plus proche des deux jeux.
   - Un changement qui ne modifie pas la consigne (un niveau de même température qui en
     remplace un autre) est quand même rendu : il s'agit du niveau.
@@ -2694,18 +2701,25 @@ les deux sont 0, `program` n'existe pas.
   quand le niveau actif change, et après tout `set_timerange` ou `set_state` d'un IO du
   programme. Un client qui affiche un compte à rebours le calcule lui-même depuis `at`.
 
+**Lire le programme.** Pas de commande nouvelle : `device.state.program` donne l'état résumé ;
+la consigne de chaque niveau, les `_default` et `cool_default_off` se lisent avec `get_state` ou
+`get_io` sur les ids de `device.ios` (rôles `heat_level<n>_setpoint`, `heat_default`, etc.), et
+se suivent par les `io_changed` de ces IOs ; les créneaux d'une plage, par `get_timerange`.
+
 **Écrire le programme.** Pas de commande nouvelle :
 
 - une plage : `get_timerange` / `set_timerange` avec l'id du rôle `heat_level<n>` ou
   `cool_level<n>` (voir `set_timerange`) ; événement `timerange_changed` ;
 - une consigne de niveau, une consigne par défaut, `cool_default_off`, `program_enabled` :
   `set_state` sur l'id de l'IO (voir le rôle dans `device.ios`), comme pour tout IO interne.
-  Valeur d'une consigne : un nombre en chaîne (`"21.5"`), arrondi au pas et borné par l'IO ;
+  Valeur d'une consigne : un nombre en chaîne (`"21.5"`), borné par l'IO mais **non arrondi**
+  au pas (l'arrondi se fait quand le programme écrit la consigne du climate, docs/17) ;
   d'un booléen : `"true"` ou `"false"`. Le champ `program` n'est **pas** accepté dans
   l'objet JSON de `set_state` du climate : `{"program":…}` est un champ inconnu, refusé et
   journalisé comme tout champ inconnu ;
-- ni `set_timerange` ni `set_state` des IOs du programme n'existent dans le MCP
-  (`set_timerange` y est refusé, voir docs/15_mcp_server.md).
+- MCP : seul `set_timerange` y est refusé (docs/15_mcp_server.md). Les IOs du programme sont
+  des IOs internes ordinaires, inscriptibles : `set_io_state` du MCP les écrit comme les
+  autres.
 
 Exemples :
 ```json
@@ -2796,7 +2810,12 @@ Réponse (capturé, `tests/core/golden/e40c_http_get_timerange.json`, extrait) :
 ([JsonApi.cpp:1800-1804](../src/bin/calaos_server/JsonApi.cpp)). IO qui n'est
 pas une plage horaire → `{"error":"wrong input"}`.
 
-### `set_timerange` (comportement corrigé, CP-BASE-TR)
+### `set_timerange` (contrat cible, CP-BASE-TR)
+
+> **Contrat cible, pas encore sur master.** Il est livré par CP-BASE-TR ; d'ici là le serveur
+> garde le comportement gelé décrit dans [04_scenarios.md](04_scenarios.md) (`clear()` avant
+> lecture, aucune validation, prise en compte au tick suivant), et les chaînes `invalid *`
+> ci-dessous n'existent pas.
 
 Écrit une plage horaire (`InPlageHoraire`) : toute plage, y compris celle possédée par un
 climate. Refusé en session service (`scope denied`). Requête (WS ; en HTTP le même objet, corps
@@ -2811,7 +2830,7 @@ JSON obligatoire) :
 ```
 Les champs sont les chaînes de `get_timerange` ; un entier JSON est accepté aussi.
 
-Ce qui change par rapport à l'ancien comportement (« gelé tel quel » dans
+Ce qui changera par rapport à l'ancien comportement (« gelé tel quel » dans
 [04_scenarios.md](04_scenarios.md)) :
 
 - **Une seule validation, avant toute écriture.** Rien n'est modifié si une erreur est
@@ -3202,7 +3221,7 @@ elles contiennent une faute de frappe historique (`unkown` au lieu de
 | `wrong input` | [JsonApi.cpp:1777, 1815, 1898, 2004, 2030, 2157, 2180, 2203](../src/bin/calaos_server/JsonApi.cpp) | plage horaire ou scénario introuvable |
 | `scenario creation failed` | [JsonApi.cpp:1938, 1950](../src/bin/calaos_server/JsonApi.cpp) | |
 | `scenario modification failed` | [JsonApi.cpp:2136](../src/bin/calaos_server/JsonApi.cpp) | |
-| `invalid months` / `invalid day` / `invalid range` / `invalid ranges` | `set_timerange` (CP-BASE-TR) | validation du corps, rien n'est modifié ; voir [`set_timerange`](#set_timerange-comportement-corrigé-cp-base-tr) |
+| `invalid months` / `invalid day` / `invalid range` / `invalid ranges` | `set_timerange` (contrat cible, livré par CP-BASE-TR, pas encore sur master) | validation du corps, rien n'est modifié ; voir [`set_timerange`](#set_timerange-contrat-cible-cp-base-tr) |
 | `config_not_loaded` | `CONFIG_NOT_LOADED`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario` : un fichier à écrire n'a pas été chargé, rien n'a changé, voir [Fichier non chargé](#fichier-non-chargé) |
 | `config_not_written` | `CONFIG_NOT_WRITTEN`, [CalaosConfig.h](../src/bin/calaos_server/CalaosConfig.h) | `autoscenario`, `set_timerange` : changement en mémoire, pas sur le disque, voir [Fichier non écrit](#fichier-non-écrit) |
 | `uuid not found` | [HistLogger.cpp:292](../src/bin/calaos_server/HistLogger.cpp) | `eventlog` avec un `uuid` inconnu |
