@@ -1109,26 +1109,26 @@ void relayVersions(const DaemonClient::Request &req, const std::function<void(co
 }
 
 //Only the rescue state leaves for a caller with no admin session, whatever else the daemon adds
+Json rescueAnswer(const DaemonReply &reply, bool &ok)
+{
+    if (reply.kind != DaemonReply::Kind::Ok || !reply.data.is_object())
+        return reply.kind == DaemonReply::Kind::Ok ? JsonApi::adminError("internal", string()) : relayFailure(reply);
+
+    ok = true;
+    Json result = Json::object();
+    for (const char *key: { "rescue", "overlay" })
+    {
+        const auto it = reply.data.find(key);
+        result[key] = it != reply.data.end() && it->is_boolean() && it->get<bool>();
+    }
+    const auto snapshot = reply.data.find("snapshot");
+    result["snapshot"] = snapshot != reply.data.end() && snapshot->is_number_integer() ? *snapshot : Json();
+    return Json{ { "success", "true" }, { "result", result } };
+}
+
 void relayRescue(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
 {
-    relayCached(
-        &VersionsCache::rescue, req, [](const DaemonReply &reply, bool &ok)
-        {
-        if (reply.kind != DaemonReply::Kind::Ok || !reply.data.is_object())
-            return reply.kind == DaemonReply::Kind::Ok ? JsonApi::adminError("internal", string()) : relayFailure(reply);
-
-        ok = true;
-        Json result = Json::object();
-        for (const char *key: { "rescue", "overlay" })
-        {
-            const auto it = reply.data.find(key);
-            result[key] = it != reply.data.end() && it->is_boolean() && it->get<bool>();
-        }
-        const auto snapshot = reply.data.find("snapshot");
-        result["snapshot"] = snapshot != reply.data.end() && snapshot->is_number_integer() ? *snapshot : Json();
-        return Json{ { "success", "true" }, { "result", result } };
-        },
-        answer);
+    relayCached(&VersionsCache::rescue, req, rescueAnswer, answer);
 }
 
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
