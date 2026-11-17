@@ -2465,7 +2465,10 @@ Champs produits par `buildJsonIO()`, présents seulement s'ils existent sur l'IO
 `type`, `hits`, `var_type` (`bool`/`float`/`string`), `visible`,
 `chauffage_id`, `rw`, `unit`, `gui_type`, `state`, `auto_scenario`, `step`,
 `io_type`, `io_style`, `value_warning`, plus un objet `status_info` le cas
-échéant. `state` et `var_type` sont toujours présents (ils sont calculés, pas
+échéant. `io_style` choisit l'icône dans la famille du `gui_type` : `light`, `outlet`,
+`heater`, `boiler`, `pump` pour une lumière, `switch`, `door`, `occupancy`… pour une entrée,
+`shutter` ou `window` pour un volet (`shutter` et `shutter_smart`, absent par défaut). Un client qui ne
+connaît pas une valeur garde l'icône de la famille. `state` et `var_type` sont toujours présents (ils sont calculés, pas
 lus dans les params) — un IO string vide donne `"state": ""`. Pour un IO
 `audio_player`, `state` est le **dernier évènement** (`onplay`, `onpause`, `onstop`,
 `onsongchange`, `onplaylistchange`, `onvolumechange`, `onerror`), `""` avant le premier ; ne pas le
