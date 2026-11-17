@@ -37,7 +37,7 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py --extra test \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
-        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx==0.2.36 && \
     CALAOS_PYDEPS_STRICT=1 \
         python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py --extra test \
         /tmp/calaos-pydeps/pyproject.toml && \

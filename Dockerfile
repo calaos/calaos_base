@@ -47,7 +47,7 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 
 # One single pip invocation for everything, on purpose. mcp, fastapi and
 # starlette are coupled (fastapi 0.115.12 requires starlette>=0.40,<0.47), and
-# roonapi/reolink-aio pull their own transitive constraints; installing them in
+# roonapi/reolink-aio/pyvlx pull their own transitive constraints; installing them in
 # separate passes lets a later pass silently upgrade a package an earlier one
 # pinned. Resolving the whole set at once makes an incompatibility fail the
 # build loudly instead of shipping a broken image.
@@ -56,14 +56,15 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 # 0 and still leave the set incomplete. Strict here -- an image that does not
 # carry what it declares must not be published.
 #
-# roonapi and reolink-aio are deliberately not in pyproject.toml: they are
+# roonapi, reolink-aio and pyvlx are deliberately not in pyproject.toml: they are
 # optional integrations of calaos_server (extern procs), not sidecar runtime
-# deps. They stay unpinned, as before, but now share the resolver pass.
+# deps. roonapi and reolink-aio stay unpinned; pyvlx is pinned because the
+# KLF 200 driver relies on its internals (heartbeat, connection callbacks).
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     cat /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
-        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx==0.2.36 && \
     CALAOS_PYDEPS_STRICT=1 \
         python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py \
         /tmp/calaos-pydeps/pyproject.toml && \
@@ -117,7 +118,7 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 
 # One single pip invocation for everything, on purpose. mcp, fastapi and
 # starlette are coupled (fastapi 0.115.12 requires starlette>=0.40,<0.47), and
-# roonapi/reolink-aio pull their own transitive constraints; installing them in
+# roonapi/reolink-aio/pyvlx pull their own transitive constraints; installing them in
 # separate passes lets a later pass silently upgrade a package an earlier one
 # pinned. Resolving the whole set at once makes an incompatibility fail the
 # build loudly instead of shipping a broken image.
@@ -126,14 +127,15 @@ COPY scripts/pyproject-requirements.py scripts/pydeps-conformance-probe.py \
 # 0 and still leave the set incomplete. Strict here -- an image that does not
 # carry what it declares must not be published.
 #
-# roonapi and reolink-aio are deliberately not in pyproject.toml: they are
+# roonapi, reolink-aio and pyvlx are deliberately not in pyproject.toml: they are
 # optional integrations of calaos_server (extern procs), not sidecar runtime
-# deps. They stay unpinned, as before, but now share the resolver pass.
+# deps. roonapi and reolink-aio stay unpinned; pyvlx is pinned because the
+# KLF 200 driver relies on its internals (heartbeat, connection callbacks).
 RUN python3 /tmp/calaos-pydeps/pyproject-requirements.py \
         /tmp/calaos-pydeps/pyproject.toml > /tmp/calaos-pydeps/requirements.txt && \
     cat /tmp/calaos-pydeps/requirements.txt && \
     pip install --no-cache-dir --break-system-packages \
-        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio && \
+        -r /tmp/calaos-pydeps/requirements.txt roonapi reolink-aio pyvlx==0.2.36 && \
     CALAOS_PYDEPS_STRICT=1 \
         python3 /tmp/calaos-pydeps/pydeps-conformance-probe.py \
         /tmp/calaos-pydeps/pyproject.toml && \

@@ -187,6 +187,7 @@ fi
 have_python="no"
 have_python_roon="no"
 have_python_reolink="no"
+have_python_klf200="no"
 have_python_mcp="no"
 
 # --without-mcp disables the MCP sidecar entirely.
@@ -222,6 +223,17 @@ AM_PATH_PYTHON([3], [
         else
             AC_MSG_RESULT([no])
             AC_MSG_WARN([Python reolink_aio module not found. Install with: pip3 install reolink_aio])
+        fi
+
+        # Check for pyvlx (VELUX KLF 200 driver)
+        AC_MSG_CHECKING([for Python pyvlx module])
+        if $PYTHON -c "import pyvlx" 2>/dev/null; then
+            have_python_klf200="yes"
+            AC_MSG_RESULT([yes])
+            AC_DEFINE([HAVE_PYTHON_KLF200], [1], [Define if python pyvlx is available])
+        else
+            AC_MSG_RESULT([no])
+            AC_MSG_WARN([Python pyvlx module not found. Install with: pip3 install pyvlx])
         fi
 
         # Check for the MCP sidecar dependencies.
@@ -288,6 +300,7 @@ assert probe.session_manager is not None"
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_ROON], [test "x$have_python_roon" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_REOLINK], [test "x$have_python_reolink" = "xyes"])
+AM_CONDITIONAL([HAVE_PYTHON_KLF200], [test "x$have_python_klf200" = "xyes"])
 AM_CONDITIONAL([HAVE_PYTHON_MCP], [test "x$have_python_mcp" = "xyes"])
 
 # F-PYTEST-1: report, at configure time, whether "make check" will be able to
@@ -365,6 +378,7 @@ data/debug/Makefile
 data/debug/dist/Makefile
 src/bin/calaos_server/Audio/calaos_roon
 src/bin/calaos_server/IO/Reolink/calaos_reolink
+src/bin/calaos_server/IO/Klf200/calaos_klf200
 src/bin/calaos_mcp/calaos_mcp
 ])
 
@@ -427,5 +441,6 @@ echo
 echo "Python support:........................: $(colorOut $have_python)"
 echo "  RoonAPI support......................: $(colorOut $have_python_roon)"
 echo "  Reolink support......................: $(colorOut $have_python_reolink)"
+echo "  VELUX KLF 200 support................: $(colorOut $have_python_klf200)"
 echo "  MCP sidecar..........................: $(colorOut $have_python_mcp)"
 echo
