@@ -733,8 +733,8 @@ const RelayRow relayTable[] = {
     //Readable without any admin session, see relayRescue()
     { "rescue_status", "GET", "system/rescue", false, DaemonClient::DefaultTimeout, nullptr },
     //The daemon refuses the bearer alone here: the session is what authorizes them
-    { "snapshot_boot", "POST", "system/snapshots/boot", true, DaemonClient::NetworkChangeTimeout, snapshotBody },
-    { "snapshot_rollback", "POST", "system/snapshots/rollback", true, DaemonClient::NetworkChangeTimeout, nullptr },
+    { "snapshot_boot", "POST", "system/snapshots/boot", true, DaemonClient::SnapshotActionTimeout, snapshotBody },
+    { "snapshot_rollback", "POST", "system/snapshots/rollback", true, DaemonClient::SnapshotActionTimeout, nullptr },
 };
 
 const RelayRow *relayRow(const string &action)
@@ -1023,18 +1023,24 @@ Json versionsWhitelist(const Json &data)
     return out;
 } //LCOV_EXCL_LINE only the unwind path of out lands on this brace
 
-//A household session must not be able to trigger a dpkg-query per message; an
-//error is kept briefly so that a container coming back is seen quickly.
-constexpr double VersionsOkTtl = 60.0;
-constexpr double VersionsErrorTtl = 3.0;
+//A household session must not be able to trigger a dpkg-query or a findmnt per
+//message; an error is kept briefly so that a container coming back is seen quickly.
+constexpr double CacheOkTtl = 60.0;
+constexpr double CacheErrorTtl = 3.0;
 
-struct VersionsCache
+struct CachedAnswer
 {
-    std::function<double()> clock;
     Json answer;
     double expires = 0;
     //Callers that arrived while the single daemon call is in flight
     std::vector<std::function<void(const Json &)>> waiters;
+};
+
+struct VersionsCache
+{
+    std::function<double()> clock;
+    CachedAnswer versions;
+    CachedAnswer rescue;
 };
 
 VersionsCache &versionsCache()
@@ -1051,67 +1057,76 @@ double versionsNow()
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-//The daemon being down or too old is an answer here, not a failure: the server
-//version is still worth showing. The daemon's error code is the short message.
-void relayVersions(DaemonClient::Request req, const std::function<void(const Json &)> &answer)
+//One call in flight at most per slot, whatever the number of pipelined messages.
+//build returns the whole answer and sets ok when it may be kept for CacheOkTtl.
+void relayCached(CachedAnswer VersionsCache::*slot, const DaemonClient::Request &req,
+                 const std::function<Json(const DaemonReply &, bool &ok)> &build, const std::function<void(const Json &)> &answer)
 {
-    const string server = ServerInfo::toJson()["version"].get<string>();
-    VersionsCache &cache = versionsCache();
+    CachedAnswer &cache = versionsCache().*slot;
     if (!cache.answer.is_null() && versionsNow() < cache.expires)
     {
-        answer(Json{ { "success", "true" }, { "result", cache.answer } });
+        answer(cache.answer);
         return;
     }
 
-    //One call in flight at most: a pipelining session must not reach dpkg-query per message.
     cache.waiters.push_back(answer);
     if (cache.waiters.size() > 1)
         return;
 
-    DaemonClient::Instance().call(req, [server](const DaemonReply &reply)
+    DaemonClient::Instance().call(req, [slot, build](const DaemonReply &reply)
                                   {
-        Json result;
-        double ttl = VersionsErrorTtl;
-        if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
-        {
-            result = { { "server", server }, { "system", versionsWhitelist(reply.data) } };
-            ttl = VersionsOkTtl;
-        }
-        else
-            result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(relayFailure(reply), "error") } };
-
-        VersionsCache &c = versionsCache();
+        bool ok = false;
+        const Json result = build(reply, ok);
+        CachedAnswer &c = versionsCache().*slot;
         c.answer = result;
-        c.expires = versionsNow() + ttl;
+        c.expires = versionsNow() + (ok ? CacheOkTtl : CacheErrorTtl);
         auto waiters = std::move(c.waiters);
         c.waiters.clear();
         for (const auto &w: waiters)
-            w(Json{ { "success", "true" }, { "result", result } });
+            w(result);
     });
 }
 
-//Only the rescue state leaves for a caller with no admin session, whatever else the daemon adds
-void relayRescue(DaemonClient::Request req, const std::function<void(const Json &)> &answer)
+//The daemon being down or too old is an answer here, not a failure: the server
+//version is still worth showing. The daemon's error code is the short message.
+void relayVersions(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
 {
-    DaemonClient::Instance().call(req, [answer](const DaemonReply &reply)
-                                  {
-        if (reply.kind != DaemonReply::Kind::Ok || !reply.data.is_object())
+    const string server = ServerInfo::toJson()["version"].get<string>();
+    relayCached(&VersionsCache::versions, req, [server](const DaemonReply &reply, bool &ok)
+                {
+        Json result;
+        if (reply.kind == DaemonReply::Kind::Ok && reply.data.is_object())
         {
-            answer(reply.kind == DaemonReply::Kind::Ok ? JsonApi::adminError("internal", string()) : relayFailure(reply));
-            return;
+            result = { { "server", server }, { "system", versionsWhitelist(reply.data) } };
+            ok = true;
         }
+        else
+            result = { { "server", server }, { "system", nullptr }, { "error", JsonField::string(relayFailure(reply), "error") } };
+        return Json{ { "success", "true" }, { "result", result } };
+    },
+                answer);
+}
 
+//Only the rescue state leaves for a caller with no admin session, whatever else the daemon adds
+void relayRescue(const DaemonClient::Request &req, const std::function<void(const Json &)> &answer)
+{
+    relayCached(&VersionsCache::rescue, req, [](const DaemonReply &reply, bool &ok)
+                {
+        if (reply.kind != DaemonReply::Kind::Ok || !reply.data.is_object())
+            return reply.kind == DaemonReply::Kind::Ok ? JsonApi::adminError("internal", string()) : relayFailure(reply);
+
+        ok = true;
         Json result = Json::object();
         for (const char *key: { "rescue", "overlay" })
         {
             const auto it = reply.data.find(key);
-            if (it != reply.data.end() && it->is_boolean())
-                result[key] = *it;
+            result[key] = it != reply.data.end() && it->is_boolean() && it->get<bool>();
         }
         const auto snapshot = reply.data.find("snapshot");
         result["snapshot"] = snapshot != reply.data.end() && snapshot->is_number_integer() ? *snapshot : Json();
-        answer(Json{ { "success", "true" }, { "result", result } });
-    });
+        return Json{ { "success", "true" }, { "result", result } };
+    },
+                answer);
 }
 
 void relayCall(const DaemonClient::Request &req, bool household, bool sessionOptional, const std::function<void(const Json &)> &answer)
@@ -1143,7 +1158,7 @@ void relayCall(const DaemonClient::Request &req, bool household, bool sessionOpt
          */
         if (reply.kind == DaemonReply::Kind::Unreachable && req.method == "POST" &&
             (req.path == "system/time" || req.path == "network/apply" || req.path == "network/confirm" ||
-             req.path == "network/revert"))
+             req.path == "network/revert" || req.path == "system/snapshots/boot" || req.path == "system/snapshots/rollback"))
             failure["outcome"] = "unknown";
         answer(failure);
     });
@@ -1287,25 +1302,17 @@ void JsonApi::relayAdmin(const string &action, const Json &request, const string
         return;                                                    //LCOV_EXCL_LINE refused before
     }
 
-    if (action == "versions")
+    if (action == "versions" || action == "rescue_status")
     {
         DaemonClient::Request req;
         req.method = row->method;
         req.path = row->path;
         req.timeout = row->timeout;
         req.clientIp = adminClientIp();
-        relayVersions(req, answer);
-        return;
-    }
-
-    if (action == "rescue_status")
-    {
-        DaemonClient::Request req;
-        req.method = row->method;
-        req.path = row->path;
-        req.timeout = row->timeout;
-        req.clientIp = adminClientIp();
-        relayRescue(req, answer);
+        if (action == "versions")
+            relayVersions(req, answer);
+        else
+            relayRescue(req, answer);
         return;
     }
 

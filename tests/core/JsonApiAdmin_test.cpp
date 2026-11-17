@@ -1696,6 +1696,7 @@ TEST_F(JsonApiAdminTest, RescueStatusAnswersWhileTheAdminIsNotDefinedAndRelaysDa
     ASSERT_TRUE(ws.login("https"));
     EXPECT_EQ("true", str(ws.admin("admin", { { "action", "rescue_status" } }), "success"));
 
+    JsonApi::resetVersionsCache();
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
         if (req.path != "/api/v2/system/rescue")
@@ -1705,6 +1706,70 @@ TEST_F(JsonApiAdminTest, RescueStatusAnswersWhileTheAdminIsNotDefinedAndRelaysDa
         return true;
     });
     expectError(ws.admin("admin", { { "action", "rescue_status" } }), "rescue_unavailable");
+}
+
+TEST_F(JsonApiAdminTest, RescueStatusAlwaysAnswersBooleans)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    for (const Json &data: { Json::object(), Json{ { "rescue", "yes" }, { "overlay", 1 } } })
+    {
+        JsonApi::resetVersionsCache();
+        fakeDaemon.setOverride([data](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                               {
+            if (req.path != "/api/v2/system/rescue")
+                return false;
+            res.body = FakeDaemon::ok(data);
+            return true;
+        });
+        const Json answer = ws.admin("admin", { { "action", "rescue_status" } });
+        EXPECT_EQ((Json{ { "rescue", false }, { "snapshot", nullptr }, { "overlay", false } }), answer["result"]) << answer.dump();
+    }
+}
+
+TEST_F(JsonApiAdminTest, RescueStatusPipelinedMessagesShareOneDaemonCall)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    JsonApi::resetVersionsCache();
+    fakeDaemon.clearLog();
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/rescue")
+            return false;
+        res.delayMs = 300;
+        res.body = FakeDaemon::ok({ { "rescue", false }, { "overlay", false }, { "snapshot", nullptr } });
+        return true;
+    });
+
+    const Json msg{ { "msg", "admin" }, { "msg_id", "a" }, { "data", { { "action", "rescue_status" } } } };
+    const int n = 8;
+    for (int i = 0; i < n; i++)
+        ws.post(msg);
+    for (int i = 0; i < n; i++)
+        EXPECT_EQ("true", str(ws.next()["data"], "success"));
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+
+    //Still cached afterwards
+    ws.admin("admin", { { "action", "rescue_status" } });
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, SnapshotBootAndRollbackTimeoutsAreOfUnknownOutcome)
+{
+    adminDefined();
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    fakeDaemon.stop();
+    for (const char *action: { "snapshot_boot", "snapshot_rollback" })
+    {
+        const Json a = ws.admin("admin", { { "action", action }, { "admin_session", FakeDaemon::Session }, { "params", { { "id", 12 } } } });
+        expectError(a, "daemon_unreachable");
+        EXPECT_EQ("unknown", str(a, "outcome")) << action;
+    }
+    const Json list = ws.admin("admin", { { "action", "snapshots_list" }, { "admin_session", FakeDaemon::Session } });
+    expectError(list, "daemon_unreachable");
+    EXPECT_FALSE(list.contains("outcome"));
 }
 
 TEST_F(JsonApiAdminTest, SnapshotActionsNeedAnAdminSession)
@@ -1831,7 +1896,7 @@ TEST_F(JsonApiAdminTest, SnapshotErrorsOfTheDaemonKeepTheirCode)
         if (req.path != "/api/v2/system/snapshots/rollback")
             return false;
         res.status = 401;
-        res.body = FakeDaemon::err("unauthorized");
+        res.body = FakeDaemon::err("bad_bearer");
         return true;
     });
     expectError(ws.admin("admin", { { "action", "snapshot_rollback" }, { "admin_session", FakeDaemon::Session } }), "daemon_unreachable");

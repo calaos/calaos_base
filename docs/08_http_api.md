@@ -804,10 +804,10 @@ Relaye une action de la table fermée vers le daemon. **WS uniquement.**
 | `update_status` | | `GET update/status` | non | `{"progress": <Status>, "job": <Job> ou null}` |
 | `versions` | | `GET system/versions` | non | `{"server": "<version>", "system": <réponse du daemon, liste blanche> ou null, "error"?: "<code>"}` |
 | `update_check` | | `GET update/check` | oui | paquets à mettre à jour |
-| `rescue_status` | | `GET system/rescue` | non | `{"rescue": <bool>, "overlay": <bool>, "snapshot": <entier ou null>}` (liste blanche, tout autre champ est abandonné) |
+| `rescue_status` | | `GET system/rescue` | non | `{"rescue": <bool>, "overlay": <bool>, "snapshot": <entier ou null>}` (liste blanche, tout autre champ est abandonné ; `rescue` et `overlay` valent `false` s'ils manquent ou ne sont pas booléens). La réponse est gardée 60 s (3 s pour une erreur) et un seul appel au daemon est en vol à la fois |
 | `snapshots_list` | | `GET system/snapshots` | oui | liste des snapshots, recopiée du daemon |
 | `snapshot_boot` | `id` | `POST system/snapshots/boot` | oui | `null` ; `id` est un entier JSON de 1 à 2147483647 (chaîne ou flottant : `invalid_request`), le corps envoyé est `{"id": <id>}` et rien d'autre ; délai 35 s |
-| `snapshot_rollback` | | `POST system/snapshots/rollback` | oui | `null` ; aucun corps transmis ; délai 35 s |
+| `snapshot_rollback` | | `POST system/snapshots/rollback` | oui | `null` ; corps vide `{}` ; délai 35 s |
 | `update_available` | | `GET update/available` | oui | idem, sans contacter les miroirs |
 | `update_upgrade_all` | | `POST update/upgrade-all` | oui | `<Job>` (le daemon répond 202 et le job tourne) |
 | `update_upgrade` | `package` | `POST update/upgrade` | oui | `<Job>` |
@@ -868,6 +868,9 @@ changement concurrent). Sur ces quatre écritures, un délai dépassé ou une r�
 donne donc `daemon_unreachable` (ou `admin_unavailable`) avec **`"outcome": "unknown"`** :
 l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `network_state` ou
 `time_get` (voir [Heure de la box](#heure-de-la-box) et [Réseau](#réseau)).
+`snapshot_boot` et `snapshot_rollback` (délai 35 s, sondes de 10 s puis `grub-reboot`) ont le
+même `outcome: "unknown"` : la box a pu armer le démarrage et redémarrer ; le client ne renvoie
+pas l'action et attend le retour de la box pour relire `rescue_status`.
 
 - **`rescue_status`** : l'état de secours, pour le bandeau des clients. Comme `versions`, il ne
   demande ni `admin_session` ni admin défini et ne transmet au daemon ni session ni `params` ;
@@ -879,8 +882,8 @@ l'écriture a pu s'appliquer. Le client **ne la renvoie pas** ; il relit `networ
   `invalid_snapshot`, `not_bootable`, `snapshot_too_old`, `in_rescue`, `not_in_rescue`,
   `rescue_unavailable` et `upgrade_in_progress` sont renvoyés tels quels.
 - **`versions`** : les numéros de version de la box, pour la page
-  « Versions » des clients. Avec `update_status` sans session, c'est la seule action du relais
-  ouverte à une session foyer : elle n'exige ni `admin_session` ni admin défini (elle ne dépend ni
+  « Versions » des clients. Avec `update_status` sans session et `rescue_status`, c'est une des seules actions du relais
+  ouvertes à une session foyer : elle n'exige ni `admin_session` ni admin défini (elle ne dépend ni
   de l'admin mode ni de l'état de l'admin, le daemon répondant sur le seul bearer), et ne transmet au daemon ni session ni `params`
   (aucune autre route du daemon n'en devient accessible). Sous `secureTransport()` comme les
   autres. `server` est le `version` de `get_server_info`. `system` est le `data` de

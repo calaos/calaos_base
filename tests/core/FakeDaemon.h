@@ -1045,7 +1045,7 @@ private:
             if (!hasSession)
             {
                 res.status = 401;
-                res.body = err("unauthorized");
+                res.body = err("bad_session");
             }
             else
                 res.body = ok(nullptr);
