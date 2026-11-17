@@ -81,6 +81,24 @@ bool nonNegative(const string &s, double &out)
     return true;
 }
 
+const char *const PROGRAM_ENABLED = "program_enabled";
+const char *const COOL_DEFAULT_OFF = "cool_default_off";
+
+string levelRole(const string &set, int n)
+{
+    return set + "_level" + Utils::to_string(n);
+}
+
+string levelSetpointRole(const string &set, int n)
+{
+    return levelRole(set, n) + "_setpoint";
+}
+
+string defaultRole(const string &set)
+{
+    return set + "_default";
+}
+
 } //namespace
 
 ClimateBase::ClimateBase(Params &p):
@@ -500,7 +518,14 @@ bool ClimateBase::applyCommandField(const string &field, const Json &value, stri
             ClimateMode mode;
             if (!enumField(value, names, name, reason) || !parseMode(name, mode))
                 return false;
-            return written(writeMode(mode), reason);
+            ClimateMode before;
+            const bool changed = !currentMode(before) || before != mode;
+            if (!written(writeMode(mode), reason))
+                return false;
+            //Before the other fields: a target_temp of the same command wins.
+            if (changed)
+                applyProgram();
+            return true;
         }
     }
     else if (field == "target_temp" && linkIo(field) && isWritable(field))
@@ -662,4 +687,329 @@ uint64_t ClimateBase::lockoutWait(bool on, bool forced, const std::optional<uint
         after(onAt, l.minOnMs);
 
     return until > now ? until - now : 0;
+}
+
+int ClimateBase::levelsParam(const string &set, ClimateMode mode)
+{
+    const string name = set + "_levels";
+    if (!hasDeviceParam(name))
+        return 0;
+
+    const string id = get_param("id");
+    const string raw = getDeviceParam(name);
+    double v = 0;
+    if (!nonNegative(raw, v) || v != std::floor(v))
+    {
+        cWarningDom("device") << "Device(" << id << "): " << name << " '" << raw
+                              << "' is not a whole number of levels, 0 is used";
+        return 0;
+    }
+    if (v > MAX_PROGRAM_LEVELS)
+    {
+        cWarningDom("device") << "Device(" << id << "): " << name << " " << raw << " is above "
+                              << MAX_PROGRAM_LEVELS << ", " << MAX_PROGRAM_LEVELS << " is used";
+        v = MAX_PROGRAM_LEVELS;
+    }
+    const vector<ClimateMode> modes = supportedModes();
+    if (v > 0 && std::find(modes.begin(), modes.end(), mode) == modes.end())
+    {
+        cWarningDom("device") << "Device(" << id << "): " << name << " ignored, the mode '"
+                              << modeName(mode) << "' is not offered";
+        return 0;
+    }
+    return static_cast<int>(v);
+}
+
+int ClimateBase::programLevels(const string &set) const
+{
+    if (set == "heat")
+        return heatLevels;
+    return set == "cool" ? coolLevels : 0;
+}
+
+void ClimateBase::setupProgram()
+{
+    programSubscriptions.clear();
+    programStarted = false;
+    heatLevels = levelsParam("heat", ClimateMode::Heat);
+    coolLevels = levelsParam("cool", ClimateMode::Cool);
+    programMinGap = nonNegativeParam("program_min_gap", 2);
+
+    removeProgramIos("heat", heatLevels);
+    removeProgramIos("cool", coolLevels);
+    if (heatLevels + coolLevels == 0)
+    {
+        removeOwnedLink(PROGRAM_ENABLED);
+        return;
+    }
+
+    //The bounds of the setpoint the program writes, copied once.
+    const Bounds b = linkIo("target_temp") ? setpointBounds("target_temp") : rangeBounds();
+    const Params setpoint{ { "type", "InternalInt" },
+                           { "save", "true" },
+                           { "value_min", Utils::to_string(b.min) },
+                           { "value_max", Utils::to_string(b.max) },
+                           { "step", Utils::to_string(b.step) },
+                           { "unit", b.unit } };
+    createProgramIos("heat", heatLevels, setpoint);
+    createProgramIos("cool", coolLevels, setpoint);
+    if (!linkIo(PROGRAM_ENABLED))
+    {
+        const Params enabled{ { "type", "InternalBool" },
+                              { "save", "true" },
+                              { "value", "true" },
+                              { "name", PROGRAM_ENABLED },
+                              { "visible", "false" } };
+        //A cached value left by a removed IO of the same id would win over "value".
+        if (IOBase *io = createOwnedLink(PROGRAM_ENABLED, enabled))
+            io->set_value(true);
+    }
+
+    auto subscribe = [this](const string &role, std::function<void()> changed)
+    {
+        if (IOBase *io = linkIo(role))
+            programSubscriptions.push_back(IOChangeHub::Instance().subscribe(
+                io->get_param("id"), [changed](IOBase &) { changed(); }));
+    };
+    for (const string set: { "heat", "cool" })
+    {
+        auto changedWhenDefault = [this, set]()
+        {
+            if (programActiveLevel(set) == 0)
+                programChanged(set);
+        };
+        for (int n = 1; n <= programLevels(set); n++)
+        {
+            subscribe(levelRole(set, n), [this, set]() { programChanged(set); });
+            subscribe(levelSetpointRole(set, n), [this, set, n]()
+                      {
+                          if (programActiveLevel(set) == n)
+                              programChanged(set);
+                      });
+        }
+        if (programLevels(set) > 0)
+            subscribe(defaultRole(set), changedWhenDefault);
+        if (set == "cool" && coolLevels > 0)
+            subscribe(COOL_DEFAULT_OFF, changedWhenDefault);
+    }
+    //Turned off, nothing is written: applyProgram() checks it.
+    subscribe(PROGRAM_ENABLED, [this]() { applyProgram(); });
+}
+
+void ClimateBase::createProgramIos(const string &set, int levels, const Params &setpoint)
+{
+    if (levels == 0)
+        return;
+
+    auto create = [this](const string &role, Params params) -> IOBase *
+    {
+        if (linkIo(role))
+            return nullptr;
+        params.Add("name", role);
+        params.Add("visible", "false");
+        IOBase *io = createOwnedLink(role, params);
+        if (io)
+            cInfoDom("device") << "Device(" << get_param("id") << "): program IO '"
+                               << io->get_param("id") << "' created for '" << role << "'";
+        return io;
+    };
+
+    /* The initial values are forced after creation: with save=true, a cached
+     * value left by a removed IO of the same id would win over "value". */
+    const double initial = set == "heat" ? nonNegativeParam("heat_default_setpoint", 17)
+                                         : nonNegativeParam("cool_default_setpoint", 26);
+    Params def = setpoint;
+    def.Add("value", Utils::to_string(initial));
+    if (IOBase *io = create(defaultRole(set), def))
+        io->set_value(initial);
+    if (set == "cool")
+    {
+        const bool off = getDeviceParam(COOL_DEFAULT_OFF) == "true";
+        const Params p{ { "type", "InternalBool" },
+                        { "save", "true" },
+                        { "value", off ? "true" : "false" } };
+        if (IOBase *io = create(COOL_DEFAULT_OFF, p))
+            io->set_value(off);
+    }
+
+    IOBase *defIo = linkIo(defaultRole(set));
+    for (int n = 1; n <= levels; n++)
+    {
+        create(levelRole(set, n), Params{ { "type", "InPlageHoraire" } });
+        Params p = setpoint;
+        const double v = defIo ? defIo->get_value_double() : initial;
+        p.Add("value", Utils::to_string(v));
+        if (IOBase *io = create(levelSetpointRole(set, n), p))
+            io->set_value(v);
+    }
+}
+
+void ClimateBase::removeProgramIos(const string &set, int levels)
+{
+    vector<string> roles;
+    for (int n = MAX_PROGRAM_LEVELS; n > levels; n--)
+    {
+        roles.push_back(levelSetpointRole(set, n));
+        roles.push_back(levelRole(set, n));
+    }
+    if (levels == 0)
+    {
+        roles.push_back(defaultRole(set));
+        if (set == "cool")
+            roles.push_back(COOL_DEFAULT_OFF);
+    }
+    for (const string &role: roles)
+    {
+        if (removeOwnedLink(role))
+            cInfoDom("device") << "Device(" << get_param("id") << "): program IO for '" << role
+                               << "' removed, the levels param no longer asks for it";
+    }
+}
+
+void ClimateBase::startProgram()
+{
+    //A range is evaluated by the rules loop only: until then it reads false.
+    for (const string set: { "heat", "cool" })
+    {
+        for (int n = 1; n <= programLevels(set); n++)
+        {
+            if (IOBase *range = linkIo(levelRole(set, n)))
+                range->hasChanged();
+        }
+    }
+    programStarted = true;
+    applyProgram();
+}
+
+int ClimateBase::programActiveLevel(const string &set)
+{
+    for (int n = 1; n <= programLevels(set); n++)
+    {
+        IOBase *range = linkIo(levelRole(set, n));
+        if (range && range->get_value_bool())
+            return n;
+    }
+    return 0;
+}
+
+bool ClimateBase::programSetpoint(const string &set, double &value, bool &off)
+{
+    if (programLevels(set) == 0)
+        return false;
+
+    const int level = programActiveLevel(set);
+    off = false;
+    if (level == 0 && set == "cool")
+    {
+        IOBase *io = linkIo(COOL_DEFAULT_OFF);
+        if (io && io->get_value_bool())
+        {
+            off = true;
+            return true;
+        }
+    }
+    IOBase *io = linkIo(level > 0 ? levelSetpointRole(set, level) : defaultRole(set));
+    if (!io)
+        return false;
+    value = io->get_value_double();
+    return true;
+}
+
+bool ClimateBase::programRunning()
+{
+    if (!programStarted || heatLevels + coolLevels == 0)
+        return false;
+    IOBase *enabled = linkIo(PROGRAM_ENABLED);
+    return enabled && enabled->get_value_bool();
+}
+
+void ClimateBase::programChanged(const string &set)
+{
+    ClimateMode mode;
+    if (!currentMode(mode))
+        return;
+    //Another set rewriting the setpoint would undo a manual one for nothing.
+    if (mode == ClimateMode::Auto || (mode == ClimateMode::Heat && set == "heat") ||
+        (mode == ClimateMode::Cool && set == "cool"))
+        applyProgram();
+}
+
+void ClimateBase::applyProgram()
+{
+    ClimateMode mode;
+    if (!programRunning() || !currentMode(mode))
+        return;
+    if (mode == ClimateMode::Auto)
+    {
+        applyProgramRange();
+        return;
+    }
+    if (mode != ClimateMode::Heat && mode != ClimateMode::Cool)
+        return;
+
+    double v = 0;
+    bool off = false;
+    if (!programSetpoint(mode == ClimateMode::Heat ? "heat" : "cool", v, off) || !linkIo("target_temp"))
+        return;
+    //Cooling then waits for a room above the highest setpoint, the mode stays cool.
+    if (off)
+        v = setpointBounds("target_temp").max;
+    applyCommand(Json{ { "target_temp", v } });
+}
+
+/* The set that has levels commands its bound; with both, heat does. When the
+ * gap is not kept, the other bound moves, and only if it cannot, the
+ * commanding one. One pair command, so that applyRange() sees both. */
+void ClimateBase::applyProgramRange()
+{
+    double heatSp = 0, coolSp = 0;
+    bool heatOff = false, coolOff = false;
+    const bool heat = programSetpoint("heat", heatSp, heatOff);
+    const bool cool = programSetpoint("cool", coolSp, coolOff);
+    if ((!heat && !cool) || !rangeAvailable())
+        return;
+
+    const string id = get_param("id");
+    double low = 0, high = 0;
+    if (!rangeBound(LOW, low) || !rangeBound(HIGH, high))
+    {
+        cWarningDom("device") << "Device(" << id << "): program range not written, a bound is "
+                              << "not known yet";
+        return;
+    }
+
+    const Bounds lb = setpointBounds(LOW);
+    const Bounds hb = setpointBounds(HIGH);
+    string reason;
+    if (heat)
+        numberField(Json(heatSp), lb.min, lb.max, lb.step, low, reason);
+    if (cool && coolOff)
+        high = hb.max;
+    else if (cool)
+        numberField(Json(coolSp), hb.min, hb.max, hb.step, high, reason);
+
+    double gap = std::max(minRange(), programMinGap);
+    if (lb.step > 0)
+        gap = std::ceil(gap / lb.step - 1e-9) * lb.step;
+    //Tolerance for the binary residue of decimal steps, as applyRange().
+    if (high - low < gap - 1e-9)
+    {
+        if (heat)
+        {
+            high = std::min(low + gap, hb.max);
+            low = high - gap;
+        }
+        else
+        {
+            low = std::max(high - gap, lb.min);
+            high = low + gap;
+        }
+    }
+    if (low < lb.min - 1e-9 || high > hb.max + 1e-9)
+    {
+        cWarningDom("device") << "Device(" << id << "): program range not written, a gap of "
+                              << gap << " does not fit in " << lb.min << ".." << hb.max;
+        return;
+    }
+    applyCommand(Json{ { LOW, low }, { HIGH, high } });
 }

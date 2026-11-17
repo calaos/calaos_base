@@ -191,7 +191,32 @@ protected:
                                 const std::optional<uint64_t> &otherOffAt, const Lockouts &l,
                                 uint64_t now);
 
+    /* The schedule program (docs/17_device_templates.md, "Programme horaire
+     * des climates"). An impl that follows it calls setupProgram() from
+     * resolveLinks(), after the base: it creates or removes the owned levels
+     * the params ask for. startProgram() applies it a first time, once the
+     * impl may write; each later trigger applies it through applyCommand(). */
+    static constexpr int MAX_PROGRAM_LEVELS = 6;
+    void setupProgram();
+    void startProgram();
+    //"heat" or "cool": its levels once the params are checked.
+    int programLevels(const string &set) const;
+    //The active level of highest priority, 0 when none is active.
+    int programActiveLevel(const string &set);
+    /* The setpoint the set asks for now: its active level, else its default.
+     * `off` for the cool default "arrêt". False without levels or IO. */
+    bool programSetpoint(const string &set, double &value, bool &off);
+
 private:
+    int levelsParam(const string &set, ClimateMode mode);
+    void createProgramIos(const string &set, int levels, const Params &setpoint);
+    void removeProgramIos(const string &set, int levels);
+    bool programRunning();
+    //A change seen by the program, which applies only if the current mode uses `set`.
+    void programChanged(const string &set);
+    void applyProgram();
+    void applyProgramRange();
+
     //Both bounds linked and writable.
     bool rangeAvailable();
     //min of the low IO, max of the high IO.
@@ -199,6 +224,13 @@ private:
     bool applyRange(const Json &command);
 
     double sensorTimeoutS = DEFAULT_SENSOR_TIMEOUT;
+
+    int heatLevels = 0;
+    int coolLevels = 0;
+    double programMinGap = 2;
+    //Changes seen during the load are not triggers: the start applies once.
+    bool programStarted = false;
+    vector<IOChangeHub::Subscription> programSubscriptions;
 };
 
 } //namespace Calaos

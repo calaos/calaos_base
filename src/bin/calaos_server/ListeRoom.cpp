@@ -305,14 +305,18 @@ bool ListeRoom::delete_io(IOBase *io, bool del)
 
 void ListeRoom::resolveDeviceLinks()
 {
+    //Listed first: a device may delete owned IOs of its room, which shifts the indexes.
+    vector<Device *> devices;
     for (const auto &room: rooms)
     {
         for (int i = 0; i < room->get_size(); i++)
         {
             if (Device *device = dynamic_cast<Device *>(room->get_io(i)))
-                device->resolveLinks();
+                devices.push_back(device);
         }
     }
+    for (Device *device: devices)
+        device->resolveLinks();
 }
 
 size_t ListeRoom::deviceCount() const
