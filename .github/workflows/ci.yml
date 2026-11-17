@@ -291,7 +291,36 @@ jobs:
       - name: Trust the workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      # The 45-60 min instrumented build only matters when the diff can change
+      # what is compiled or tested. A job-level skip would leave a required check
+      # pending, so the job always runs and the heavy steps below are gated.
+      # Pull requests only; every other event keeps measuring.
+      - name: Decide whether the diff touches compiled or tested code
+        id: guard
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Fail open: any doubt about the diff means building.
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! files=$(git diff --name-only "origin/${BASE_REF}...HEAD") || [ -z "$files" ]; then
+            echo "Cannot list the changed files: building."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf 'changed files:\n%s\n' "$files"
+          if printf '%s\n' "$files" | grep -qE '^(src|tests|data|po|m4|scripts)/|^(configure\.ac|Makefile\.am|autogen\.sh|version)$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "No compiled or tested code in this diff: the build is skipped."
+          fi
+
       - name: Install build dependencies
+        if: steps.guard.outputs.code == 'true'
         run: |
           DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
               build-essential pkg-config \
@@ -305,6 +334,7 @@ jobs:
       # No ccache here: with --coverage each compile also writes a .gcno, which
       # the honesty probe never audits, and the diff coverage gate reads them.
       - name: Build with gcov instrumentation
+        if: steps.guard.outputs.code == 'true'
         run: |
           ./autogen.sh
           # --coverage on both compile and link flags; -O0 keeps the line
@@ -323,6 +353,7 @@ jobs:
           gcc -shared -fPIC -O1 -o "$PWD/gcov-exit-shim.so" scripts/gcov-exit-shim.c -ldl
 
       - name: Capture baseline (zero) counters
+        if: steps.guard.outputs.code == 'true'
         run: |
           lcov --directory . --zerocounters
           # Baseline over the whole tree so files that no test ever touches
@@ -334,6 +365,7 @@ jobs:
                --ignore-errors gcov,source,graph
 
       - name: Run tests (make check)
+        if: steps.guard.outputs.code == 'true'
         # Forked children and mains that leave through _exit() skip the
         # atexit dump; the shim writes the counters first. Preloaded here, in
         # the container, so the path is the one the processes can load.
@@ -354,7 +386,7 @@ jobs:
 
       # The make check output names a failing program only; its own log says why
       - name: Show test logs on failure
-        if: failure()
+        if: steps.guard.outputs.code == 'true' && failure()
         run: |
           find tests -name '*.trs' -exec grep -lE ':test-result: (FAIL|ERROR)' {} + | while read -r trs; do
             echo "--- $trs ---"
@@ -365,6 +397,7 @@ jobs:
           done
 
       - name: Generate lcov report
+        if: steps.guard.outputs.code == 'true'
         run: |
           lcov --directory . --capture --output-file coverage-run.info \
                --ignore-errors gcov,source,graph
@@ -388,6 +421,7 @@ jobs:
                   --ignore-errors source
 
       - name: Coverage summary
+        if: steps.guard.outputs.code == 'true'
         run: lcov --summary coverage.info
 
       # Every executable line this PR adds under src/ must have run in
@@ -395,20 +429,20 @@ jobs:
       # step prints how many the PR adds. Run it locally the same way:
       #   scripts/check-diff-coverage.py --info coverage.info --base origin/master
       - name: Diff coverage gate
-        if: github.event_name == 'pull_request'
+        if: steps.guard.outputs.code == 'true' && github.event_name == 'pull_request'
         run: |
           python3 scripts/check-diff-coverage.py --info coverage.info \
               --base "origin/${{ github.base_ref }}"
 
       - name: Diff coverage report (push)
-        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        if: steps.guard.outputs.code == 'true' && (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000')
         run: |
           python3 scripts/check-diff-coverage.py --info coverage.info --report-only \
               --base "${{ github.event.before }}" || true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.guard.outputs.code == 'true'
         with:
           name: coverage-report
           path: |
