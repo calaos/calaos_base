@@ -62,7 +62,11 @@ bool pumpUntil(const std::function<bool()> &done, int ms = 5000)
 
 void pumpFor(int ms)
 {
-    pumpUntil([]() { return false; }, ms);
+    pumpUntil([]()
+              {
+        return false;
+    },
+              ms);
 }
 
 std::string linkXml(const std::string &name, const std::string &io)
@@ -211,7 +215,10 @@ protected:
 
     static void waitStarted(const std::string &id = "prog")
     {
-        EXPECT_TRUE(pumpUntil([id]() { return io(id + "_action")->hasValue(); }));
+        EXPECT_TRUE(pumpUntil([id]()
+                              {
+            return io(id + "_action")->hasValue();
+        }));
         pumpFor(5);
     }
 
@@ -331,9 +338,9 @@ TEST_F(ClimateProgramTest, LevelsCreateTheirOwnedIos)
 {
     load();
     const std::vector<std::string> roles = {
-        "heat_level1",  "heat_level1_setpoint", "heat_level2",          "heat_level2_setpoint",
-        "cool_level1",  "cool_level1_setpoint", "cool_level2",          "cool_level2_setpoint",
-        "heat_default", "cool_default",         "cool_default_off",     "program_enabled"
+        "heat_level1", "heat_level1_setpoint", "heat_level2", "heat_level2_setpoint",
+        "cool_level1", "cool_level1_setpoint", "cool_level2", "cool_level2_setpoint",
+        "heat_default", "cool_default", "cool_default_off", "program_enabled"
     };
     for (const std::string &role: roles)
     {
@@ -908,6 +915,7 @@ TEST_F(ClimateProgramTest, TheAutoPairKeepsTheGapForEverySetpointPair)
             const double low = num("prog_low"), high = num("prog_high");
             ASSERT_GE(high - low, 2) << heat << "/" << cool;
             ASSERT_GE(low, min) << heat << "/" << cool;
+            ASSERT_GE(high, 0) << heat << "/" << cool;
             ASSERT_LE(high, max) << heat << "/" << cool;
             if (cool - heat >= 2)
             {
@@ -925,8 +933,14 @@ TEST_F(ClimateProgramTest, APairThatCannotKeepTheGapWritesNothingAtAll)
     set("wide_high", 24);
     ASSERT_TRUE(mode("wide", "auto"));
     int changes = 0;
-    auto low = IOChangeHub::Instance().subscribe("wide_low", [&](IOBase &) { changes++; });
-    auto high = IOChangeHub::Instance().subscribe("wide_high", [&](IOBase &) { changes++; });
+    auto low = IOChangeHub::Instance().subscribe("wide_low", [&](IOBase &)
+                                                 {
+        changes++;
+    });
+    auto high = IOChangeHub::Instance().subscribe("wide_high", [&](IOBase &)
+                                                  {
+        changes++;
+    });
     set("wide_heat_default", 20);
     set("wide_cool_default", 30);
     activate("wide_heat_level1");

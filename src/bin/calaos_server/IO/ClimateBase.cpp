@@ -769,7 +769,10 @@ void ClimateBase::setupProgram()
     {
         if (IOBase *io = linkIo(role))
             programSubscriptions.push_back(IOChangeHub::Instance().subscribe(
-                io->get_param("id"), [changed](IOBase &) { changed(); }));
+                io->get_param("id"), [changed](IOBase &)
+                {
+                changed();
+                }));
     };
     for (const string set: { "heat", "cool" })
     {
@@ -780,12 +783,15 @@ void ClimateBase::setupProgram()
         };
         for (int n = 1; n <= programLevels(set); n++)
         {
-            subscribe(levelRole(set, n), [this, set]() { programChanged(set); });
+            subscribe(levelRole(set, n), [this, set]()
+                      {
+                programChanged(set);
+            });
             subscribe(levelSetpointRole(set, n), [this, set, n]()
                       {
-                          if (programActiveLevel(set) == n)
-                              programChanged(set);
-                      });
+                if (programActiveLevel(set) == n)
+                    programChanged(set);
+            });
         }
         if (programLevels(set) > 0)
             subscribe(defaultRole(set), changedWhenDefault);
@@ -793,7 +799,10 @@ void ClimateBase::setupProgram()
             subscribe(COOL_DEFAULT_OFF, changedWhenDefault);
     }
     //Turned off, nothing is written: applyProgram() checks it.
-    subscribe(PROGRAM_ENABLED, [this]() { applyProgram(); });
+    subscribe(PROGRAM_ENABLED, [this]()
+              {
+        applyProgram();
+    });
 }
 
 void ClimateBase::createProgramIos(const string &set, int levels, const Params &setpoint)
