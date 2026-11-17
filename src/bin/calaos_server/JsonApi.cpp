@@ -2717,10 +2717,10 @@ Json JsonApi::buildJsonGetTimerange(const Params &jParam)
  *    would have terminated the process tomorrow. Same tripwire as ScriptWire,
  *    ReolinkWire, WagoWire, OLAWire and the two KNX ends carry.
  */
-//The whole string must be the integer: "", " 5", "5x" and "5.5" are refused.
+//The whole string must be the integer: "", " 5", "+5", "5x" and "5.5" are refused.
 static bool parseStrictInt(const string &s, int &out)
 {
-    if (s.empty() || s.size() > 11) return false;
+    if (s.empty() || s.size() > 11 || s[0] == '+') return false;
     char *end = nullptr;
     errno = 0;
     long v = strtol(s.c_str(), &end, 10);
@@ -2796,6 +2796,15 @@ Json JsonApi::buildJsonSetTimerange(const Json &jdata)
 
         Params p;
         decodeJsonObject(value, p);
+        //decodeJsonObject() prints numbers through a double: 1000000 would
+        //come out as "1e+06".
+        for (Json::const_iterator it = value.cbegin(); it != value.cend(); ++it)
+        {
+            if (it.value().is_number_unsigned())
+                p.Add(it.key(), std::to_string(it.value().get<uint64_t>()));
+            else if (it.value().is_number_integer())
+                p.Add(it.key(), std::to_string(it.value().get<int64_t>()));
+        }
 
         int day = 0;
         if (!parseStrictInt(p["day"], day) || day < 1 || day > 7)

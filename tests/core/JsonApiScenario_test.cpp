@@ -825,6 +825,82 @@ TEST_F(JsonApiScenarioTest, SetTimerangeAcceptsTheBoundsOfEveryField)
     EXPECT_EQ(0u, range->getMonday().size());
 }
 
+TEST_F(JsonApiScenarioTest, SetTimerangeAcceptsAJsonIntegerOfAnyMagnitude)
+{
+    //The decoder flattens numbers through a double, which prints 1e+06: the
+    //integer has to be read before that.
+    loadScenarioHouse();
+
+    for (int offset: { 1000000, -1000000, 2147483647 })
+    {
+        WsTestSession ws;
+        Json r = validRange("2", "4");
+        r["start_offset"] = offset;
+        r["start_hour"] = 5;
+        ws.send(wsRequest("set_timerange", Json{
+                                               { "id", IO_RANGE }, { "ranges", Json::array({ r }) } }));
+        ASSERT_EQ(1u, ws.count()) << offset;
+        EXPECT_JSON_EQ(std::string(R"({"success":"true"})"), ws.lastData()) << offset;
+    }
+
+    //an integer past int range is still refused, whatever its spelling
+    WsTestSession ws;
+    Json r = validRange("2", "4");
+    r["start_offset"] = 4294967296LL;
+    ws.send(wsRequest("set_timerange", Json{
+                                           { "id", IO_RANGE }, { "ranges", Json::array({ r }) } }));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid range"})"), ws.lastData());
+}
+
+TEST_F(JsonApiScenarioTest, SetTimerangeRefusesALeadingPlusSign)
+{
+    loadScenarioHouse();
+
+    WsTestSession ws;
+    Json r = validRange("2", "+5");
+    ws.send(wsRequest("set_timerange", Json{
+                                           { "id", IO_RANGE }, { "ranges", Json::array({ r }) } }));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid range"})"), ws.lastData());
+    expectInitialRange(ws);
+
+    ws.clear();
+    ws.send(wsRequest("set_timerange", Json{
+                                           { "id", IO_RANGE }, { "ranges", Json::array({ validRange("+2", "4") }) } }));
+    ASSERT_EQ(1u, ws.count());
+    EXPECT_JSON_EQ(std::string(R"({"error":"invalid day"})"), ws.lastData());
+}
+
+TEST_F(JsonApiScenarioTest, HttpSetTimerangeAnswersTheSameValidationErrorsAsWs)
+{
+    loadScenarioHouse();
+
+    struct Case
+    {
+        Json extra;
+        const char *error;
+    };
+    const std::vector<Case> cases = {
+        { Json{ { "months", "bad" } }, "invalid months" },
+        { Json{ { "ranges", "nope" } }, "invalid ranges" },
+        { Json{ { "ranges", Json::array({ validRange("0", "4") }) } }, "invalid day" },
+        { Json{ { "ranges", Json::array({ validRange("1", "24") }) } }, "invalid range" },
+    };
+    for (const Case &c: cases)
+    {
+        Json body{ { "action", "set_timerange" }, { "id", IO_RANGE } };
+        body.update(c.extra);
+        HttpTestRequest req;
+        req.send(authenticated(body));
+        ASSERT_EQ(1u, req.count()) << c.error;
+        EXPECT_JSON_EQ(std::string("{\"error\":\"") + c.error + "\"}", req.body());
+
+        WsTestSession ws;
+        expectInitialRange(ws);
+    }
+}
+
 TEST_F(JsonApiScenarioTest, SetTimerangeRejectsMalformedRangesContainer)
 {
     loadScenarioHouse();

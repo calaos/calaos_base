@@ -1276,6 +1276,11 @@ TEST_F(IncomingLogStockLevelTest, AnInvalidTimeRangeBoundIsRefusedWithoutBeingEc
         << "no range was added, so the site this case is written for never "
            "ran:\n" << ex.log;
 
+    //The refusal is journaled by field name, which is what a client reads.
+    EXPECT_NE(std::string::npos, ex.log.find("wrong parameters for time range field start_hour"))
+        << "the refusal of the bound left no line naming the field:\n"
+        << ex.log;
+
     //A bound that is not a number is refused, and the refusal does not echo it.
     EXPECT_EQ(std::string::npos, ex.log.find(planted.substr(0, 9)))
         << "a value the client put under a range bound comes back in the "

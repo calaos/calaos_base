@@ -2826,9 +2826,10 @@ JSON obligatoire) :
                       "end_hour": "8", "end_min": "0", "end_sec": "0",
                       "end_type": "0", "end_offset": "0"}]}}
 ```
-Les champs sont les chaînes de `get_timerange` ; un entier JSON est accepté aussi.
+Les champs sont les chaînes de `get_timerange` ; un entier JSON est accepté aussi, quelle que
+soit sa taille dans l'intervalle d'un `int`. Un signe `+` en tête est refusé.
 
-Ce qui changera par rapport à l'ancien comportement (« gelé tel quel » dans
+Ce qui a changé par rapport à l'ancien comportement (« gelé tel quel » dans
 [04_scenarios.md](04_scenarios.md)) :
 
 - **Une seule validation, avant toute écriture.** Rien n'est modifié si une erreur est
