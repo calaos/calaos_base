@@ -958,6 +958,9 @@ Un changement émet l'événement `timerange_changed`
 
 ⚠️ `type_str` est **`timerange_changed`**, pas le nom de l'enum C++ `EventTimeRangeChanged`.
 
+> Ces trois comportements sont corrigés par CP-BASE-TR ; le contrat cible est dans
+> [08_http_api.md](08_http_api.md#set_timerange-comportement-corrigé-cp-base-tr).
+
 **Trois comportements de `set_timerange` à connaître, gelés tels quels** (mesurés par E4.0c) :
 - **`ranges` absent ⇒ toutes les plages sont effacées.** `o->clear()` est appelé **avant** la
   lecture, et un `ranges` absent — ou qui n'est pas un tableau — reste un no-op sans erreur. Une
