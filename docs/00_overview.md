@@ -15,7 +15,7 @@ WebSocket) à ses clients UI.
 
 Le binaire principal est `calaos_server`. Des sous-processus sont lancés pour de nombreux drivers
 via le framework `ExternProc` — MQTT, KNX, Wago, OneWire, OLA (C++), Reolink, Roon et KLF 200 (Python),
-scripts Lua (dérivé, [src/bin/calaos_server/Makefile.am:406-515](../src/bin/calaos_server/Makefile.am)).
+scripts Lua (dérivé, [src/bin/calaos_server/Makefile.am:420-559](../src/bin/calaos_server/Makefile.am)).
 Un sous-processus Python supplémentaire, `calaos_mcp`, expose l'installation aux LLM via le Model
 Context Protocol (voir [15_mcp_server.md](15_mcp_server.md)).
 

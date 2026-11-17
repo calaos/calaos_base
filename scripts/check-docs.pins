@@ -9,11 +9,11 @@ docs/00_overview.md	1	IOBase.cpp:83-107	2330806c96f0	namespace { //U+XXXX rather
 docs/00_overview.md	1	ListeRoom.cpp:497	60ba4b2daa4e	{
 docs/00_overview.md	1	configure.ac:44	eb339d81e788	AX_CXX_COMPILE_STDCXX_20([noext],[mandatory])
 docs/00_overview.md	1	configure.ac:51-56	24393b4ab676	requirements_calaos_common="libuv >= 1.19.0 sigc++-2.0 >= 2.
-docs/00_overview.md	1	src/bin/calaos_server/Makefile.am:396-505	91aabc5043f0	NotifManager.cpp \ version.h \ main.cpp calaos_server_LDADD 
+docs/00_overview.md	1	src/bin/calaos_server/Makefile.am:420-559	b059ce86619a	bin_PROGRAMS += calaos_script calaos_script_SOURCES = \ LuaS
 docs/00_overview.md	1	src/bin/calaos_server/main.cpp:112-204	722890601f1a	char *confdir = argvOptionParam(argv, argv + argc, "--config
 docs/00_overview.md	1	src/lib/ConfigStore.cpp:60	2ba3710c60f2	static const char* ENV_CONFIG = "CALAOS_CONFIG";
 docs/01_core_data_model.md	1	CalaosConfig.cpp:388-416	e80809b0bee0	pugi::xml_document document; XmlLoadResult xmlres = loadXmlD
-docs/01_core_data_model.md	1	IO/IODoc.h:44-56	789d59d3491d	void friendlyNameSet(const string &friendlyName); void descr
+docs/01_core_data_model.md	1	IO/IODoc.h:44-58	c768702c6a3f	void friendlyNameSet(const string &friendlyName); void descr
 docs/01_core_data_model.md	1	IO/IOFactory.cpp:30-36	1dbc650b466e	void IOFactory::readParams(pugi::xml_node node, Params &p) {
 docs/01_core_data_model.md	1	IO/IOFactory.cpp:56-68	b4e7f8d2f18c	auto it = ioFunctionRegistry.find(type); if (it != ioFunctio
 docs/01_core_data_model.md	1	IO/IOFactory.cpp:70-131	e33505917134	Params p; readParams(node, p); //Owning while we configure i
@@ -86,6 +86,10 @@ docs/02_io_drivers.md	1	IO/KNX/KNXIo.cpp:178	aa20d2460011	knxWrite("knx_group", 
 docs/02_io_drivers.md	1	IO/KNX/KNXIo.cpp:22-26	78f9d5d12565	//T3.2a — the 11 thin KNX IO subclasses, collapsed onto the 
 docs/02_io_drivers.md	1	IO/KNX/KNXIo.cpp:245-250	346d11b3eb75	doc->paramAdd("knx_group_red", _("Red channel KNX Group addr
 docs/02_io_drivers.md	1	IO/KNX/KNXIo.cpp:333-343	9b03394f0a48	REGISTER_IO(KNXInputSwitch) REGISTER_IO(KNXInputSwitchLongPr
+docs/02_io_drivers.md	1	IO/Klf200/Klf200Ctrl.cpp:32-33	f2280631bd60	process = new ExternProcServer("klf200"); exe = Prefix::Inst
+docs/02_io_drivers.md	1	IO/Klf200/Klf200InputSwitch.cpp:26	8299dd599258	REGISTER_IO(Klf200InputSwitch)
+docs/02_io_drivers.md	1	IO/Klf200/Klf200OutputShutterSmart.cpp:105-115	d252e797e65e	void Klf200OutputShutterSmart::readConfig() { if (!get_param
+docs/02_io_drivers.md	1	IO/Klf200/Klf200OutputShutterSmart.cpp:29	3f7b2d707ed5	REGISTER_IO(Klf200OutputShutterSmart)
 docs/02_io_drivers.md	1	IO/LAN/PingInputSwitch.cpp:28	8e68355110f5	REGISTER_IO(PingInputSwitch)
 docs/02_io_drivers.md	1	IO/LAN/WOLOutputBool.cpp:27	20b4e1e44344	REGISTER_IO(WOLOutputBool)
 docs/02_io_drivers.md	1	IO/Mqtt/MqttCtrl.cpp:159	da39a3ee5e6b	
@@ -114,6 +118,7 @@ docs/02_io_drivers.md	1	IO/OutputAnalog.h:45	41b0fdb89502	* OutputAnalog::WagoRe
 docs/02_io_drivers.md	1	IO/OutputFake.cpp:26	69a9484b0f06	REGISTER_IO(OutputFake)
 docs/02_io_drivers.md	1	IO/OutputLight.h:63	a9da2096e030	virtual bool set_value_real(bool val) = 0;
 docs/02_io_drivers.md	1	IO/OutputLightDimmer.h:71	bafb83ffaf54	virtual bool set_value_real(int val) = 0;
+docs/02_io_drivers.md	1	IO/OutputShutterSmart.cpp:70-75	5f0cbe592e65	/* Optional, no default: an existing shutter keeps no io_sty
 docs/02_io_drivers.md	1	IO/OutputString.h:39	b3e293bdd566	virtual void set_value_real(string val) = 0;
 docs/02_io_drivers.md	1	IO/RemoteUI/RemoteUI.cpp:102-111	6bd151c9040d	string type = text(widget, "type"); string desc = "widget" +
 docs/02_io_drivers.md	1	IO/RemoteUI/RemoteUI.cpp:87	38e86d7a65c5	//or `height`, and a guard on the short pair alone leaves th
@@ -1012,8 +1017,8 @@ docs/09_lua_scripting.md	1	src/bin/calaos_server/LuaScript/ScriptManager.h:27-31
 docs/09_lua_scripting.md	1	src/bin/calaos_server/LuaScript/ScriptManager.h:65-68	4f7da0fe52ed	/* Utils::getMainLoopTime() is not usable for the watchdog: 
 docs/09_lua_scripting.md	1	src/bin/calaos_server/LuaScript/ScriptManager.h:93-94	caf7a4a02480	/* Suspends the execution watchdog for the lifetime of the o
 docs/09_lua_scripting.md	1	src/bin/calaos_server/LuaScript/ScriptManager.h:96-104	1f73f4cdbff8	class ScriptWatchdogPause { public: ScriptWatchdogPause() { 
-docs/09_lua_scripting.md	1	src/bin/calaos_server/Makefile.am:317-318	9200394d1f9e	IPCam/SynoSurveillanceStation.h \ JsonApi.cpp \
-docs/09_lua_scripting.md	1	src/bin/calaos_server/Makefile.am:394-402	fafccb01a690	HistLogger.h \ NotifManager.h \ NotifManager.cpp \ version.h
+docs/09_lua_scripting.md	1	src/bin/calaos_server/Makefile.am:340-342	8159c8e16d80	LuaScript/Lunar.h \ LuaScript/ScriptExec.h \ LuaScript/Scrip
+docs/09_lua_scripting.md	1	src/bin/calaos_server/Makefile.am:420-429	623bf09cd2ea	bin_PROGRAMS += calaos_script calaos_script_SOURCES = \ LuaS
 docs/09_lua_scripting.md	1	src/bin/calaos_server/Rules/ActionScript.cpp:36	7a883ec00538	ScriptExec::ExecuteScriptDetached(script, [=](bool ret)
 docs/09_lua_scripting.md	1	src/bin/calaos_server/Rules/ActionScript.cpp:46-47	6fa4e8a79c60	pugi::xml_node sc_node = pnode.child("calaos:script"); if (!
 docs/09_lua_scripting.md	1	src/bin/calaos_server/Rules/ActionScript.cpp:61-72	7885a1188a79	bool ActionScript::SaveToXml(pugi::xml_node node) { pugi::xm
@@ -1047,9 +1052,9 @@ docs/09_lua_scripting.md	1	tests/core/RuleLifecycle_test.cpp:778	da39a3ee5e6b
 docs/09_lua_scripting.md	1	tests/core/RuleLifecycle_test.cpp:93	a6c8685a0f91	<< " <calaos:script type=\"lua\">return true</calaos:script>
 docs/09_lua_scripting.md	2	src/bin/calaos_server/LuaScript/ScriptExec.cpp:188-189	27703ccbef8d	Idler::singleIdler([=]() {
 docs/09_lua_scripting.md	2	src/bin/calaos_server/LuaScript/ScriptExec.h:34	ac24f1cdf494	static ExternProcServer *ExecuteScriptDetached(const string 
-docs/09_lua_scripting.md	2	src/bin/calaos_server/Makefile.am:394-402	fafccb01a690	HistLogger.h \ NotifManager.h \ NotifManager.cpp \ version.h
+docs/09_lua_scripting.md	2	src/bin/calaos_server/Makefile.am:420-429	623bf09cd2ea	bin_PROGRAMS += calaos_script calaos_script_SOURCES = \ LuaS
 docs/09_lua_scripting.md	2	tests/LuaSandbox_test.cpp:225	4659932f36e4	TEST(LuaSandbox, HotNumericLoopIsAbortedByTheWatchdog)
-docs/09_lua_scripting.md	3	src/bin/calaos_server/Makefile.am:394-402	fafccb01a690	HistLogger.h \ NotifManager.h \ NotifManager.cpp \ version.h
+docs/09_lua_scripting.md	3	src/bin/calaos_server/Makefile.am:420-429	623bf09cd2ea	bin_PROGRAMS += calaos_script calaos_script_SOURCES = \ LuaS
 docs/10_events_notifications.md	1	ActionMail.cpp:89	46112d215869	NotifManager::Instance().sendMailNotification(mail_subject,
 docs/10_events_notifications.md	1	ActionPush.cpp:103-119	7611d3d3edc1	HistEvent e = HistEvent::create(); e.pic_uid = picUid; e.eve
 docs/10_events_notifications.md	1	ActionPush.cpp:124	da39a3ee5e6b	
@@ -1347,9 +1352,6 @@ docs/14_python_extern_proc.md	1	src/bin/calaos_server/Audio/ExternProcRoon_main.
 docs/14_python_extern_proc.md	1	test_extern_proc.py:60-78	6c3acf8263b3	def test_framing_roundtrip_over_socketpair(): a, b = socket.
 docs/14_python_extern_proc.md	1	tests/Makefile.am:47-56	bb5b866fcf7d	# SKIP that shows in the "# SKIP:" column) rather than 0 whe
 docs/14_python_extern_proc.md	2	message.py:40-45	4c3319ec070a	self.payload_length = ( (data[1] << 24) | (data[2] << 16) | 
-docs/15_mcp_server.md	1	AGENTS.md:136-138	37e4cf475f5a	| `IO/RemoteUI/` | IOs hosted on embedded RemoteUI devices |
-docs/15_mcp_server.md	1	AGENTS.md:160-161	a365ca00a045	### HTTP / WebSocket API (`src/bin/calaos_server/HttpServer.
-docs/15_mcp_server.md	1	AGENTS.md:70-74	e936aed739bb	# Optional hardware support (OneWire/KNX/MQTT/OLA) is autode
 docs/15_mcp_server.md	1	ConfigOptions.cpp:883-894	8aa60e4597f5	.def("30") .range(1, 3650)); //--- Location ----------------
 docs/15_mcp_server.md	1	ConfigOptions.cpp:907-941	591908d374aa	.def("2.548828") .range(-180, 180) .consumer(cServer | cHome
 docs/15_mcp_server.md	1	HttpClient.cpp:757-779	d2250b2a50be	VAR_UNUSED(c); VAR_UNUSED(r); CloseConnection(); }); } jsonA
@@ -1367,12 +1369,15 @@ docs/15_mcp_server.md	1	McpProxyHandler.cpp:39-43	cf3468aedefa	bool isValidMcpPa
 docs/15_mcp_server.md	1	McpProxyHandler.cpp:41	659a3ff9f56e	static const std::regex re(R"(^/mcp(?:/[A-Za-z0-9._~-]+)*/?$
 docs/15_mcp_server.md	1	McpProxyHandler.cpp:61-107	e1e7f6077aae	bool detectSmuggling(const std::string &headerBlock) { int c
 docs/15_mcp_server.md	1	McpProxyHandler.h:45-52	0649c6b813ee	{ public: enum class SniffResult { NotEnoughData, // not eno
+docs/15_mcp_server.md	1	McpServerManager.cpp:118	9a78a78cd5e0	cErrorDom("mcp") << "failed to generate mcp_token (CSPRNG un
+docs/15_mcp_server.md	1	McpServerManager.cpp:134	350c72b034e9	cErrorDom("mcp") << "failed to generate mcp_service_token (C
 docs/15_mcp_server.md	1	McpServerManager.cpp:262-269	f18dadcc1f7a	pipeStderr->once<uvw::EndEvent>(cleanup_pipe); pipeStdout->o
 docs/15_mcp_server.md	1	McpServerManager.cpp:271-285	f668385b8d4e	scheduleRestart(); }); processExe->once<uvw::ErrorEvent>([th
 docs/15_mcp_server.md	1	McpServerManager.cpp:326-346	a077098269a5	} void McpServerManager::scheduleRestart() { if (shuttingDow
-docs/15_mcp_server.md	1	McpServerManager.cpp:42	76c16e776418	constexpr const char *MCP_LISTEN_PORT_KEY = "port_api";
-docs/15_mcp_server.md	1	McpServerManager.cpp:44-53	a6ccecd73b5c	//the service token it comes from. constexpr const char *MCP
-docs/15_mcp_server.md	1	McpServerManager.cpp:69-76	55ba03f9c3bc	return oss.str(); } unsigned short jsonApiPort() { unsigned 
+docs/15_mcp_server.md	1	McpServerManager.cpp:46	e87fc7d03655	constexpr unsigned short DEFAULT_JSONAPI_PORT = 5454;
+docs/15_mcp_server.md	1	McpServerManager.cpp:48-57	bc7d81e896bf	// Generate a 64-hex-char token (256 bits) from a cryptograp
+docs/15_mcp_server.md	1	McpServerManager.cpp:60-64	d32d084284d0	if (RAND_bytes(buffer, sizeof(buffer)) != 1) { cErrorDom("mc
+docs/15_mcp_server.md	1	McpServerManager.cpp:72-81	fd877857572b	unsigned short jsonApiPort() { unsigned short port = DEFAULT
 docs/15_mcp_server.md	1	WebSocket.cpp:74-78	47f17a0ea84c	return; } if (mcpState == McpRouteState::Sniffing && !isWebs
 docs/15_mcp_server.md	1	WebSocket.cpp:79-142	2bc395bf8702	auto result = McpProxyHandler::sniffRequest(mcpSniffBuf); sw
 docs/15_mcp_server.md	1	__main__.py:103-108	2989bcd5e284	level=level, format=LOG_FORMAT, ) def _bind_socket(path: str

@@ -814,24 +814,31 @@ Système de documentation auto-déclarative. Chaque driver remplit son `IODoc` d
 constructeur pour décrire ses paramètres, ses conditions et ses actions, ce qui permet à
 `IOFactory::genDoc()` de générer la doc et à l'UI de présenter les champs de configuration.
 
-L'API réelle (dérivé, [IO/IODoc.h:44-56](../src/bin/calaos_server/IO/IODoc.h)) :
+L'API réelle (dérivé, [IO/IODoc.h:44-58](../src/bin/calaos_server/IO/IODoc.h)) :
 
 ```cpp
 void friendlyNameSet(const string &friendlyName);
 void descriptionSet(const string &description);
 void descriptionBaseSet(const string &description);
 void linkAdd(const string &description, const string &link);
+/* label: the short, translated name a form shows for the param; published
+ * when it is not empty. Every param of a device has one. */
 void paramAdd(const string &name, const string &description, ParamType type,
-              bool mandatory, const string defaultval = string(), bool readonly = false);
+              bool mandatory, const string defaultval = string(),
+              bool readonly = false, const string &label = string());
 void paramAddInt(const string &name, const string &description, int min, int max,
-                 bool mandatory, int defval = 0, bool readonly = false);
+                 bool mandatory, int defval = 0, bool readonly = false,
+                 const string &label = string());
 void paramAddFloat(const string &name, const string &description, bool mandatory,
-                   double min, double max, double defval = 0, bool readonly = false);
+                   double min, double max, double defval = 0, bool readonly = false,
+                   const string &label = string());
 void paramAddList(const string &name, const string &description, bool mandatory,
                   const Params &keyvalues, const string &defkey = string(),
-                  bool readonly = false);
+                  bool readonly = false, const string &label = string());
 void conditionAdd(const string &name, const string &description);
 void actionAdd(const string &name, const string &description);
+//For a subclass that refuses an action its base class documents
+void actionRemove(const string &name);
 void aliasAdd(string alias);
 ```
 

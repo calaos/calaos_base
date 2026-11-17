@@ -14,7 +14,7 @@ Les scripts sont utilisés dans :
 1. **Un script ne tourne jamais dans `calaos_server`.** Il est exécuté dans un sous-processus
    dédié `calaos_script` (dérivé, `src/bin/calaos_server/LuaScript/ScriptExec.cpp:188-189`) ;
    `calaos_server` ne lie même pas `ScriptManager.cpp`
-   (dérivé, `src/bin/calaos_server/Makefile.am:317-318` et `:394-402`).
+   (dérivé, `src/bin/calaos_server/Makefile.am:340-342` et `:420-429`).
 2. **Le script tourne dans un bac à sable (T1.15)** : l'environnement global est reconstruit à
    partir d'une **liste blanche explicite**, et une garde de temps d'exécution l'interrompt au
    bout de 5 secondes.
@@ -55,7 +55,7 @@ Déroulé (dérivé, `src/bin/calaos_server/LuaScript/ScriptExec.cpp:46-191`) :
 5. le sous-processus répond `finished` avec `return_val` valant `"true"` ou `"false"` (dérivé,
    `src/bin/calaos_server/LuaScript/ScriptExtern_main.cpp:136-144`), puis `::exit(0)`.
 
-Le binaire est déclaré dans [src/bin/calaos_server/Makefile.am:394-402](../src/bin/calaos_server/Makefile.am) :
+Le binaire est déclaré dans [src/bin/calaos_server/Makefile.am:420-429](../src/bin/calaos_server/Makefile.am) :
 
 ```make
 bin_PROGRAMS += calaos_script
@@ -65,11 +65,12 @@ calaos_script_SOURCES = \
         LuaScript/ScriptManager.cpp \
         LuaScript/ScriptBindings.h \
         LuaScript/ScriptBindings.cpp \
+        LuaScript/ScriptWire.h \
         IO/ExternProc.cpp \
         IO/ExternProc.h
 ```
 
-(capturé, `src/bin/calaos_server/Makefile.am:394-402`, intégral.)
+(capturé, `src/bin/calaos_server/Makefile.am:420-429`, intégral.)
 
 ### Appelants
 

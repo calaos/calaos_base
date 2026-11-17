@@ -905,7 +905,7 @@ avertissement et lit toujours `false`.
 Les deux classes de base `OutputShutter` et `OutputShutterSmart` déclarent désormais un paramètre
 **facultatif et sans défaut** `io_style` (`shutter`, `window`), sur le modèle de `OutputLight`
 (`outlet`, `pump`…) et `InputSwitch` (`door`, `motion`…)
-([IO/OutputShutterSmart.cpp:70-74](../src/bin/calaos_server/IO/OutputShutterSmart.cpp)). Le
+([IO/OutputShutterSmart.cpp:70-75](../src/bin/calaos_server/IO/OutputShutterSmart.cpp)). Le
 `gui_type` ne change pas. Ce n'est pas propre au KLF 200 : une fenêtre motorisée sur KNX ou Wago
 peut le poser aussi.
 

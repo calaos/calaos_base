@@ -108,7 +108,7 @@ Singleton. `McpServerManager::Instance().start()` est appelé dans
 
 Les tokens sont tirés d'**OpenSSL `RAND_bytes`**, 32 octets rendus en 64 caractères hex. Le
 choix est explicite dans le code, et il exclut nommément `Utils::createRandomUuid()`
-(intégral, `McpServerManager.cpp:44-53`) :
+(extrait, `McpServerManager.cpp:48-57`) :
 
 ```cpp
 // Generate a 64-hex-char token (256 bits) from a cryptographically secure
@@ -125,7 +125,7 @@ std::string generateToken()
 
 Si `RAND_bytes` échoue, **aucun token n'est écrit** : le manager logue une erreur et le
 sidecar sera incapable de s'authentifier (ou le proxy refusera tout), plutôt que de persister
-un secret faible (`:70-74`, `:136-138`, `:160-161`).
+un secret faible (`McpServerManager.cpp:60-64`, `:118`, `:134`).
 
 ⚠️ Vider `mcp_token` dans `local_config.xml` en fait générer un nouveau au démarrage suivant,
 ce qui **invalide tous les clients déjà configurés** (`ConfigOptions.cpp:883-894`).
@@ -772,7 +772,7 @@ encore connecté au serveur → erreur `Not connected to calaos_server yet` ; ar
 `calaos_server` → `SIGTERM` au sidecar, socket nettoyé.
 
 > **Note environnement dev :** le port par défaut est **5454**
-> (`DEFAULT_JSONAPI_PORT`, `McpServerManager.cpp:42`). Si ce port est déjà occupé, le serveur
+> (`DEFAULT_JSONAPI_PORT`, `McpServerManager.cpp:46`). Si ce port est déjà occupé, le serveur
 > ne démarrera pas son écoute ; positionner l'option `port_api` pour en changer — le sidecar
 > suit automatiquement, `CALAOS_API_URL` étant construit depuis cette même option
-> (`McpServerManager.cpp:69-76,253`).
+> (`McpServerManager.cpp:72-81,302`).
