@@ -125,13 +125,13 @@ std::string generateToken()
 
 Si `RAND_bytes` échoue, **aucun token n'est écrit** : le manager logue une erreur et le
 sidecar sera incapable de s'authentifier (ou le proxy refusera tout), plutôt que de persister
-un secret faible (`:56-60`, `:110-113`, `:126-129`).
+un secret faible (`:70-74`, `:136-138`, `:160-161`).
 
 ⚠️ Vider `mcp_token` dans `local_config.xml` en fait générer un nouveau au démarrage suivant,
-ce qui **invalide tous les clients déjà configurés** (`ConfigOptions.cpp:860-871`).
+ce qui **invalide tous les clients déjà configurés** (`ConfigOptions.cpp:883-894`).
 
 Variables d'environnement passées au sidecar (**aucun secret** ne transite par
-l'environnement — mitigation S1), dérivé de `McpServerManager.cpp:247-261` :
+l'environnement — mitigation S1), dérivé de `McpServerManager.cpp:271-285` :
 
 | Variable | Valeur |
 |---|---|
@@ -147,7 +147,7 @@ S'y ajoutent, héritées du parent : `PATH`, `HOME`, `LANG`, `LC_ALL`, `LANGUAGE
 > **Gotcha config path :** `Utils::getConfigPath()` ignore `--config` (il
 > re-dérive depuis `$HOME`). Pour passer le **vrai** répertoire de config au
 > sidecar, `McpServerManager` utilise `Utils::getConfigFile("")` (qui respecte
-> `_configBase`) puis retire le `/` final (`:238-245`). Utiliser `getConfigPath()` ici
+> `_configBase`) puis retire le `/` final (`:262-269`). Utiliser `getConfigPath()` ici
 > ferait lire au sidecar le mauvais `local_config.xml`.
 
 ### McpProxyHandler
@@ -156,10 +156,10 @@ S'y ajoutent, héritées du parent : `PATH`, `HOME`, `LANG`, `LC_ALL`, `LANGUAGE
 
 Reverse proxy octets-bruts entre une connexion TCP `/mcp/*` et le socket Unix du
 sidecar. `WebSocket::ProcessData` accumule les premiers octets et appelle
-`McpProxyHandler::sniffRequest()` (`WebSocket.cpp:73-77`). Le verdict est un enum à **cinq**
+`McpProxyHandler::sniffRequest()` (`WebSocket.cpp:74-78`). Le verdict est un enum à **cinq**
 valeurs (`McpProxyHandler.h:45-52`) :
 
-| Verdict | Traitement (`WebSocket.cpp:78-141`) |
+| Verdict | Traitement (`WebSocket.cpp:79-142`) |
 |---|---|
 | `NotEnoughData` | on attend d'autres octets ; au-delà de la limite de sniff, la connexion repart en HTTP normal |
 | `Mcp` | bascule en mode proxy : le timeout de lecture HTTP est annulé. Sidecar → client est splicé en brut (supporte les réponses SSE longues du Streamable HTTP) ; client → sidecar passe par `McpRequestFilter` |
@@ -206,7 +206,7 @@ aussi au reste du serveur pour répondre `503 Too many connections` sur un socke
 ### login_service / serviceScope
 **Fichier :** [JsonApiHandlerWS.cpp](../src/bin/calaos_server/JsonApiHandlerWS.cpp)
 
-`processLoginService()` (`:530-567`) authentifie le sidecar via `mcp_service_token`, en
+`processLoginService()` (`:617-654`) authentifie le sidecar via `mcp_service_token`, en
 comparaison sécurisée (`secureCompare`) et **derrière le throttle de login** (`LoginThrottle`,
 partagé avec le login utilisateur). Un token de référence **vide n'accorde jamais l'accès**,
 quoi qu'envoie le client. Un échec renvoie une réponse d'erreur **puis ferme la
@@ -316,8 +316,8 @@ src/bin/calaos_mcp/
 ### __main__.py — socket Unix
 uvicorn force `chmod 0666` sur le socket qu'il crée. Pour garantir `0660`
 (mitigation S6), le sidecar **pré-bind** le socket lui-même (`umask 0o117` + `chmod 0660`,
-`__main__.py:75-87`) et le passe à uvicorn via `fd=` (`:98-103`). Le socket résiduel est
-délié avant le bind et après l'arrêt du serveur (`:70-73`, `:107-111`). `access_log` est
+`__main__.py:75-87`) et le passe à uvicorn via `fd=` (`:103-108`). Le socket résiduel est
+délié avant le bind et après l'arrêt du serveur (`:70-73`, `:112-116`). `access_log` est
 désactivé.
 
 Le niveau de log Calaos **numérique 1–5** est traduit en niveau uvicorn
@@ -344,19 +344,19 @@ jamais `local_config.xml` de lui-même, un changement de réglage demande un **r
 
 ### client.py — CalaosClient
 WebSocket persistant vers `CALAOS_API_URL`. Premier message : `login_service` avec
-`mcp_service_token` (`:84-93`). Corrélation requête/réponse par `msg_id` de la forme
-`mcp-<n>` (`:114-116`), avec un **timeout de 10 s** par requête et une entrée de `_pending`
-qui n'est jamais fuitée, même sur annulation (`:118-137`).
+`mcp_service_token` (`:89-98`). Corrélation requête/réponse par `msg_id` de la forme
+`mcp-<n>` (`:144-146`), avec un **timeout de 10 s** par requête et une entrée de `_pending`
+qui n'est jamais fuitée, même sur annulation (`:148-167`).
 
 Le cache de `get_home` est invalidé sur les événements `io_added`, `io_deleted`,
-`room_added`, `room_deleted` (`:108-110`).
+`room_changed` (`:30`, `:124-128`).
 
 Reconnexion : boucle de fond démarrée par `connect()`, **non bloquante** — un tool appelé
 avant la première connexion lève `RuntimeError("Not connected to calaos_server yet…")`
-(`:39-45`, `:118-123`). Le backoff double à chaque échec et **plafonne à 60 s** ; une
-fermeture propre le remet à 1 s (`:47-60`). À chaque perte de connexion, toutes les requêtes
+(`:42-48`, `:148-153`). Le backoff double à chaque échec et **plafonne à 60 s** ; une
+fermeture propre le remet à 1 s (`:50-63`). À chaque perte de connexion, toutes les requêtes
 en vol sont résolues en `ConnectionError` plutôt que de laisser les appelants attendre leur
-timeout (`_on_disconnect`, `:62-75`).
+timeout (`_on_disconnect`, `:65-80`).
 
 Formats à respecter (appris à l'exécution, et documentés dans le code) :
 - `get_state` : requête `{"items": ["id1", "id2"]}` (tableau d'identifiants),
@@ -375,20 +375,20 @@ d'équipements, noms de pièces et valeurs d'état sont de l'**entrée utilisate
 Le montage demande une acrobatie, documentée en tête de fichier (`server.py:8-16`) : le
 `streamable_http_app()` de MCPServer renvoie une app Starlette dont le lifespan **ne se
 déclenche pas** une fois montée dans FastAPI. Le sidecar extrait donc le handler ASGI brut et
-fait tourner `mcp.session_manager.run()` dans son propre lifespan (`:174-206`). Deux
+fait tourner `mcp.session_manager.run()` dans son propre lifespan (`:205-236`). Deux
 enregistrements sont nécessaires : une `Route` explicite sur `/mcp` **exactement** (les
 clients Streamable HTTP postent sans slash final, et `Mount("/mcp")` ne matche que les
-sous-chemins) et un `mount` pour les sous-chemins (`:224-235`). `redirect_slashes=False`
-empêche un 307 vers `/mcp/` avant que le handler ne tourne (`:208-213`).
+sous-chemins) et un `mount` pour les sous-chemins (`:259-270`). `redirect_slashes=False`
+empêche un 307 vers `/mcp/` avant que le handler ne tourne (`:243-248`).
 
 `/healthz` et `/mcp/healthz` restent **ouverts sans auth** (probe) — ils répondent
-`{"status": "ok", "version": …}` (`:216-222`, `auth.py:132-134`). La protection
+`{"status": "ok", "version": …}` (`:251-257`, `auth.py:132-134`). La protection
 DNS-rebinding de MCPServer est désactivée car le seul point d'entrée est le proxy local
-(`server.py:179-190`). ⚠️ Elle doit l'être **explicitement** : avec `transport_security=None`, `mcp` 2
+(`server.py:211-227`). ⚠️ Elle doit l'être **explicitement** : avec `transport_security=None`, `mcp` 2
 active d'office une liste blanche `Host` limitée à localhost, et chaque requête relayée sous
 `calaos.local` reçoit `421`.
 
-Les outils sont enregistrés via `_tool` (`server.py:63-77`), qui relance en `ToolError` les
+Les outils sont enregistrés via `_tool` (`server.py:63-76`), qui relance en `ToolError` les
 `ValueError`, `RuntimeError`, `ConnectionError` et `TimeoutError` des outils et de
 `CalaosClient`. Sans cela, `mcp` 2 ne renvoie au modèle que `Error executing tool <nom>` (pièce
 inconnue, IO en lecture seule, serveur pas encore connecté…) et logue une trace en `ERROR` ; il
@@ -443,7 +443,7 @@ ce seau partagé.
 
 **Réglages du throttle** — lus dans `local_config.xml`, donc modifiables par
 l'installateur. Ce ne sont **pas** des constantes (dérivé, `config.py:86-91`,
-`ConfigOptions.cpp:884-918`) :
+`ConfigOptions.cpp:907-941`) :
 
 | Option | Défaut | Plage | Effet |
 |---|---|---|---|
@@ -598,8 +598,8 @@ qu'on ne les prenne pas pour des capacités disponibles :
 
 | ID | Mesure | Site |
 |---|---|---|
-| S1 | Secrets uniquement dans `local_config.xml`, jamais en variable d'environnement ; rédaction des blocs de 64 hex dans les logs du sidecar | `config.py:47-75`, `McpServerManager.cpp:302-323` |
-| S2 | Compte de service à portée restreinte (`login_service`/`serviceScope`) plutôt qu'admin | `JsonApiHandlerWS.cpp:530-567` |
+| S1 | Secrets uniquement dans `local_config.xml`, jamais en variable d'environnement ; rédaction des blocs de 64 hex dans les logs du sidecar | `config.py:47-75`, `McpServerManager.cpp:326-346` |
+| S2 | Compte de service à portée restreinte (`login_service`/`serviceScope`) plutôt qu'admin | `JsonApiHandlerWS.cpp:617-654` |
 | S3 | Sanitisation anti-prompt-injection des sorties LLM | `safety.py:12-35` |
 | S5 | Regex stricte sur `/mcp/*` (anti path-traversal) | `McpProxyHandler.cpp:39-43` |
 | S6 | Socket Unix `0660` (pré-bind + chmod, pas le `0666` d'uvicorn) | `__main__.py:75-87` |
@@ -610,13 +610,13 @@ qu'on ne les prenne pas pour des capacités disponibles :
 
 S'y ajoute, côté serveur, le **throttle de login** appliqué à `login_service` comme au login
 utilisateur : backoff par entrée de table doublant à chaque échec, de 1 s à 60 s, table bornée
-à 1024 entrées et entrées oubliées après 900 s (`JsonApi.h:50-80`).
+à 1024 entrées et entrées oubliées après 900 s (`JsonApi.h:57-122`).
 
 > ⚠️ **Ce throttle n'est pas réellement par adresse derrière haproxy — mesuré.** La clé de
 > table vient de `clientIp()`, qui rend le **pair TCP** et non
-> `TransportLimits::effectiveClientIp()` : `JsonApiHandlerWS.cpp:45-51` et
-> `JsonApiHandlerHttp.cpp:55-61` appellent tous deux `HttpClient::getClientIp()`
-> (`HttpClient.cpp:710-732`), qui lit `peer<uvw::IPv4>()`. **Les deux transports de login sont
+> `TransportLimits::effectiveClientIp()` : `JsonApiHandlerWS.cpp:53-59` et
+> `JsonApiHandlerHttp.cpp:126-132` appellent tous deux `HttpClient::getClientIp()`
+> (`HttpClient.cpp:757-779`), qui lit `peer<uvw::IPv4>()`. **Les deux transports de login sont
 > touchés.** Derrière haproxy, le pair est toujours le proxy : **tous les utilisateurs
 > partagent donc un seul seau**, et un attaquant peut bloquer le login de tout le monde.
 > `login_service` échappe à la conséquence — le sidecar se connecte en loopback, où le pair
@@ -668,8 +668,8 @@ de `server.py`, y compris les deux appels qu'aucun `import` ne révélerait :
 | `from mcp.server.transport_security import …` | `server.py:28` |
 | `fastapi`, `fastapi.responses`, `starlette.middleware.base`, `starlette.routing` | `server.py`, `auth.py` |
 | `import uvicorn, websockets` | `__main__.py:20`, `client.py:16` |
-| `mcp.streamable_http_app(transport_security=…)` | `server.py:186` — l'ex-`mcp.settings.transport_security` de `mcp` 1.x |
-| `mcp.session_manager` | `server.py:193` — l'ex-`_session_manager` privé de `mcp` 1.x |
+| `mcp.streamable_http_app(transport_security=…)` | `server.py:221` — l'ex-`mcp.settings.transport_security` de `mcp` 1.x |
+| `mcp.session_manager` | `server.py:228` — l'ex-`_session_manager` privé de `mcp` 1.x |
 
 `pydantic` n'est **pas** sondé : le seul module qui l'importe, `models.py`, n'est importé par
 personne, et une `pydantic` manquante ferait de toute façon échouer l'import de `fastapi`.
@@ -708,7 +708,7 @@ Côté C++, `tests/core/JsonApiSession_test.cpp` couvre `login_service`, le refu
 L'action JsonApi `get_mcp_info` renvoie l'URL et le token Bearer à un utilisateur
 **authentifié**. ⚠️ **Elle est HTTP uniquement** : envoyée en WebSocket, le message tombe en
 fin de chaîne `if/else` et **rien n'est répondu** — épinglé par
-`JsonApiSession_test.cpp:1036-1046`.
+`JsonApiSession_test.cpp:1248-1258`.
 
 ```bash
 curl -s -X POST http://localhost:5454/api \
@@ -728,7 +728,7 @@ la valeur déterministe du test) :
 
 Le champ `token` est le **`mcp_token`** (Bearer client). Le `mcp_service_token`, lui, n'est
 **jamais** exposé par cette action — c'est explicitement asserté par le test
-(`JsonApiSession_test.cpp:1029-1032`). Les paramètres passent aussi bien dans le corps JSON
+(`JsonApiSession_test.cpp:1241-1244`). Les paramètres passent aussi bien dans le corps JSON
 qu'en paramètres GET `?action=get_mcp_info&cn_user=…&cn_pass=…`.
 
 Configuration Claude Desktop (`claude_desktop_config.json`) :

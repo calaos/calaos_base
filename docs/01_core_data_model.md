@@ -34,8 +34,8 @@ ListeRule  ──owns──►  Rule  ──owns──►  Condition / Action
   `cameraCache` et `audioCache` sont des **index non-possédants**, tenus à jour non pas par
   `ListeRoom` mais par `IOBase` lui-même — son constructeur appelle `addIOHash()`, son
   destructeur `delIOHash()` (dérivé,
-  [ListeRoom.h:41-61](../src/bin/calaos_server/ListeRoom.h),
-  [IOBase.cpp:66-80](../src/bin/calaos_server/IOBase.cpp)). Une entrée d'index ne peut donc
+  [ListeRoom.h:39-59](../src/bin/calaos_server/ListeRoom.h),
+  [IOBase.cpp:67-81](../src/bin/calaos_server/IOBase.cpp)). Une entrée d'index ne peut donc
   pas survivre à l'objet qu'elle désigne, quel que soit le chemin de destruction.
 - **`Rule` possède ses `Condition`/`Action`**, **`ListeRule` possède ses `Rule`** (E4.2d,
   dérivé, [Rule.h:61-81](../src/bin/calaos_server/Rule.h),
@@ -54,7 +54,7 @@ ListeRule  ──owns──►  Rule  ──owns──►  Condition / Action
 **Deux exceptions, et deux seulement**, sont des *transferts* de propriété hors de la pièce,
 implémentés par `release()` et jamais par `reset()` : `Room::RemoveIO(pos, del=false)` et
 `Room::RemoveIOFromRoom(io)` (dérivé,
-[Room.cpp:75-126](../src/bin/calaos_server/Room.cpp)). Tout autre `IOBase*` rendu par une
+[Room.cpp:79-130](../src/bin/calaos_server/Room.cpp)). Tout autre `IOBase*` rendu par une
 API de ce document est une **observation non-possédante**.
 
 ---
@@ -79,7 +79,7 @@ domotique.
 
 ### Méthodes virtuelles importantes
 
-(dérivé, [IOBase.h:100-171](../src/bin/calaos_server/IOBase.h))
+(dérivé, [IOBase.h:108-204](../src/bin/calaos_server/IOBase.h))
 
 ```cpp
 virtual DATA_TYPE get_type() = 0;        // TBOOL, TINT ou TSTRING
@@ -113,12 +113,12 @@ typedef enum { TBOOL, TINT, TSTRING, TUNKNOWN } DATA_TYPE;
 
 > ⚠️ Il n'existe **pas** de `TDOUBLE`. Le nom numérique est `TINT`, et c'est lui qu'il faut
 > tester (`io->get_type() == TINT`, dérivé,
-> [JsonApi.cpp:270, 279](../src/bin/calaos_server/JsonApi.cpp)).
+> [JsonApi.cpp:275, 279](../src/bin/calaos_server/JsonApi.cpp)).
 
 ### Paramètres standard (dans `Params`)
 
 Ce sont les huit paramètres que `IOBase` déclare pour tous ses descendants dans son
-constructeur (dérivé, [IOBase.cpp:52-64](../src/bin/calaos_server/IOBase.cpp)) :
+constructeur (dérivé, [IOBase.cpp:61-65](../src/bin/calaos_server/IOBase.cpp)) :
 
 | Clé | Valeur | Obligatoire | Description |
 |---|---|---|---|
@@ -138,7 +138,7 @@ tel quel dans `Params` par `IOFactory::readParams()`
 > ⚠️ **`var_type` n'est pas un paramètre.** C'est un champ **calculé** de l'API JSON, dérivé
 > de `get_type()` au moment de la sérialisation : `TINT` → `"float"`, `TBOOL` → `"bool"`,
 > `TSTRING` → `"string"` (dérivé,
-> [JsonApi.cpp:277-282](../src/bin/calaos_server/JsonApi.cpp)). Le chercher dans `Params`
+> [JsonApi.cpp:319-324](../src/bin/calaos_server/JsonApi.cpp)). Le chercher dans `Params`
 > ne donne rien. Visible sur le fil (capturé,
 > `tests/core/golden/e40b_ws_get_io.json`, extrait) :
 > ```json
@@ -151,7 +151,7 @@ tel quel dans `Params` par `IOFactory::readParams()`
 
 ### Signal de changement
 
-(dérivé, [IOBase.cpp:158-163](../src/bin/calaos_server/IOBase.cpp))
+(dérivé, [IOBase.cpp:164-169](../src/bin/calaos_server/IOBase.cpp))
 
 ```cpp
 void EmitSignalIO();  // → ListeRule::ExecuteRuleSignal(id)
@@ -188,7 +188,7 @@ ne date que ses changements : stable `sensor_timeout` secondes, elle compte comm
 ### StatusInfo
 
 Infos de statut pour les périphériques IoT (dérivé,
-[IOBase.h:38-62](../src/bin/calaos_server/IOBase.h)) :
+[IOBase.h:41-65](../src/bin/calaos_server/IOBase.h)) :
 
 ```cpp
 enum class StatusConnected { STATUS_NONE = 0, STATUS_DISCONNECTED = 1, STATUS_CONNECTED = 2 };
@@ -214,7 +214,7 @@ void setStatusInfo(StatusType type, uint64_t value);
 ```
 
 `hasStatusInfo()` est un OU sur les six champs, `getStatusInfo()` rend le tout sous forme de
-`Params` (dérivé, [IOBase.h:198-208](../src/bin/calaos_server/IOBase.h)).
+`Params` (dérivé, [IOBase.h:240-250](../src/bin/calaos_server/IOBase.h)).
 
 ⚠️ Le test est **le drapeau** pour la batterie, mais **la valeur** pour les autres :
 `wireless_signal == 0.0` et `uptime == 0` sont indistinguables de « jamais renseigné ». C'est
@@ -249,7 +249,7 @@ class Room {
 
 `~Room()` détache chaque IO des règles avec la politique **`RuleDetachPolicy::Destroy`**
 explicite — la pièce et ses IOs disparaissent pour de bon, il n'y a personne à prévenir et
-rien à réactiver (dérivé, [Room.cpp:36-58](../src/bin/calaos_server/Room.cpp)).
+rien à réactiver (dérivé, [Room.cpp:40-62](../src/bin/calaos_server/Room.cpp)).
 
 ---
 
@@ -272,7 +272,7 @@ Room   *findRoomOfIO(const std::string &id);   // findIO + getRoomByIO, sans dé
 ```
 
 Le contrat, sur lequel le reste de l'arbre s'appuie (dérivé,
-[ListeRoom.h:85-126](../src/bin/calaos_server/ListeRoom.h)) :
+[ListeRoom.h:86-127](../src/bin/calaos_server/ListeRoom.h)) :
 
 - le pointeur rendu est **non-possédant** : l'IO appartient à sa `Room` ;
 - un id inconnu donne `nullptr`, **explicitement** — la recherche n'insère jamais dans
@@ -291,7 +291,7 @@ il décide de l'ordre dans lequel les règles voient leurs entrées.
 ### Noms historiques
 
 Conservés pour que les ~60 sites d'appel existants restent intacts ; ce sont de simples
-délégations (dérivé, [ListeRoom.cpp:224-232](../src/bin/calaos_server/ListeRoom.cpp)) :
+délégations (dérivé, [ListeRoom.cpp:235-243](../src/bin/calaos_server/ListeRoom.cpp)) :
 
 ```cpp
 IOBase *get_io(std::string id);   // → findIO(id)
@@ -313,7 +313,7 @@ Tous **non-possédants**. `addIOHash()` refuse un id déjà pris (le premier res
 la collision est journalisée) et range l'IO dans `cameraCache`/`audioCache` d'après son seul
 `gui_type` ; `delIOHash()` n'efface l'entrée `io_table` que si elle pointe encore sur **cet**
 IO — sinon un IO rejeté à l'enregistrement effacerait, en mourant, l'entrée de son homonyme
-vivant (dérivé, [ListeRoom.cpp:60-113](../src/bin/calaos_server/ListeRoom.cpp)).
+vivant (dérivé, [ListeRoom.cpp:63-124](../src/bin/calaos_server/ListeRoom.cpp)).
 
 `getCameraList()` / `getAudioList()` rendent une **copie** de `list<IOBase *>`. Le type
 d'élément *et* le retour par valeur font partie du contrat de payload de `JsonApi` : un
@@ -334,7 +334,7 @@ bool    deleteIO(IOBase *io, bool modify = false,
 - `createIO()` construit via `IOFactory` et **donne la propriété à `room`**. Rend `nullptr`
   si la création a échoué (type inconnu) ou si l'id a été rejeté comme doublon — et dans ce
   dernier cas l'IO à moitié construit est détruit ici, jamais laissé attaché à la pièce
-  (dérivé, [ListeRoom.cpp:480-520](../src/bin/calaos_server/ListeRoom.cpp)). Un `room` nul
+  (dérivé, [ListeRoom.cpp:511-551](../src/bin/calaos_server/ListeRoom.cpp)). Un `room` nul
   est refusé et journalisé.
 - `delete_io()` est la moitié **propriété** : elle retire l'IO de la pièce qui le possède.
   `del=false` **transfère** la propriété à l'appelant (l'IO reste résolvable par id).
@@ -353,7 +353,7 @@ bool    deleteIO(IOBase *io, bool modify = false,
 > aucune règle n'est ni désactivée ni détruite. Le retrait de la liste de scrutation
 > (`ListeRule::Remove(io)`), lui, a lieu **dans tous les cas** — il est piloté par « qui s'est
 > enregistré », pas par le drapeau (dérivé,
-> [ListeRoom.cpp:378-402](../src/bin/calaos_server/ListeRoom.cpp)).
+> [ListeRoom.cpp:409-433](../src/bin/calaos_server/ListeRoom.cpp)).
 
 > **`policy`** est passée à `ListeRule::RemoveRule()`. Le défaut, **`Disable`**, ne détruit
 > aucune règle : elle est conservée intacte et seulement marquée comme référençant un IO
@@ -707,7 +707,7 @@ REGISTER_IO_USERTYPE(WagoOutputLight, WODigital)
 La macro crée un objet `Registrar` statique qui appelle `IOFactory::Instance().RegisterClass(…)`.
 
 Deux propriétés à connaître (dérivé,
-[IO/IOFactory.h:78-100](../src/bin/calaos_server/IO/IOFactory.h)) :
+[IO/IOFactory.h:78-105](../src/bin/calaos_server/IO/IOFactory.h)) :
 
 - la **clé est mise en minuscules** à l'enregistrement comme à la recherche : le `type` du
   XML est donc insensible à la casse ;
@@ -742,7 +742,7 @@ IOFactory::Instance().genDoc("/tmp/");  // → /tmp/io_doc.md + /tmp/io_doc.json
 Deux fichiers, pas un par type. Le parcours instancie un exemplaire jetable de **chaque**
 type enregistré ; ces exemplaires partagent tous `id="doc"` et sont tenus hors de la table
 vive par le garde RAII `IOBase::ScopedDocGen` (dérivé,
-[IO/IOFactory.cpp:70-115](../src/bin/calaos_server/IO/IOFactory.cpp)).
+[IO/IOFactory.cpp:70-131](../src/bin/calaos_server/IO/IOFactory.cpp)).
 
 Les templates de devices de l'assistant de l'installer sont générés à côté, par
 `calaos_server --gentemplates <chemin>` (`device_templates.json`) : voir
@@ -772,8 +772,8 @@ p.Delete("key");
 
 ## Cycle de vie d'un IO
 
-(dérivé, [CalaosConfig.cpp:281-308](../src/bin/calaos_server/CalaosConfig.cpp),
-[Room.cpp:159-185](../src/bin/calaos_server/Room.cpp),
+(dérivé, [CalaosConfig.cpp:388-416](../src/bin/calaos_server/CalaosConfig.cpp),
+[Room.cpp:163-190](../src/bin/calaos_server/Room.cpp),
 [IO/IOFactory.cpp:56-68](../src/bin/calaos_server/IO/IOFactory.cpp))
 
 ```
@@ -795,7 +795,7 @@ Config::LoadConfigIO()
 
 ⚠️ **Charger une maison ne lève aucun event.** `Room::LoadFromXml()` construit et rattache
 les IOs en silence ; `EventIOAdded` a un unique site d'émission, `ListeRoom::createIO()`
-(`ListeRoom.cpp:533`), qui est le chemin **runtime** de l'API JSON. Un client connecté
+(`ListeRoom.cpp:564`), qui est le chemin **runtime** de l'API JSON. Un client connecté
 pendant le boot ne voit rien de la maison qui se construit — épinglé par
 `LoadingAHouseFromConfigRaisesNoEventAtAll`.
 
@@ -814,7 +814,7 @@ Système de documentation auto-déclarative. Chaque driver remplit son `IODoc` d
 constructeur pour décrire ses paramètres, ses conditions et ses actions, ce qui permet à
 `IOFactory::genDoc()` de générer la doc et à l'UI de présenter les champs de configuration.
 
-L'API réelle (dérivé, [IO/IODoc.h:42-52](../src/bin/calaos_server/IO/IODoc.h)) :
+L'API réelle (dérivé, [IO/IODoc.h:44-56](../src/bin/calaos_server/IO/IODoc.h)) :
 
 ```cpp
 void friendlyNameSet(const string &friendlyName);

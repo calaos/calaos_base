@@ -21,7 +21,7 @@ Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl` et `RoonCtr
 `startProcess()` sur un **wrapper shell généré par `configure`** depuis
 `calaos_reolink.in` / `calaos_roon.in`. Ce wrapper positionne `PYTHONPATH` puis fait
 `exec python3 $CALAOS_PREFIX/lib/calaos/<script>.py "$@"` (intégral,
-`IO/Reolink/calaos_reolink.in:1-4`) :
+`IO/Reolink/calaos_reolink.in:1-3`) :
 
 ```bash
 #!/bin/bash
@@ -67,7 +67,7 @@ supprimer en recopiant la version courte de cette ligne.
 > (`__init__.py:17`). Le rappeler dans un `__main__` n'est pas une erreur — c'est ce que font
 > les deux drivers de l'arbre — mais ce n'est pas ce qui *active* le log : c'est ce qui le
 > **reconfigure** avec les variables d'environnement telles qu'elles sont à cet instant
-> (`configure_logger()` vide les handlers existants, `logger.py:124`).
+> (`configure_logger()` vide les handlers existants, `logger.py:145`).
 
 ---
 
@@ -177,7 +177,7 @@ Implémente le framing binaire, **strictement identique au C++** :
 En-tête de **5 octets** (`message.py:36`, commentaire du code :
 `# Header is 5 bytes (1 byte type + 4 bytes size)`), longueur écrite octet par octet en
 big-endian (`message.py:78-81`) et relue de même (`message.py:40-45`). C'est le même format
-que `ExternProc.cpp:322-334` et `:398-413`.
+que `ExternProc.cpp:325-337` et `:401-416`.
 
 > ⚠️ **Correction d'une fausseté de ce document.** Une note affirmait ici que « la taille du
 > payload est encodée sur 4 octets côté Python contre 2 octets côté C++ » et invitait à
@@ -212,7 +212,7 @@ rebinder une variable locale. C'est l'appelant qui doit avancer, et
 ### Différence de robustesse avec le C++, mesurée et non corrigée
 
 Le C++ **plafonne** la longueur annoncée à 4 MiB et signale une erreur de framing au-delà
-(`ExternProc.h:53-57`, `ExternProc.cpp:342-357`). **La version Python n'a aucune borne** :
+(`ExternProc.h:53-57`, `ExternProc.cpp:345-360`). **La version Python n'a aucune borne** :
 `message.py:40-45` accepte n'importe quelle longueur sur 32 bits, donc jusqu'à 4 GiB de
 bufférisation dans `recv_buffer`. Le pair étant `calaos_server` lui-même sur un socket Unix
 local, l'exposition est faible — mais l'asymétrie est réelle et consignée dans
@@ -232,7 +232,7 @@ redémarrage »).
 ### Configuration
 
 Variables d'environnement, injectées par `ExternProcServer::startProcess()`
-(`ExternProc.cpp:260-265`) :
+(`ExternProc.cpp:265-268`) :
 
 | Variable | Valeur attendue | Défaut si absente/illisible |
 |---|---|---|
@@ -241,7 +241,7 @@ Variables d'environnement, injectées par `ExternProcServer::startProcess()`
 | `CALAOS_FORCE_COLOR` | exactement `"1"` | couleurs seulement si `stdout` est un tty |
 | `CALAOS_JOURNAL_PRIORITY` | exactement `"1"`, hors tty | pas de préfixe `<n>` ; ce mode retire les couleurs |
 
-Les niveaux Calaos sont traduits en niveaux `logging` Python (intégral, `logger.py:57-63`) :
+Les niveaux Calaos sont traduits en niveaux `logging` Python (intégral, `logger.py:78-84`) :
 
 ```python
 _CALAOS_TO_PYTHON_LEVEL = {
@@ -253,10 +253,10 @@ _CALAOS_TO_PYTHON_LEVEL = {
 }
 ```
 
-La valeur est **bornée à `[0, 4]`** avant traduction (`logger.py:66`). Chaque entrée de
+La valeur est **bornée à `[0, 4]`** avant traduction (`logger.py:87`). Chaque entrée de
 `CALAOS_LOG_DOMAINS` dont le niveau n'est pas un entier est **ignorée en silence**
-(`logger.py:111-119`), et le filtrage par domaine est appliqué sur le **handler**
-(`_DomainLevelFilter`, `logger.py:84-90`).
+(`logger.py:132-140`), et le filtrage par domaine est appliqué sur le **handler**
+(`_DomainLevelFilter`, `logger.py:105-111`).
 
 > ⚠️ La convention numérique n'est **pas** la même partout : le sidecar MCP traduit
 > `CALAOS_LOG_LEVEL` sur l'échelle **1–5** vers les noms uvicorn
@@ -266,7 +266,7 @@ La valeur est **bornée à `[0, 4]`** avant traduction (`logger.py:66`). Chaque 
 ### Utilisation
 
 ```python
-# (dérivé, logger.py:138-143, ExternProcRoon_main.py:3,90,133)
+# (dérivé, logger.py:159-164, ExternProcRoon_main.py:3,90,133)
 from calaos_extern_proc import configure_logger, cDebugDom, cInfoDom, cWarningDom, cErrorDom, cCriticalDom
 
 cDebugDom("reolink")("connexion à la caméra %s", hostname)
@@ -279,16 +279,16 @@ les arguments suivants sont donc ceux de `logging` (formatage `%s` paresseux, ou
 déjà résolue — les deux styles coexistent dans l'arbre).
 
 Format de sortie — `[NIVEAU] <domaine> (<fichier>:<ligne>) <message>`, avec couleur si le flux
-est un terminal (dérivé, `logger.py:39-52`) :
+est un terminal (dérivé, `logger.py:54-67`) :
 
 ```
-[DBG] reolink (ExternProcReolink_main.py:142) connexion à la caméra 192.168.1.50
+[DBG] reolink (ExternProcReolink_main.py:146) connexion à la caméra 192.168.1.50
 [INF] roon (ExternProcRoon_main.py:90) Using Roon server: 192.168.1.10:9330
 ```
 
 Le fichier et la ligne sont ceux de l'**appelant** (`record.pathname`/`record.lineno`), pas
 de `logger.py`. Les cinq marqueurs sont `[DBG] [INF] [WRN] [ERR] [CRI]`, et `[???]` pour un
-niveau inconnu (`logger.py:39-45`).
+niveau inconnu (`logger.py:54-60`).
 
 ---
 
@@ -456,7 +456,7 @@ apparaît **deux fois** dans l'alternation d'actions de `:183` (bénin).
 | `CALAOS_JOURNAL_PRIORITY` | `"1"` préfixe chaque ligne par sa priorité journald (`<n>`), hors tty |
 
 Ces variables sont injectées par `calaos_server` au lancement du sous-processus via
-`ExternProcServer::startProcess()` (`ExternProc.cpp:260-273`). Elles **remplacent**
+`ExternProcServer::startProcess()` (`ExternProc.cpp:265-276`). Elles **remplacent**
 l'environnement du sous-processus : seuls `PATH`, `HOME`, `LANG`, `LC_ALL`, `LANGUAGE`,
 `LD_LIBRARY_PATH` et `PWD` sont hérités en plus.
 
@@ -465,7 +465,7 @@ l'environnement du sous-processus : seuls `PATH`, `HOME`, `LANG`, `LC_ALL`, `LAN
 ## Tests
 
 Les suites Python sont **câblées dans `make check`** depuis T2.14, via
-[tests/run-python-tests.sh](../tests/run-python-tests.sh) (`tests/Makefile.am:26-35`). Le
+[tests/run-python-tests.sh](../tests/run-python-tests.sh) (`tests/Makefile.am:47-56`). Le
 script suit le protocole simple d'automake : `0` = PASS, `77` = SKIP (pas d'interpréteur
 utilisable — `make check` reste vert), `1` = FAIL. Sans `pytest`, il retombe sur
 `python3 -m unittest discover` pour les fichiers `test_t116_*.py`, qui ne demandent que la

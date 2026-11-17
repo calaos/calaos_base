@@ -7,12 +7,12 @@
 ## Vue d'ensemble
 
 Les caméras IP héritent de `IPCam`, qui hérite de `IOBase` et rend `TSTRING`
-(dérivé, [IPCam/IPCam.h:30,67](../src/bin/calaos_server/IPCam/IPCam.h)). Le constructeur pose
+(dérivé, [IPCam/IPCam.h:33,67](../src/bin/calaos_server/IPCam/IPCam.h)). Le constructeur pose
 `gui_type = "camera"` et `visible = "false"`, puis **réinscrit** l'IO dans les caches de
 `ListeRoom` — c'est ce qui la fait entrer dans `cameraCache` :
 
 ```cpp
-// (dérivé, IPCam/IPCam.cpp:32-43, intégral)
+// (dérivé, IPCam/IPCam.cpp:33-44, intégral)
     set_param("gui_type", "camera");
     set_param("visible", "false");
 
@@ -29,7 +29,7 @@ Les caméras IP héritent de `IPCam`, qui hérite de `IOBase` et rend `TSTRING`
 
 ⚠️ Cet `addIOHash()` est bien dans le **constructeur**. `ListeRoom::addIOHash()` ne pousse dans
 `cameraCache` que si `gui_type == "camera"`
-(dérivé, [ListeRoom.cpp:81-83](../src/bin/calaos_server/ListeRoom.cpp)) ; c'est ce cache que
+(dérivé, [ListeRoom.cpp:92-94](../src/bin/calaos_server/ListeRoom.cpp)) ; c'est ce cache que
 `buildJsonCameras()` parcourt.
 
 ---
@@ -41,7 +41,7 @@ Les caméras IP héritent de `IPCam`, qui hérite de `IOBase` et rend `TSTRING`
 Surface publique **complète** de la classe :
 
 ```cpp
-// (dérivé, IPCam/IPCam.h:39-46,64-97, extrait — corps inline et commentaires retirés)
+// (dérivé, IPCam/IPCam.h:51-58,64-97, extrait — corps inline et commentaires retirés)
     IPCam(Params &p);
     virtual ~IPCam();
 
@@ -65,7 +65,7 @@ Surface publique **complète** de la classe :
 ⚠️ **Il n'existe ni `getSnapshotUrl()` ni `getMjpegUrl()`.** Les deux seules URLs sont
 `getPictureUrl()` (image unique) et `getVideoUrl()` (flux MJPEG). Une caméra qui ne fournit pas
 de flux rend une chaîne vide, et l'API HTTP fabrique alors le flux à partir d'instantanés
-successifs (dérivé, [JsonApiHandlerHttp.cpp:964-974](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+successifs (dérivé, [JsonApiHandlerHttp.cpp:1244-1246](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
 
 ⚠️ **Il n'existe aucune méthode PTZ** (`MoveUp()`, `MoveDown()`, `MoveLeft()`, `MoveRight()`,
 `MoveStop()`, `MoveTo()`, `ZoomIn()`, `ZoomOut()`). Le PTZ passe **entièrement** par
@@ -74,7 +74,7 @@ successifs (dérivé, [JsonApiHandlerHttp.cpp:964-974](../src/bin/calaos_server/
 ### Capacités
 
 `getCapabilities()` rend un `Params`. Les clés reconnues sont documentées dans l'en-tête
-(dérivé, [IPCam/IPCam.h:48-63](../src/bin/calaos_server/IPCam/IPCam.h)) :
+(dérivé, [IPCam/IPCam.h:61-76](../src/bin/calaos_server/IPCam/IPCam.h)) :
 `ptz` (bool), `position` (int — nombre de positions mémoire, `0` = indisponible), `resolution`
 (chaîne, liste séparée par des espaces), `led`, `buzzer`, `privacy` (bool), `quality`,
 `brightness`, `contrast`, `color`, `saturation`, `sharpness`, `hue` (int, plage).
@@ -82,7 +82,7 @@ successifs (dérivé, [JsonApiHandlerHttp.cpp:964-974](../src/bin/calaos_server/
 ### `set_value(string)` — le vocabulaire de commande PTZ
 
 C'est ce que reçoit une action de règle visant une caméra
-(dérivé, [IPCam/IPCam.cpp:57-71](../src/bin/calaos_server/IPCam/IPCam.cpp)) :
+(dérivé, [IPCam/IPCam.cpp:58-72](../src/bin/calaos_server/IPCam/IPCam.cpp)) :
 
 | Valeur | Effet |
 |---|---|
@@ -92,7 +92,7 @@ C'est ce que reçoit une action de règle visant une caméra
 
 ⚠️ Comme pour les lecteurs audio, **une valeur non reconnue ne produit aucune erreur** : elle ne
 déclenche rien, mais `EventIOChanged` est émis quand même avec la valeur brute
-(dérivé, [IPCam/IPCam.cpp:73-77](../src/bin/calaos_server/IPCam/IPCam.cpp) — l'émission est hors
+(dérivé, [IPCam/IPCam.cpp:74-78](../src/bin/calaos_server/IPCam/IPCam.cpp) — l'émission est hors
 de la chaîne de `else if`).
 
 ### Instantanés
@@ -131,9 +131,9 @@ Toute URL de caméra remise à une instruction de journalisation doit passer par
 (`http://user:secret@host/…`) **et** la valeur des paramètres de requête connus — `usr`/`pwd`
 Foscam, `account`/`passwd`/`_sid` Synology, et les génériques
 `user`/`username`/`password`/`loginuse`/`loginpas`
-(dérivé, [IPCam/IPCam.h:90-95](../src/bin/calaos_server/IPCam/IPCam.h), implémentation déplacée
+(dérivé, [IPCam/IPCam.h:109-114](../src/bin/calaos_server/IPCam/IPCam.h), implémentation déplacée
 dans `Utils::maskUrlCredentials` — dérivé,
-[IPCam/IPCam.cpp:94-99](../src/bin/calaos_server/IPCam/IPCam.cpp)).
+[IPCam/IPCam.cpp:95-100](../src/bin/calaos_server/IPCam/IPCam.cpp)).
 
 Corrigé au passage dans `StandardMjpeg` : une boucle de débogage résiduelle **déversait tous les
 paramètres au journal**, `url_jpeg` et `url_mjpeg` compris — qui peuvent contenir un
@@ -158,10 +158,10 @@ important — un seul oubli suffirait à rendre l'option mensongère :
 
 | chemin | site |
 |---|---|
-| Instantané | [IPCam/IPCam.cpp:108](../src/bin/calaos_server/IPCam/IPCam.cpp) |
-| Commandes PTZ des drivers (`camGet()`) | [IPCam/IPCam.h:82-88](../src/bin/calaos_server/IPCam/IPCam.h) |
-| API Synology (login, info d'API, instantané) | [IPCam/SynoSurveillanceStation.cpp:176,211,244](../src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp) |
-| Relais MJPEG de l'API HTTP | [JsonApiHandlerHttp.cpp:982-987](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) |
+| Instantané | [IPCam/IPCam.cpp:109](../src/bin/calaos_server/IPCam/IPCam.cpp) |
+| Commandes PTZ des drivers (`camGet()`) | [IPCam/IPCam.h:102-108](../src/bin/calaos_server/IPCam/IPCam.h) |
+| API Synology (login, info d'API, instantané) | [IPCam/SynoSurveillanceStation.cpp:276,211,244](../src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp) |
+| Relais MJPEG de l'API HTTP | [JsonApiHandlerHttp.cpp:1251-1256](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) |
 | Pièce jointe d'une règle (`ActionCameraDownload`) | [Rules/ActionCameraDownload.h:106-109](../src/bin/calaos_server/Rules/ActionCameraDownload.h) |
 
 ---
@@ -199,9 +199,9 @@ complet, et pourquoi la perte n'est pas hypothétique, sont décrits dans
 ### Il n'y a pas de « paramètres communs » de caméra
 
 Seuls `width`, `rotate` et `insecure` sont déclarés par la classe de base
-(dérivé, [IPCam/IPCam.cpp:35-39](../src/bin/calaos_server/IPCam/IPCam.cpp)). Le constructeur
+(dérivé, [IPCam/IPCam.cpp:36-40](../src/bin/calaos_server/IPCam/IPCam.cpp)). Le constructeur
 force par ailleurs `port = "80"` **s'il est absent**
-(dérivé, [IPCam/IPCam.cpp:29-30](../src/bin/calaos_server/IPCam/IPCam.cpp)) — mais aucun `port`
+(dérivé, [IPCam/IPCam.cpp:30-31](../src/bin/calaos_server/IPCam/IPCam.cpp)) — mais aucun `port`
 n'est déclaré à ce niveau, et tous les drivers ne l'utilisent pas.
 
 ⚠️ **Il n'y a ni paramètre `user` ni paramètre `path`.** Les identifiants s'appellent
@@ -246,7 +246,7 @@ une fonction pure :
     }
 ```
 
-(dérivé, [IPCam/SynoSurveillanceStation.cpp:196-198](../src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp)
+(dérivé, [IPCam/SynoSurveillanceStation.cpp:192-194](../src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp)
 pour le site d'appel unique.)
 
 ---
@@ -258,7 +258,7 @@ pour le site d'appel unique.)
 `buildJsonCameras()` rend **quatre clés par caméra**, et **aucune URL** :
 `id`, `name`, `type` (le type XML), et `ptz` (`"true"` / `"false"`, d'après
 `getCapabilities()["ptz"]`)
-(dérivé, [JsonApi.cpp:359-387](../src/bin/calaos_server/JsonApi.cpp)).
+(dérivé, [JsonApi.cpp:459-492](../src/bin/calaos_server/JsonApi.cpp)).
 
 ```json
 // (capturé, tests/core/golden/ws_get_home.json, extrait — le tableau "cameras")
@@ -292,15 +292,15 @@ Deux familles d'accès, **HTTP uniquement** pour la seconde :
 | `camera` / `type: get_picture` | octets `image/jpeg` **bruts**, `width` optionnel, partagé entre clients |
 | `camera` / `type: get_video` | flux MJPEG relayé |
 
-(dérivé, [JsonApiHandlerHttp.cpp:586-591,913,962-990](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) ;
+(dérivé, [JsonApiHandlerHttp.cpp:805-810,913,962-990](../src/bin/calaos_server/JsonApiHandlerHttp.cpp) ;
 le détail des arguments `width` et `rotate` est dans [08_http_api.md](08_http_api.md).)
 
 `get_camera_pic` répond `{"success":"true", "contenttype":"image/jpeg", "encoding":"base64",
-"data": …}` (dérivé, [JsonApiHandlerHttp.cpp:586-591](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
+"data": …}` (dérivé, [JsonApiHandlerHttp.cpp:805-810](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)).
 
 ⚠️ **Un instantané vide n'est pas une erreur sur `camera` / `get_picture`** : le serveur répond
 `200` avec une **image de remplacement**, `camfail.jpg`, prise dans son répertoire de données
-(dérivé, [JsonApiHandlerHttp.cpp:944-951](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)). Un
+(dérivé, [JsonApiHandlerHttp.cpp:1228-1233](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)). Un
 client qui teste « ai-je reçu une image ? » recevra donc toujours une image.
 
 Messages d'erreur, tels qu'épinglés :

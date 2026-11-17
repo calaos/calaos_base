@@ -35,7 +35,7 @@ L'appareil peut :
 ```
 
 ⚠️ Rien dans le chemin RemoteUI n'impose TLS : la réponse de provisioning distribue une URL
-**`ws://`** en clair (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:463`).
+**`ws://`** en clair (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:466`).
 
 ---
 
@@ -45,12 +45,12 @@ L'appareil peut :
 
 Un IO de type `RemoteUI` représente un appareil embarqué dans le modèle de données. Il vit dans
 **`io.xml`**, sous un nœud de pièce, comme les autres IOs (dérivé,
-`src/bin/calaos_server/Room.cpp:171` ; le provisioning persiste via
+`src/bin/calaos_server/Room.cpp:175` ; le provisioning persiste via
 `Config::Instance().SaveConfigIO()`, `src/bin/calaos_server/RemoteUI/RemoteUIProvisioningHandler.cpp:208`).
 
 ### Paramètres déclarés
 
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:99-108`)
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:102-111`)
 
 | Paramètre | Type | Obligatoire | Défaut | Description |
 |---|---|---|---|---|
@@ -72,18 +72,18 @@ Un IO de type `RemoteUI` représente un appareil embarqué dans le modèle de do
 
 Le constructeur pose aussi `set_param("gui_type", "remote_ui")` et, quand `visible` est absent,
 `set_param("visible", "false")` (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:114`,
-`:128`).
+`:131`).
 
 ⚠️ Plusieurs paramètres sont **lus sans être déclarés dans `ioDoc`** : `name`, `brightness`,
 `timeout`, `theme`, `room`, et les huit `screensaver_*`
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:494-497`, `:511`, `:525` et
-`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:272-279`). Ils n'apparaissent donc
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:497-500`, `:514`, `:524` et
+`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:378-385`). Ils n'apparaissent donc
 pas dans `io_doc.json`.
 
 ### Actions
 
 `set_brightness X`, `set_page page_id`, `show_notif message`
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:110-112`).
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:113-115`).
 
 ### `device_info` — aller-retour rétabli (T3.15)
 
@@ -93,10 +93,10 @@ ses IOs — et le faisait **avant** d'ajouter `<calaos:remote_ui>`. L'élément 
 **frère précédent immédiat** de l'appareil qu'il décrit, là où `LoadFromXml()` — qui a toujours
 regardé **à l'intérieur** de `<calaos:remote_ui>`, comme le format le documente — ne le trouvait
 jamais. Les informations étaient **écrites mais jamais relues**.
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:39-63`.)
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:42-66`.)
 
 **Écriture, désormais au bon endroit** (dérivé,
-`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:255-264`) :
+`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:258-267`) :
 
 ```cpp
 if (!device_info.empty())
@@ -111,10 +111,10 @@ if (!device_info.empty())
 }
 ```
 
-`cnode` est le `<calaos:remote_ui>` créé juste avant (`:238`).
+`cnode` est le `<calaos:remote_ui>` créé juste avant (`:241`).
 
 **Lecture, avec récupération des orphelins** (dérivé,
-`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:140-158`) : si `node.child("calaos:device_info")`
+`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:143-161`) : si `node.child("calaos:device_info")`
 est vide, `legacyRoomDeviceInfo(node)` remonte les frères **précédents** du nœud `remote_ui`,
 saute les nœuds non-éléments, et adopte le premier élément rencontré **s'il** s'appelle
 `calaos:device_info` — sinon il n'adopte rien (dérivé, `:64-80`). Un log le signale :
@@ -183,14 +183,14 @@ size_t getConnectedHandlerCount() const;
 ### Authentification
 
 Le message signé est la concaténation `token:timestamp:nonce`
-(capturé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:407`, intégral) :
+(capturé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:410`, intégral) :
 
 ```cpp
 string message = token + ":" + timestamp + ":" + nonce;
 ```
 
-La clé HMAC est le paramètre **`device_secret`** de l'IO (`:403`), et le condensé est calculé par
-`HMAC(EVP_sha256(), …)` d'OpenSSL (`:412-415`).
+La clé HMAC est le paramètre **`device_secret`** de l'IO (`:406`), et le condensé est calculé par
+`HMAC(EVP_sha256(), …)` d'OpenSSL (`:415-418`).
 
 **En-têtes HTTP du handshake** (dérivé,
 `src/bin/calaos_server/RemoteUI/HMACAuthenticator.cpp:36-43`) : `Authorization` (forme
@@ -212,11 +212,11 @@ Le nonce doit faire **exactement 64 caractères hexadécimaux** (32 octets)
 Deux secrets sont comparés sur ce chemin, et **les deux** le sont en temps constant :
 
 - **Le MAC** — `HMACAuthenticator::constantTimeHexEquals(hmac, result, result_len)`
-  (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:422`). L'implémentation garde d'abord
+  (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:425`). L'implémentation garde d'abord
   la longueur, puis compare les octets bruts avec `CRYPTO_memcmp`
   (dérivé, `src/bin/calaos_server/RemoteUI/HMACAuthenticator.h:126-135`). L'ancien
   `std::string operator==` court-circuitait au premier octet différent, ce qui divulguait par le
-  temps de réponse combien de caractères de tête du MAC fourni étaient corrects (`RemoteUI.cpp:417-421`).
+  temps de réponse combien de caractères de tête du MAC fourni étaient corrects (`RemoteUI.cpp:420-424`).
 - **Le token** (T2.15) — la comparaison est faite par `JsonApi::secureCompare()`
   (capturé, `src/bin/calaos_server/RemoteUI/RemoteUIManager.cpp:96`, intégral) :
 
@@ -283,30 +283,30 @@ reconnu était délégué à l'API JSON standard : un panneau atteignait `login`
 
 ### Routage et authentification du handshake
 
-L'URL est **`/api/v3/remote_ui/ws`** (dérivé, `src/bin/calaos_server/WebSocket.cpp:273-274`).
+L'URL est **`/api/v3/remote_ui/ws`** (dérivé, `src/bin/calaos_server/WebSocket.cpp:275-276`).
 L'authentification a lieu **pendant le handshake HTTP**, pas dans un message WebSocket : en cas
 d'échec, le serveur répond une erreur HTTP avec le statut mappé et un corps JSON, puis ferme
-(dérivé, `src/bin/calaos_server/WebSocket.cpp:286-333`) :
+(dérivé, `src/bin/calaos_server/WebSocket.cpp:290-337`) :
 
 ```json
 {"error": "invalid_hmac", "status": "authentication_failed"}
 ```
 
-(dérivé, `src/bin/calaos_server/WebSocket.cpp:300-302` — la valeur d'`error` est celle
+(dérivé, `src/bin/calaos_server/WebSocket.cpp:304-306` — la valeur d'`error` est celle
 d'`authFailureToString()`.)
 
 ### Enveloppe des messages
 
 Les messages sont typés par une clé **`msg`** au premier niveau, avec la charge utile sous
 `data` — c'est l'enveloppe de `JsonApiHandlerWS::sendJson()`
-(dérivé, `src/bin/calaos_server/JsonApiHandlerWS.cpp:75-84`) :
+(dérivé, `src/bin/calaos_server/JsonApiHandlerWS.cpp:83-92`) :
 
 ```json
 {"msg": "<type>", "data": { … }}
 ```
 
 ⚠️ Ce n'est **pas** une clé `type` : le dispatch entrant lit `message["msg"]`
-(dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:130-132`).
+(dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:132-134`).
 
 ### Messages entrants (appareil → serveur) — trois, et trois seulement
 
@@ -351,31 +351,31 @@ L'authentification se fait au handshake (voir plus haut), et le rescan OTA est u
 
 Les deux champs de `remote_ui_relay_state` sont obligatoires, et une valeur du mauvais type est
 attrapée et ignorée avec un avertissement, sans réponse d'erreur
-(dérivé, `RemoteUIWebSocketHandler.cpp:174-192`).
+(dérivé, `RemoteUIWebSocketHandler.cpp:192-297`).
 
 ### Messages sortants (serveur → appareil)
 
 | `msg` | Contenu | Site |
 |---|---|---|
-| `remote_ui_config` | Réponse à `remote_ui_get_config` (`getRemoteUIConfigMessage()`) | `RemoteUIWebSocketHandler.cpp:165-166` |
-| `remote_ui_io_states` | États initiaux des IOs référencés par les pages | `RemoteUIWebSocketHandler.cpp:252` |
-| `remote_ui_config_update` | Configuration complète poussée (voir ci-dessous) | `RemoteUIWebSocketHandler.cpp:314` |
-| `remote_ui_fw_update_available` | Firmware disponible | `OtaFirmwareManager.cpp:338` |
+| `remote_ui_config` | Réponse à `remote_ui_get_config` (`getRemoteUIConfigMessage()`) | `RemoteUIWebSocketHandler.cpp:183-184` |
+| `remote_ui_io_states` | États initiaux des IOs référencés par les pages | `RemoteUIWebSocketHandler.cpp:257` |
+| `remote_ui_config_update` | Configuration complète poussée (voir ci-dessous) | `RemoteUIWebSocketHandler.cpp:435` |
+| `remote_ui_fw_update_available` | Firmware disponible | `OtaFirmwareManager.cpp:339` |
 | `remote_ui_set_relay` | `{ "relay": <int>, "state": <bool> }` | `IO/RemoteUI/RemoteUIOutputRelay.cpp:49-50` |
-| `remote_ui_set_brightness` | `{ "brightness": <int> }` | `IO/RemoteUI/RemoteUI.cpp:513-514` |
-| `remote_ui_set_page` | `{ "page_id": … }` | `IO/RemoteUI/RemoteUI.cpp:531-532` |
-| `remote_ui_notification` | `{ "message": … }` | `IO/RemoteUI/RemoteUI.cpp:542-543` |
-| `event` | Événements d'IO de l'ensemble lisible, hérités de `JsonApiHandlerWS` (le firmware ne lit que `io_changed`) | `JsonApiHandlerWS.cpp:60` |
+| `remote_ui_set_brightness` | `{ "brightness": <int> }` | `IO/RemoteUI/RemoteUI.cpp:516-517` |
+| `remote_ui_set_page` | `{ "page_id": … }` | `IO/RemoteUI/RemoteUI.cpp:534-535` |
+| `remote_ui_notification` | `{ "message": … }` | `IO/RemoteUI/RemoteUI.cpp:570-571` |
+| `event` | Événements d'IO de l'ensemble lisible, hérités de `JsonApiHandlerWS` (le firmware ne lit que `io_changed`) | `JsonApiHandlerWS.cpp:68` |
 
 ⚠️ Il n'existe **ni `auth_ok`/`auth_fail`, ni `io_state`, ni `relay_set`, ni `config_update`, ni
 `ota_update`** — ces six noms figuraient dans ce document avant la revue E4.5e ; aucun n'est émis.
 
 Clés de `remote_ui_config_update` (dérivé,
-`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:304-353`) : `name`, `brightness`
+`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:425-476`) : `name`, `brightness`
 (⚠️ **seulement s'il est réglé**, T3.74), `grid_height`, `grid_width`, les huit `screensaver_*`,
 `pages`, `room`
 (`name`/`type`/`hits`, seulement si la pièce est trouvée), et `io_items` — un tableau projeté par
-`JsonApi::buildJsonIO(io, jio, IoProjection::DeviceConfig)` (`:346`).
+`JsonApi::buildJsonIO(io, jio, IoProjection::DeviceConfig)` (`:469`).
 
 ⚠️ Fuseaux horaires : `screensaver_clock_timezone` et le `clock_timezone` des widgets Clock sont des
 chaînes POSIX (`setenv("TZ")` côté écran). À l'envoi, le serveur calcule la valeur (dérivé,
@@ -396,7 +396,7 @@ chaînes POSIX (`setenv("TZ")` côté écran). À l'envoi, le serveur calcule la
    Une chaîne POSIX valide et une valeur vide passent telles quelles.
 
 Les noms de params sont ceux de l'API 5454, déclarés une seule fois par
-`JsonApi::ioProjectionParams()` (`JsonApi.cpp:576`) : `id`, `name`, `type`, `hits`, `var_type`,
+`JsonApi::ioProjectionParams()` (`JsonApi.cpp:736`) : `id`, `name`, `type`, `hits`, `var_type`,
 `visible`, `chauffage_id`, `rw`, `unit`, `gui_type`, `state`, `autoscenario_uid`, `step`, `io_type`,
 `io_style`, `value_warning`. ⚠️ **La politique de valeur, elle, n'est pas la même que sur 5454** —
 trois différences, et l'appareil ne négocie aucune version de protocole, donc aucune ne peut être
@@ -411,7 +411,7 @@ nivelée par le serveur seul ([T3.69](refactoring/T3.69.md)) :
 L'écran tient ses états de `remote_ui_io_states`, pas de sa configuration.
 
 Clés de `remote_ui_fw_update_available` (dérivé,
-`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:300-310`) : `hardware_id`, `version`,
+`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:301-311`) : `hardware_id`, `version`,
 `checksum_sha256`, `download_url`, plus `release_notes` et `name` s'ils sont renseignés.
 
 ### Cycle de vie (T1.10)
@@ -422,10 +422,10 @@ Clés de `remote_ui_fw_update_available` (dérivé,
 - `buildJsonState()` peut différer son callback à cause de requêtes audio asynchrones : la
   complétion est gardée par le jeton, et la branche d'abandon **libère** le résultat dont elle
   détient la propriété — `json_decref(jret); //we own the result, avoid leaking it`
-  (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:236-247`).
+  (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:341-352`).
 - Parse de grille **non lançante** : `parseGridDimension()` borne à `[1, 1000]` et retombe sur
   3×3, pour qu'une valeur malformée venue de l'appareil ne remonte pas une exception dans la
-  boucle d'événements (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.h:79-87`,
+  boucle d'événements (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.h:98-106`,
   appelée `…cpp:270-271`).
 - Une nouvelle connexion pour un appareil déjà connecté **ferme proprement l'ancienne**, avec le
   code de fermeture `1000` et la raison `replaced by new connection`
@@ -440,10 +440,10 @@ l'appareil ne recevait **aucune** réponse `remote_ui_config`. Les deux passent 
 ⚠️ **`getBrightness()` (défaut 100) a été SUPPRIMÉ par [T3.74](refactoring/T3.74.md)** : ce défaut
 contredisait le 80 de l'appareil et de la spécification de wire. `brightness` n'est plus posé que
 lorsque le param est réglé et lisible (`RemoteUI::putBrightnessIfSet()`), et l'écran retombe sinon
-sur sa propre valeur (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:583-590`). Le `try` de `processApi()` est coupé en
+sur sa propre valeur (dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:611-618`). Le `try` de `processApi()` est coupé en
 deux : le parse garde son nom, le service du message est nommé
 `unhandled failure while serving <msg>` (dérivé,
-`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:130-178`).
+`src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:132-196`).
 
 ✅ **Corrigé par [T3.70](refactoring/T3.70.md)** : `LoadFromXml()` convertissait les attributs
 `x`/`y` d'un `<calaos:widget>` par un `std::stoi` nu, et **aucun maillon du chemin de chargement
@@ -454,7 +454,7 @@ d'événements**, emportant toute la configuration déclarée après. La lecture
 **absent** et le widget tombe dans le contrôle voisin qui écarte déjà tout widget sans
 `type`/`x`/`y`. Chaque widget écarté est signalé sur le canal différé mail/push du chargement de
 configuration (`Config::reportConfigAlert()`), avec l'écran, la page et le widget concernés
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:238-289`).
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:241-292`).
 
 ---
 
@@ -487,8 +487,8 @@ revue E4.5e.
 - **Retour appareil → serveur** : le handler retrouve l'IO par le triplet
   `type == "RemoteUIOutputRelay"` + `remote_ui_id` + `relay_num`, puis appelle
   `updateStateFromDevice(state)` — qui met l'état à jour **sans reboucler** vers l'appareil
-  (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:203-210`). Si aucun IO ne
-  correspond, un avertissement est journalisé (`:219-220`).
+  (dérivé, `src/bin/calaos_server/RemoteUI/RemoteUIWebSocketHandler.cpp:308-315`). Si aucun IO ne
+  correspond, un avertissement est journalisé (`:324-325`).
 
 ---
 
@@ -506,8 +506,8 @@ revue E4.5e.
 | `ota_firmware_path` | `/usr/share/calaos/firmwares` | Racine des firmwares |
 | `ota_rescan_interval` | 60 minutes | Période de re-scan |
 
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:37-38`, `:61-63`, `:72-79`,
-`:83-84`.) Leur description de référence est dans
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:37-38`, `:62-64`, `:73-80`,
+`:84-85`.) Leur description de référence est dans
 [16_config_options.md](16_config_options.md), générée depuis le registre.
 
 ### ⚠️ Intervalle de re-scan borné à 30 jours
@@ -536,7 +536,7 @@ inline dans l'en-tête exprès, pour être testable sans lier les objets du serv
 
 Un sous-répertoire par `hardware_id` sous la racine, chacun portant un `manifest.json` ; le nom du
 répertoire doit être égal au `hardware_id` du manifeste, et le checksum est vérifié dès le scan
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:224`, `:245-251`, `:254-258`).
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:225`, `:246-252`, `:255-259`).
 
 Champs de `manifest.json` (dérivé,
 `src/bin/calaos_server/RemoteUI/FirmwareManifest.cpp:60-109` et `FirmwareManifest.h:69-85`) :
@@ -552,11 +552,11 @@ Champs de `manifest.json` (dérivé,
 
 ⚠️ **Il n'y a pas de champ URL** dans le manifeste : l'URL de téléchargement est synthétisée —
 `"/api/v3/ota/firmware/" + hardware_id + "/download"`
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:304`).
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:305`).
 
 ⚠️ **La décision de mise à jour est une simple inégalité de chaînes**, pas une comparaison
 sémantique de versions : `if (firmware->getVersion() == currentVersion)` → pas de mise à jour
-(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:294-298`). Un « downgrade » est
+(dérivé, `src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:295-299`). Un « downgrade » est
 donc proposé comme une mise à jour.
 
 ### Offre retenue tant que le serveur n'est pas stable
@@ -565,15 +565,15 @@ Une mise à jour calaos-os qui contient à la fois `calaos-server` et un firmwar
 redémarre le serveur pendant que les écrans téléchargent l'image qu'il vient de leur proposer.
 L'offre est donc retenue :
 
-- 60 s après le démarrage du serveur (`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:152`) ;
+- 60 s après le démarrage du serveur (`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:153`) ;
 - 120 s après un `POST /api/v3/ota/rescan`, la requête du `postinst` du paquet firmware, qui
-  tourne au milieu de la transaction apt (`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:159`).
+  tourne au milieu de la transaction apt (`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:160`).
   Le nouveau firmware est servi tout de suite, seule l'offre attend ; chaque requête repousse
   la fin de la retenue.
 
 Un écran qui se connecte pendant la retenue n'est pas oublié : l'offre est envoyée sans qu'il
 ait à se reconnecter, à tous les écrans connectés, à la fin de la retenue
-(`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:174`). Côté firmware, un
+(`src/bin/calaos_server/RemoteUI/OtaFirmwareManager.cpp:175`). Côté firmware, un
 téléchargement interrompu est abandonné sans rendre la partition amorçable puis retenté avec un
 délai croissant (dépôt calaos_remote_ui, `main/ota_download.cpp`, `main/ota_manager.cpp`).
 
@@ -622,7 +622,7 @@ Les clés de `device_info` réellement consommées, et le paramètre d'IO où ch
 
 ### Réponse
 
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:454-473`)
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:457-476`)
 
 ```json
 {
@@ -642,7 +642,7 @@ En cas d'échec : `{"status": "error", "error": "…"}`
 E4.5e ; les six clés ci-dessus sont la réponse complète.
 
 ⚠️ **`websocket_url` est codée en dur sur localhost** (dérivé,
-`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:463`) :
+`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:466`) :
 
 ```cpp
 server_config["websocket_url"] = "ws://localhost:5454/api/v3/remote_ui/ws";
@@ -653,7 +653,7 @@ réel. Défaut connu, consigné dans `docs/refactoring/FINDINGS.md`, **non corri
 
 Token et secret font 32 octets aléatoires encodés en 64 caractères hexadécimaux
 (dérivé, `…RemoteUIProvisioningHandler.cpp:400`, `:410`, `:416-421` et
-`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:393-399`). La configuration est persistée par
+`src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:396-402`). La configuration est persistée par
 `Config::Instance().SaveConfigIO()` (`…ProvisioningHandler.cpp:208`). Si elle ne l'est pas, le
 serveur répond 500 et ne donne aucun identifiant : un panneau qui les aurait reçus se croirait
 provisionné, et un redémarrage les ferait oublier au serveur. Ils restent en mémoire, sur le
@@ -693,7 +693,7 @@ décodage hexadécimal, et `constantTimeHexEquals()`.
 `RemoteUIManager::Instance().validateAuthenticationWithReason(...)`
 (dérivé, `src/bin/calaos_server/RemoteUI/HMACAuthenticator.cpp:84`). Le calcul du HMAC lui-même
 vit dans `RemoteUI::validateHMAC()`
-(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:401-423`).
+(dérivé, `src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp:404-426`).
 
 ---
 
@@ -717,7 +717,7 @@ Sept valeurs, avec leur chaîne et leur statut HTTP (dérivé,
 
 ⚠️ **Ce n'est pas renvoyé dans un message `auth_fail`** — ce message n'existe pas. La valeur part
 dans la **réponse HTTP d'échec du handshake WebSocket**, sous la clé `error` du corps JSON
-(dérivé, `src/bin/calaos_server/WebSocket.cpp:293-333`).
+(dérivé, `src/bin/calaos_server/WebSocket.cpp:297-337`).
 
 ---
 
@@ -728,11 +728,11 @@ Le document de spécification en arbre
 diverge du code sur trois points, vérifiés au source :
 
 1. **`device_info` en XML** : la spec décrit des enfants
-   `<calaos:param name=… value=…/>` (`remote-ui.md:534-540`) ; le code écrit et lit des
-   **attributs** (`IO/RemoteUI/RemoteUI.cpp:157-158`, `:261-262`).
+   `<calaos:param name=… value=…/>` (`remote-ui.md:537-543`) ; le code écrit et lit des
+   **attributs** (`IO/RemoteUI/RemoteUI.cpp:160-161`, `:264-265`).
 2. **Emplacement des appareils** : la spec les place dans une section `<calaos:remote_uis>` sous
-   `<calaos:home>` (`remote-ui.md:524-526`) ; le chargeur lit `<calaos:remote_ui>` comme enfant d'une
-   **pièce** (`Room.cpp:171`).
+   `<calaos:home>` (`remote-ui.md:527-529`) ; le chargeur lit `<calaos:remote_ui>` comme enfant d'une
+   **pièce** (`Room.cpp:175`).
 3. **Clé du code de provisioning** : `provisioning_code` dans la spec (`remote-ui.md:43-46`), `code`
    dans le code (`RemoteUIProvisioningHandler.cpp:117`, `:258`).
 
@@ -740,7 +740,7 @@ Une quatrième incohérence est **interne au code** : la chaîne de type d'IO ch
 même partout — `RemoteUIManager` accepte `"RemoteUI"` ou `"remote_ui_output"`
 (`RemoteUIManager.cpp:90-91`, `:117-118`) tandis que le handler de provisioning accepte
 `"RemoteUI"` ou `"remote_ui"` (`RemoteUIProvisioningHandler.cpp:151`). `REGISTER_IO(RemoteUI)`
-(`IO/RemoteUI/RemoteUI.cpp:84`) fixe la valeur réelle à **`"RemoteUI"`**, donc les branches
+(`IO/RemoteUI/RemoteUI.cpp:87`) fixe la valeur réelle à **`"RemoteUI"`**, donc les branches
 alternatives sont mortes.
 
 Ces quatre écarts sont consignés dans `docs/refactoring/FINDINGS.md` ; ils sont **hors périmètre**
