@@ -823,7 +823,8 @@ void JsonApiHandlerWS::processAdminMessage(const Json &request, const string &cl
     const string session = jsonStringGet(request, "admin_session");
 
     //Version numbers for any household session, daemon up or not
-    if (action == "versions")
+    //The rescue banner shows before any admin login, and needs no daemon admin state
+    if (action == "versions" || action == "rescue_status")
     {
         relayAdminAction(action, request, string(), answer);
         return;
