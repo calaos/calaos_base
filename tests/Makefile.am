@@ -8589,6 +8589,24 @@ LegacyTimezone_test_LDADD = @CALAOS_COMMON_LIBS@ \
                   -lgtest -lgtest_main
 endif
 
+#The schedule program of a climate, on InternalThermostat: owned levels,
+#priority, application per mode, persistence and the levels params.
+if HAVE_GTEST
+TESTS += core/ClimateProgram_test
+check_PROGRAMS += core/ClimateProgram_test
+core_ClimateProgram_test_SOURCES = core/ClimateProgram_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ClimateProgram_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ClimateProgram_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+core_ClimateProgram_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/InternalThermostat.$(OBJEXT)
+endif
+
 # VELUX KLF 200 driver (IO/Klf200/): the wire between Klf200Ctrl and calaos_klf200
 # (Klf200Wire.h) and the callback registry shared by the shutter and rain
 # sensor IOs of one node (Klf200Registry.h). Both are header-only and pure std

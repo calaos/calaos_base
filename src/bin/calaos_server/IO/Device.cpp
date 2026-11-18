@@ -260,6 +260,30 @@ IOBase *Device::createOwnedLink(const string &role, Params params)
     return io;
 }
 
+bool Device::removeOwnedLink(const string &role)
+{
+    auto link = links.begin();
+    while (link != links.end() && link->name != role)
+        ++link;
+    if (link == links.end())
+        return false;
+
+    const string ioId = link->io;
+    links.erase(link);
+    //One subscription per link, in order: rebuilt rather than matched.
+    linkSubscriptions.clear();
+    for (const Link &l: links)
+        subscribeLink(l.io);
+
+    //By owner: an owned IO may share its id with an IO declared earlier.
+    for (IOBase *io: ownedIos())
+    {
+        if (io->get_param("id") == ioId)
+            return ListeRoom::Instance().deleteIO(io);
+    }
+    return true;
+}
+
 const Device::Link *Device::findLink(const string &name) const
 {
     for (const Link &l: links)

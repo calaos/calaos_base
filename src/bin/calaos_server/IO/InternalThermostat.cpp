@@ -221,6 +221,7 @@ void InternalThermostat::resolveLinks()
     //A duplicate id: the device holding it regulates, this one never does.
     if (ListeRoom::Instance().get_io(id) != this)
         return;
+    setupProgram();
 
     auto inputChanged = [this](IOBase &)
     {
@@ -257,6 +258,7 @@ void InternalThermostat::resolveLinks()
         //A relay may have gone OFF just before a restart: the start counts
         //as a switch OFF, min_off_time passes before the first ON.
         heat.st.offAt = cool.st.offAt = valve.st.offAt = loopNow();
+        startProgram();
         evaluate();
     };
     ioAlive.singleShot(0, first);

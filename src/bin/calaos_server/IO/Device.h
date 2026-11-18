@@ -154,6 +154,10 @@ protected:
      * otherwise the IO is <device id>_<role>, or a free variant of it. The
      * next save writes both. nullptr when nothing could be created. */
     IOBase *createOwnedLink(const string &role, Params params);
+    /* Drops the link `role` and deletes its IO when the device owns it; an
+     * external IO is only unlinked. The next save writes the result. Not
+     * from a change callback: deleteIO() refuses then. False without link. */
+    bool removeOwnedLink(const string &role);
 
     //Validation helpers for applyCommandField().
     static bool enumField(const Json &value, const vector<string> &allowed, string &out,
