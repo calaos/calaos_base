@@ -328,9 +328,8 @@ Un climate infrarouge (`climate_ir`) ne prend pas de température distante (spec
 Contrat de CP-CONTRACT (climate-program). Le code (CP-BASE-LEVELS, CP-BASE-PROXY,
 CP-BASE-STATE) et les interfaces se codent contre ce texte.
 
-> **Contrat en cours de livraison.** Les niveaux, leurs IOs, l'application et
-> `InternalThermostat` sont livrés par CP-BASE-LEVELS, ProxyClimate par CP-BASE-PROXY.
-> Reste à livrer CP-BASE-STATE (`state.program`).
+> **Livré** : les niveaux, leurs IOs, l'application, `InternalThermostat`, `ProxyClimate` et
+> `state.program`.
 
 ### Modèle
 
@@ -446,12 +445,14 @@ ajoutés aux templates par CP-BASE-LEVELS (thermostats) et CP-BASE-PROXY (`espho
   manquants, plages vides, consigne = valeur courante du `_default` du jeu.
   À 0 niveau pour un jeu, son `_default` est supprimé, ainsi que `cool_default_off` pour le
   jeu froid. À 0 niveau au total (chaud et froid), `program_enabled` est supprimé aussi. Cela
-  vaut au rechargement de la configuration comme après une modification des params.
+  s'applique au chargement de la configuration ; un changement de params prend effet au
+  rechargement suivant.
 
 ### Application
 
 **Déclencheurs.** Le device réévalue et écrit la consigne à chaque :
-changement d'état d'une plage de niveau, changement de `mode`, changement de
+changement d'état d'une plage de niveau, changement de `mode` (sur un proxy, quand l'appareil
+le rapporte), changement de
 `program_enabled`, changement de la consigne du niveau actif (ou de la consigne par défaut
 si aucun niveau n'est actif, ou de `cool_default_off`), et une fois au démarrage, quand le
 mode et les consignes sont chargés.
@@ -496,8 +497,8 @@ un programme natif : pas d'exclusion.
   valeur de `min_range` de `thermostat_heat_cool` ; `min_range` du device (0 par défaut)
   s'applique toujours en plus. Quand l'écart n'est pas tenu, **la borne haute monte**
   (`high = low + écart`) : le jeu chaud commande, le confort d'hiver ne cède pas à un niveau de
-  froid trop bas. Si `low + écart` dépasse le maximum de la borne haute, c'est la borne basse
-  qui descend (`low = high - écart`). Les deux écritures se font en **une** commande de paire
+  froid trop bas. Si `low + écart` dépasse le maximum de la borne haute, `high` vaut ce maximum puis la
+  borne basse descend (`low = max - écart`). Les deux écritures se font en **une** commande de paire
   (« validées ensemble »), jamais en deux temps.
   - L'ajustement (`écart = max(min_range, program_min_gap)`) est fait **avant**
     `ClimateBase::applyRange`, et seulement pour une paire écrite par le programme : un

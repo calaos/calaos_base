@@ -2656,9 +2656,6 @@ lecture seule) est journalisée avec la raison « the linked IO refused the valu
 **Programme horaire** (docs/17_device_templates.md, « Programme horaire des climates »). Les
 champs sont ceux de CP-CONTRACT.
 
-> **Contrat cible, pas encore sur master.** `capabilities.program` et `state.program` sont
-> livrés par CP-BASE-LEVELS et CP-BASE-STATE ; d'ici là le climate ne les publie pas.
-
 `capabilities.program` est présente seulement si au moins un jeu a des niveaux :
 ```json
 "program": {"heat_levels": 3, "cool_levels": 2, "max_levels": 6}
@@ -2692,13 +2689,20 @@ docs/17.
     pour le jeu `cool` si l'arrêt par défaut est actif (exemple ci-dessus : `cool_default_off`
     est vrai, donc `cool.setpoint` et `cool.default` sont `null`). En `auto`, c'est la valeur
     **après** l'ajustement de l'écart `program_min_gap` (`heat.setpoint` = `target_temp_low`,
-    `cool.setpoint` = `target_temp_high`), donc elle peut différer de la consigne du niveau ;
+    `cool.setpoint` = `target_temp_high`), donc elle peut différer de la consigne du niveau.
+    Quand la paire n'est pas écrite (une borne jamais lue, ajustement hors bornes), `setpoint`
+    est la consigne du niveau, non ajustée. La borne haute peut aussi plafonner : si
+    `low + écart` dépasse le maximum, `high` vaut le maximum puis `low = max - écart` ;
   - `default` : la consigne par défaut en °C ; `null` pour le jeu `cool` quand
     `cool_default_off` est vrai.
 - `next_change` : prochain instant où le jeu **pertinent pour le mode** change de niveau actif,
   ou `null`.
   - Horizon : 7 jours glissants à partir de l'instant de calcul. Il couvre une semaine
     complète, donc toute plage hebdomadaire ; un créneau solaire est évalué à sa date réelle.
+  - `at` est l'instant du changement : le début de la plage qui devient active, ou la fin de
+    la plage telle qu'elle est écrite (`22:30:00` pour une plage jusqu'à 22:30), pas la seconde
+    suivante. Exception : quand un changement de mois coupe une plage, qu'elle passe minuit
+    ou qu'elle soit encore active à minuit, `at` est `00:00:00` du premier jour du nouveau mois.
   - Format : `at` est une chaîne ISO 8601 avec décalage, en heure locale du serveur
     (`2026-11-17T22:30:00+01:00`) : sans ambiguïté au changement d'heure et lisible sans
     fuseau.
@@ -2708,7 +2712,8 @@ docs/17.
   - Rien dans les 7 jours (aucun créneau, plages vides, ou niveau actif en permanence), ou
     programme désactivé, ou mode hors `heat`/`cool`/`auto` : `"next_change": null`. La clé est
     toujours présente quand `program` l'est.
-  - En `auto`, c'est le plus proche des deux jeux.
+  - En `auto`, c'est le plus proche des deux jeux. L'interface affiche alors la consigne du
+    jeu de `next_change.set` (`next_change.setpoint`), pas une paire.
   - Un changement qui ne modifie pas la consigne (un niveau de même température qui en
     remplace un autre) est quand même rendu : il s'agit du niveau.
 - Désactivé, `enabled` vaut `false` et le reste est l'état qui **serait** appliqué ; seul
