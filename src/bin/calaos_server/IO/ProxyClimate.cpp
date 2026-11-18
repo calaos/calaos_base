@@ -94,24 +94,9 @@ ProxyClimate::ProxyClimate(Params &p):
     ioDoc->paramAdd("changeover_delay", _("With emulate_range: seconds between the end of heat and the start of "
                                           "cool, or the reverse, at least min_off_time."),
                     IODoc::TYPE_FLOAT, false, Utils::to_string(DEFAULT_CHANGEOVER), false, _("Changeover delay"));
-    ioDoc->paramAdd("heat_levels", _("Number of schedule levels of the heating program, 0 for no program."),
-                    IODoc::TYPE_INT, false, "0", false, _("Heating program levels"));
-    ioDoc->paramAdd("cool_levels", _("Number of schedule levels of the cooling program, 0 for no program."),
-                    IODoc::TYPE_INT, false, "0", false, _("Cooling program levels"));
-    ioDoc->paramAdd("heat_default_setpoint", _("Heating setpoint outside the levels of the program."),
-                    IODoc::TYPE_FLOAT, false, "17", false, _("Default heating setpoint"));
-    ioDoc->paramAdd("cool_default_setpoint", _("Cooling setpoint outside the levels of the program."),
-                    IODoc::TYPE_FLOAT, false, "26", false, _("Default cooling setpoint"));
-    ioDoc->paramAdd("cool_default_off",
-                    _("Outside the levels of the program, cooling stops instead of keeping a setpoint."),
-                    IODoc::TYPE_BOOL, false, "false", false, _("Cooling off by default"));
-    ioDoc->paramAdd("program_min_gap",
-                    _("Smallest gap between the low and the high setpoint the program writes in auto."),
-                    IODoc::TYPE_FLOAT, false, "2", false, _("Auto minimum gap"));
+    documentProgram();
     for (const char *name: { "auto_payload", "remote_temp_keepalive", "readback_hold", "emulate_range",
-                             "hysteresis", "min_on_time", "min_off_time", "changeover_delay", "heat_levels",
-                             "cool_levels", "heat_default_setpoint", "cool_default_setpoint", "cool_default_off",
-                             "program_min_gap" })
+                             "hysteresis", "min_on_time", "min_off_time", "changeover_delay" })
         ioDoc->paramInChild(name);
 
     ioDoc->linkRoleAdd("mode", _("Mode"),
@@ -566,7 +551,9 @@ bool ProxyClimate::applyCommandField(const string &field, const Json &value, str
             modeCommanded = mode;
     }
     const bool ok = ClimateBase::applyCommandField(field, value, reason);
-    modeCommanded.reset();
+    //Only the mode field sets it: another field must not clear a pending mode.
+    if (field == "mode")
+        modeCommanded.reset();
     return ok;
 }
 
@@ -576,9 +563,13 @@ void ProxyClimate::applyProgram()
     {
         //currentMode() still reads the previous report: the echo applies the program.
         ClimateMode reported;
-        if (!unitMode(reported) || reported != *modeCommanded)
+        const bool known = unitMode(reported);
+        if (!known || reported != *modeCommanded)
         {
-            programMode.reset();
+            if (known)
+                programMode = reported;
+            else
+                programMode.reset();
             return;
         }
         programMode = reported;

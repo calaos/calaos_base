@@ -20,6 +20,7 @@
  ******************************************************************************/
 #include "ClimateBase.h"
 #include "libuvw.h"
+#include "InPlageHoraire.h"
 
 #include <algorithm>
 #include <cmath>
@@ -586,6 +587,11 @@ Json ClimateBase::deviceCapabilities()
     if (linkIo("remote_temp") && linkIo("remote_temp_source") && isWritable("remote_temp"))
         caps["remote_temp"] = true;
 
+    if (heatLevels + coolLevels > 0)
+        caps["program"] = Json{ { "heat_levels", heatLevels },
+                                { "cool_levels", coolLevels },
+                                { "max_levels", MAX_PROGRAM_LEVELS } };
+
     return caps;
 }
 
@@ -627,6 +633,9 @@ Json ClimateBase::deviceState()
     IOBase *humidity = linkIo("humidity");
     if (humidity && humidity->hasValue())
         state["humidity"] = humidity->get_value_double();
+
+    if (heatLevels + coolLevels > 0)
+        state["program"] = programState();
 
     return Json(std::move(state));
 }
@@ -687,6 +696,37 @@ uint64_t ClimateBase::lockoutWait(bool on, bool forced, const std::optional<uint
         after(onAt, l.minOnMs);
 
     return until > now ? until - now : 0;
+}
+
+void ClimateBase::documentProgram()
+{
+    static_assert(MAX_PROGRAM_LEVELS == 6, "the levels descriptions below say 6");
+    ioDoc->paramAdd("heat_levels",
+                    _("Number of schedule levels of the heating program, 0 for no program, at most 6 (more is "
+                      "capped, an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
+                      "own setpoint io. The program IOs (heat_default, and a range and a setpoint per level) are "
+                      "created hidden at load when missing, and removed when this param no longer asks for them."),
+                    IODoc::TYPE_INT, false, "0", false, _("Heating program levels"));
+    ioDoc->paramAdd("cool_levels",
+                    _("Number of schedule levels of the cooling program, 0 for no program, at most 6 (more is "
+                      "capped, an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
+                      "own setpoint io. The program IOs (cool_default, cool_default_off, and a range and a setpoint "
+                      "per level) are created hidden at load when missing, and removed when this param no longer "
+                      "asks for them."),
+                    IODoc::TYPE_INT, false, "0", false, _("Cooling program levels"));
+    ioDoc->paramAdd("heat_default_setpoint", _("Heating setpoint outside the levels of the program."),
+                    IODoc::TYPE_FLOAT, false, "17", false, _("Default heating setpoint"));
+    ioDoc->paramAdd("cool_default_setpoint", _("Cooling setpoint outside the levels of the program."),
+                    IODoc::TYPE_FLOAT, false, "26", false, _("Default cooling setpoint"));
+    ioDoc->paramAdd("cool_default_off",
+                    _("Outside the levels of the program, cooling stops instead of keeping a setpoint."),
+                    IODoc::TYPE_BOOL, false, "false", false, _("Cooling off by default"));
+    ioDoc->paramAdd("program_min_gap",
+                    _("Smallest gap between the low and the high setpoint the program writes in auto."),
+                    IODoc::TYPE_FLOAT, false, "2", false, _("Auto minimum gap"));
+    for (const char *name: { "heat_levels", "cool_levels", "heat_default_setpoint", "cool_default_setpoint",
+                             "cool_default_off", "program_min_gap" })
+        ioDoc->paramInChild(name);
 }
 
 int ClimateBase::levelsParam(const string &set, ClimateMode mode)
@@ -766,13 +806,15 @@ void ClimateBase::setupProgram()
             io->set_value(true);
     }
 
+    //Any program IO moves the published program: active level, setpoints, next change.
     auto subscribe = [this](const string &role, std::function<void()> changed)
     {
         if (IOBase *io = linkIo(role))
             programSubscriptions.push_back(IOChangeHub::Instance().subscribe(
-                io->get_param("id"), [changed](IOBase &)
+                io->get_param("id"), [this, changed](IOBase &)
                 {
                 changed();
+                deviceStateChanged();
                 }));
     };
     for (const string set: { "heat", "cool" })
@@ -967,25 +1009,26 @@ void ClimateBase::applyProgram()
     applyCommand(Json{ { "target_temp", v } });
 }
 
-/* The set that has levels commands its bound; with both, heat does. When the
- * gap is not kept, the other bound moves, and only if it cannot, the
- * commanding one. One pair command, so that applyRange() sees both. */
-void ClimateBase::applyProgramRange()
+/* The pair the program writes in auto. The set that has levels commands its
+ * bound; with both, heat does. When the gap is not kept, the other bound
+ * moves, and only if it cannot, the commanding one. One pair command, so that
+ * applyRange() sees both. */
+bool ClimateBase::programRangePair(double &low, double &high, bool quiet)
 {
     double heatSp = 0, coolSp = 0;
     bool heatOff = false, coolOff = false;
     const bool heat = programSetpoint("heat", heatSp, heatOff);
     const bool cool = programSetpoint("cool", coolSp, coolOff);
     if ((!heat && !cool) || !rangeAvailable())
-        return;
+        return false;
 
     const string id = get_param("id");
-    double low = 0, high = 0;
     if (!rangeBound(LOW, low) || !rangeBound(HIGH, high))
     {
-        cWarningDom("device") << "Device(" << id << "): program range not written, a bound is "
-                              << "not known yet";
-        return;
+        if (!quiet)
+            cWarningDom("device") << "Device(" << id << "): program range not written, a bound is "
+                                  << "not known yet";
+        return false;
     }
 
     const Bounds lb = setpointBounds(LOW);
@@ -1017,9 +1060,177 @@ void ClimateBase::applyProgramRange()
     }
     if (low < lb.min - 1e-9 || high > hb.max + 1e-9)
     {
-        cWarningDom("device") << "Device(" << id << "): program range not written, a gap of "
-                              << gap << " does not fit in " << lb.min << ".." << hb.max;
-        return;
+        if (!quiet)
+            cWarningDom("device") << "Device(" << id << "): program range not written, a gap of "
+                                  << gap << " does not fit in " << lb.min << ".." << hb.max;
+        return false;
     }
+    return true;
+}
+
+void ClimateBase::applyProgramRange()
+{
+    double low = 0, high = 0;
+    if (!programRangePair(low, high, false))
+        return;
     applyCommand(Json{ { LOW, low }, { HIGH, high } });
+}
+
+Json ClimateBase::programState()
+{
+    ClimateMode mode;
+    const bool known = currentMode(mode);
+    string modeSet;
+    if (known && mode == ClimateMode::Auto)
+        modeSet = "auto";
+    else if (known && mode == ClimateMode::Heat && heatLevels > 0)
+        modeSet = "heat";
+    else if (known && mode == ClimateMode::Cool && coolLevels > 0)
+        modeSet = "cool";
+
+    IOBase *enabledIo = linkIo(PROGRAM_ENABLED);
+    const bool enabled = enabledIo && enabledIo->get_value_bool();
+
+    //In auto the written pair, after the gap; when it is not written, the level's own setpoint.
+    double low = 0, high = 0;
+    const bool pair = modeSet == "auto" && programRangePair(low, high, true);
+
+    Json program = Json::object();
+    program["enabled"] = enabled;
+    program["mode_set"] = modeSet.empty() ? Json(nullptr) : Json(modeSet);
+
+    for (const string set: { "heat", "cool" })
+    {
+        if (programLevels(set) == 0)
+            continue;
+
+        double v = 0;
+        bool off = false;
+        const bool hasSetpoint = programSetpoint(set, v, off);
+        if (pair && !off)
+        {
+            v = set == "heat" ? low : high;
+        }
+        const int level = programActiveLevel(set);
+
+        double def = 0;
+        bool defKnown = false;
+        if (IOBase *io = linkIo(defaultRole(set)))
+        {
+            def = io->get_value_double();
+            defKnown = true;
+        }
+        IOBase *defOff = set == "cool" ? linkIo(COOL_DEFAULT_OFF) : nullptr;
+        if (defOff && defOff->get_value_bool())
+            defKnown = false;
+
+        Json j = Json::object();
+        j["levels"] = programLevels(set);
+        j["active_level"] = level > 0 ? Json(level) : Json(nullptr);
+        j["setpoint"] = hasSetpoint && !off ? Json(v) : Json(nullptr);
+        j["default"] = defKnown ? Json(def) : Json(nullptr);
+        program[set] = j;
+    }
+
+    program["next_change"] = enabled ? programNextChange(modeSet, time(nullptr)) : Json(nullptr);
+    return program;
+}
+
+int ClimateBase::programLevelAt(const string &set, time_t t)
+{
+    for (int n = 1; n <= programLevels(set); n++)
+    {
+        auto *range = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, n)));
+        if (range && range->isActiveAt(t))
+            return n;
+    }
+    return 0;
+}
+
+Json ClimateBase::programNextChange(const string &modeSet, time_t now)
+{
+    vector<string> sets;
+    if (modeSet == "auto")
+        sets = { "heat", "cool" };
+    else if (!modeSet.empty())
+        sets = { modeSet };
+
+    const time_t horizon = now + 7 * 24 * 3600;
+    time_t bestAt = 0;
+    string bestSet;
+    int bestLevel = 0;
+
+    for (const string &set: sets)
+    {
+        if (programLevels(set) == 0)
+            continue;
+
+        vector<time_t> instants;
+        for (int n = 1; n <= programLevels(set); n++)
+        {
+            if (auto *range = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, n))))
+                range->changeInstants(now, horizon, instants);
+        }
+        std::sort(instants.begin(), instants.end());
+        instants.erase(std::unique(instants.begin(), instants.end()), instants.end());
+
+        const int before = programLevelAt(set, now);
+        for (time_t t: instants)
+        {
+            const int level = programLevelAt(set, t);
+            if (level == before)
+                continue;
+            //The range ends one second before the instant it flips (end bound included);
+            //the contract reports the end as written. A start is reported as is, and so
+            //is a cut by a month change: that one happens at 00:00:00, not the second before.
+            bool atInstant = false;
+            if (level > 0)
+            {
+                auto *r = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, level)));
+                atInstant = r && !r->isActiveAt(t - 1);
+            }
+            const int prev = programLevelAt(set, t - 1);
+            if (!atInstant && prev > 0)
+            {
+                auto *r = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, prev)));
+                atInstant = r && r->isActiveAt(t, true) && !r->isActiveAt(t);
+            }
+            const time_t reported = atInstant ? t : t - 1;
+            //Heat wins a tie: it is first in `sets`.
+            if (bestAt == 0 || reported < bestAt)
+            {
+                bestAt = reported;
+                bestSet = set;
+                bestLevel = level;
+            }
+            break;
+        }
+    }
+    if (bestAt == 0)
+        return Json(nullptr);
+
+    Json setpoint = nullptr;
+    IOBase *io = nullptr;
+    bool off = false;
+    if (bestLevel == 0 && bestSet == "cool")
+    {
+        IOBase *offIo = linkIo(COOL_DEFAULT_OFF);
+        off = offIo && offIo->get_value_bool();
+    }
+    if (!off)
+        io = linkIo(bestLevel > 0 ? levelSetpointRole(bestSet, bestLevel) : defaultRole(bestSet));
+    if (io)
+        setpoint = io->get_value_double();
+
+    struct tm tm = *localtime(&bestAt);
+    char buf[40];
+    strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", &tm);
+    //%z gives +0100, ISO 8601 wants +01:00.
+    string at = buf;
+    at.insert(at.size() - 2, ":");
+
+    return Json{ { "at", at },
+                 { "set", bestSet },
+                 { "level", bestLevel > 0 ? Json(bestLevel) : Json(nullptr) },
+                 { "setpoint", setpoint } };
 }

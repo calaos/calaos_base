@@ -71,6 +71,8 @@ public:
     static constexpr const char *DEFAULT_TEMP_UNIT = "°C";
 
     static const vector<ClimateMode> &allModes();
+    //Documents the program params; the derived constructors call it.
+    void documentProgram();
     static string modeName(ClimateMode mode);
     static bool parseMode(const string &name, ClimateMode &mode);
     static string actionName(ClimateAction action);
@@ -99,6 +101,9 @@ public:
      * The timers stay on the real loop clock. */
     using LoopClock = uint64_t (*)();
     static void setLoopClock(LoopClock clock);
+
+    //The next level change of the set(s) of `modeSet` after `now`; null when none within 7 days.
+    Json programNextChange(const string &modeSet, time_t now);
 
 protected:
     ClimateBase(Params &p);
@@ -217,6 +222,10 @@ private:
     //A change seen by the program, which applies only if the current mode uses `set`.
     void programChanged(const string &set);
     void applyProgramRange();
+    //The pair applyProgramRange() writes; false when it would not write one.
+    bool programRangePair(double &low, double &high, bool quiet);
+    Json programState();
+    int programLevelAt(const string &set, time_t t);
 
     //Both bounds linked and writable.
     bool rangeAvailable();

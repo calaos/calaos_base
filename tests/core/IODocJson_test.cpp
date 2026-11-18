@@ -1238,7 +1238,10 @@ TEST_F(IODocGenFileTest, TheThermostatIsDocumentedUnderDevicesLikeTheProxy)
     }
     EXPECT_EQ((std::set<std::string>{ "min_range", "hysteresis", "min_on_time", "min_off_time",
                                       "put_back_delay", "put_back_delay_max", "sensor_timeout",
-                                      "emitter", "humidity_max", "valid_min", "valid_max", "modes" }),
+                                      "emitter", "humidity_max", "valid_min", "valid_max", "modes",
+                                      "heat_levels", "cool_levels", "heat_default_setpoint",
+                                      "cool_default_setpoint", "cool_default_off",
+                                      "program_min_gap" }),
               childParams);
 
     //The outputs switch on past the hysteresis and off as the setpoint is crossed.
