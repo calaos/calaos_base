@@ -8,7 +8,8 @@ import re
 
 from calaos_mcp import iodoc, safety
 from calaos_mcp.tools._home import (
-    device_view, is_writable, iter_ios, iter_visible_ios, protected_outputs,
+    device_view, is_writable, iter_ios, iter_visible_ios, program_ios,
+    protected_outputs,
 )
 
 # Allowed cast per var_type (S14)
@@ -238,6 +239,12 @@ async def set_io_state(client, io_id: str, value: str) -> dict:
     protected = protected_outputs(home).get(io_id)
     if protected is not None:
         raise _protected_error(io_id, *protected)
+    owned = program_ios(home).get(io_id)
+    if owned is not None:
+        raise ValueError(
+            f"IO '{io_id}' is the {owned[1]} of the program of the climate "
+            f"'{owned[0]}' and cannot be written through MCP. Ask the user to "
+            f"change the program in the Calaos app.")
     if not is_writable(target_io):
         raise ValueError(f"IO '{io_id}' is read-only")
 

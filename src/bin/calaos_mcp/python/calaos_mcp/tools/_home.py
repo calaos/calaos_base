@@ -25,6 +25,7 @@ treat "rw" as the string "true"/"false" rather than a boolean.
 
 from __future__ import annotations
 
+import re
 from typing import Iterator
 
 from calaos_mcp import safety
@@ -90,6 +91,30 @@ def protected_outputs(home: dict) -> dict[str, tuple[str, str]]:
             if isinstance(target, str) and target:
                 protected[target] = (io.get("id", ""), role)
     return protected
+
+
+# Roles of the time program of a climate, as published in device.ios. The
+# ids behind them may carry a collision suffix (_N), so only the role is read.
+_PROGRAM_ROLE = re.compile(
+    r"(?:(?:heat|cool)_level[0-9]+(?:_setpoint)?|heat_default|cool_default"
+    r"|cool_default_off|program_enabled)")
+
+
+def program_ios(home: dict) -> dict[str, tuple[str, str]]:
+    """Map the id of each IO owned by a climate program to (device id, role)."""
+    owned: dict[str, tuple[str, str]] = {}
+    for io, _ in iter_ios(home):
+        device = io.get("device")
+        if not isinstance(device, dict):
+            continue
+        ios = device.get("ios")
+        if not isinstance(ios, dict):
+            continue
+        for role, target in ios.items():
+            if (isinstance(target, str) and target
+                    and isinstance(role, str) and _PROGRAM_ROLE.fullmatch(role)):
+                owned[target] = (io.get("id", ""), role)
+    return owned
 
 
 def iter_visible_ios(home: dict) -> Iterator[tuple[dict, str]]:
