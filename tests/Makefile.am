@@ -65,6 +65,7 @@ EXTRA_DIST = \
               python/test_logger.py          \
               python/test_mcp_devices.py     \
               python/test_mcp_logging.py     \
+              python/test_mcp_program_guard.py \
               python/test_mcp_server.py      \
               python/test_reolink.py         \
               python/test_t116_mcp_client.py \

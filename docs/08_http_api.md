@@ -2742,12 +2742,12 @@ se suivent par les `io_changed` de ces IOs ; les créneaux d'une plage, par `get
   d'un booléen : `"true"` ou `"false"`. Le champ `program` n'est **pas** accepté dans
   l'objet JSON de `set_state` du climate : `{"program":…}` est un champ inconnu, refusé et
   journalisé comme tout champ inconnu ;
-- MCP (contrat cible, pas encore sur master ; livré par CP-MCP-GUARD) : le MCP n'écrit pas le
-  programme. `set_timerange` y est refusé par la portée service, et `set_io_state` refuse les
-  IOs du programme (plages et consignes des niveaux, consignes par défaut, `cool_default_off`,
-  `program_enabled`) avec une erreur qui nomme le climate (docs/15_mcp_server.md). D'ici là,
-  `set_io_state` les écrit comme tout IO interne. Le client web et l'API directe gardent
-  `set_state`.
+- MCP : le MCP n'écrit pas le programme. Les plages ne sont accessibles qu'en lecture
+  (`set_timerange` n'y est pas offert, portée service) et `set_io_state` refuse les IOs
+  du programme (plages, consignes des niveaux, consignes par défaut, `cool_default_off`,
+  `program_enabled`) avec l'erreur `IO '<io_id>' is the <role> of the program of the climate
+  '<device_id>' and cannot be written through MCP. Ask the user to change the program in the
+  Calaos app.` (docs/15_mcp_server.md). Le client web et l'API directe gardent `set_state`.
 
 Exemples :
 ```json
