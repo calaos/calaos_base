@@ -217,6 +217,11 @@ private:
     //A change seen by the program, which applies only if the current mode uses `set`.
     void programChanged(const string &set);
     void applyProgramRange();
+    //The pair applyProgramRange() writes; false when it would not write one.
+    bool programRangePair(double &low, double &high, bool quiet);
+    Json programState();
+    Json programNextChange(const string &modeSet);
+    bool programLevelAt(const string &set, time_t t, int &level);
 
     //Both bounds linked and writable.
     bool rangeAvailable();

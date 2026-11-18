@@ -59,6 +59,13 @@ public:
      */
     static struct tm previousDay(const struct tm &day);
 
+    //Is the range true at `t`, as hasChanged() would see it then. No side effect on the value.
+    bool isActiveAt(time_t t);
+    /* Appends the instants in (from, to] where the range may change its value: the bounds
+     * of its ranges, evaluated at their own date (a sun bound moves), and every midnight
+     * (the months). A superset: the caller compares isActiveAt() before and after. */
+    void changeInstants(time_t from, time_t to, vector<time_t> &out);
+
     InPlageHoraire(Params &p);
     ~InPlageHoraire();
 

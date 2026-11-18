@@ -187,34 +187,96 @@ bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
     return val;
 }
 
-void InPlageHoraire::hasChanged()
+bool InPlageHoraire::isActiveAt(time_t t)
 {
-    if (!isEnabled()) return;
-
-    bool val = false;
-
     tzset(); //Force reload of timezone data
-    time_t t = time(NULL);
     //copy, localtime() returns a pointer to a shared buffer
     struct tm today = *localtime(&t);
 
     //If the month is not set, the time_range is always false
-    if (months.test(today.tm_mon))
+    if (!months.test(today.tm_mon))
+        return false;
+
+    long cur = today.tm_hour * 3600 +
+               today.tm_min * 60 +
+               today.tm_sec;
+
+    //ranges of today, plus the ranges of yesterday that run over midnight
+    struct tm yesterday = previousDay(today);
+
+    //both are evaluated, no short circuit, so that a wrapping range of
+    //yesterday is reported even when today already matched
+    bool in_today = isInRanges(getRangesForWeekday(today.tm_wday), cur, today, false);
+    bool in_yesterday = isInRanges(getRangesForWeekday(yesterday.tm_wday), cur, yesterday, true);
+
+    return in_today || in_yesterday;
+}
+
+void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
+{
+    tzset();
+    struct tm day = *localtime(&from);
+    //Starts a day early: an overnight range of that day ends inside the window.
+    day.tm_mday--;
+    day.tm_isdst = -1;
+
+    auto at = [](const struct tm &d, long sec)
     {
-        long cur = today.tm_hour * 3600 +
-                   today.tm_min * 60 +
-                   today.tm_sec;
+        struct tm tm = d;
+        tm.tm_hour = 0;
+        tm.tm_min = 0;
+        tm.tm_sec = static_cast<int>(sec);
+        tm.tm_isdst = -1;
+        return mktime(&tm);
+    };
 
-        //ranges of today, plus the ranges of yesterday that run over midnight
-        struct tm yesterday = previousDay(today);
+    for (int i = 0; i < 10; i++, day.tm_mday++)
+    {
+        day.tm_hour = 12;
+        day.tm_min = 0;
+        day.tm_sec = 0;
+        day.tm_isdst = -1;
+        if (mktime(&day) == (time_t)-1)
+            continue;
 
-        //both are evaluated, no short circuit, so that a wrapping range of
-        //yesterday is reported even when today already matched
-        bool in_today = isInRanges(getRangesForWeekday(today.tm_wday), cur, today, false);
-        bool in_yesterday = isInRanges(getRangesForWeekday(yesterday.tm_wday), cur, yesterday, true);
+        //Month changes and the end of every range that stops at 23:59:59.
+        out.push_back(at(day, 0));
 
-        val = in_today || in_yesterday;
+        vector<TimeRange> *ranges = getRangesForWeekday(day.tm_wday);
+        if (!ranges)
+            continue;
+        for (TimeRange &h: *ranges)
+        {
+            if (!h.isValid())
+                continue;
+            const long start = h.getStartTimeSec(day.tm_year + 1900, day.tm_mon + 1, day.tm_mday);
+            const long end = h.getEndTimeSec(day.tm_year + 1900, day.tm_mon + 1, day.tm_mday);
+            //The end bound is included: the range goes false one second later.
+            if (start <= end)
+            {
+                out.push_back(at(day, start));
+                out.push_back(at(day, end + 1));
+            }
+            else
+            {
+                out.push_back(at(day, start));
+                out.push_back(at(day, 86400 + end + 1));
+            }
+        }
     }
+
+    out.erase(std::remove_if(out.begin(), out.end(), [from, to](time_t t)
+                             {
+        return t <= from || t > to;
+    }),
+              out.end());
+}
+
+void InPlageHoraire::hasChanged()
+{
+    if (!isEnabled()) return;
+
+    const bool val = isActiveAt(time(NULL));
 
     if (val != value)
     {

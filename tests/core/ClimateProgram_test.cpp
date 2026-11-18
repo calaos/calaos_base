@@ -24,6 +24,7 @@
 //application per mode, triggers, persistence and the levels params.
 
 #include "CalaosCoreFixture.h"
+#include "EventManager.h"
 #include "IO/InPlageHoraire.h"
 #include "IOChangeHub.h"
 #include "InternalThermostat.h"
@@ -1143,4 +1144,197 @@ TEST_F(ClimateProgramTest, ResolvingTheLinksAgainCreatesNothing)
     EXPECT_EQ(allIds(), ids);
     EXPECT_EQ(linked("prog", "heat_level1"), level);
     expectUniqueIds();
+}
+
+//state.program (docs/08_http_api.md): the active level, the setpoint it
+//writes and the next change over 7 days. Instants are built from the clock
+//of the run, so every range is relative to the current hour.
+namespace
+{
+
+//Start of the current hour, moved by `hours` and `secs`, in local time.
+time_t hourAt(int hours, int secs = 0)
+{
+    time_t t = time(nullptr);
+    struct tm tm = *localtime(&t);
+    tm.tm_min = 0;
+    tm.tm_sec = secs;
+    tm.tm_hour += hours;
+    tm.tm_isdst = -1;
+    return mktime(&tm);
+}
+
+time_t parseLocal(const std::string &iso)
+{
+    struct tm tm = {};
+    const char *end = strptime(iso.c_str(), "%Y-%m-%dT%H:%M:%S", &tm);
+    EXPECT_NE(end, nullptr) << iso;
+    tm.tm_isdst = -1;
+    return mktime(&tm);
+}
+
+} //namespace
+
+class ClimateProgramStateTest: public ClimateProgramTest
+{
+protected:
+    //Every day of the week, from hour `sh` to `eh` (end second included).
+    static void everyDay(const std::string &id, int sh, int eh, int es = 0)
+    {
+        InPlageHoraire *r = range(id);
+        ASSERT_NE(r, nullptr);
+        r->clear();
+        for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
+            addOn(r, d, span(std::to_string(sh).c_str(), "0", "0", std::to_string(eh).c_str(), "0",
+                             std::to_string(es).c_str()));
+        r->hasChanged();
+    }
+
+    static int hourNow()
+    {
+        time_t t = time(nullptr);
+        return localtime(&t)->tm_hour;
+    }
+
+    static Json program() { return dev("prog")->deviceObject().at("state").at("program"); }
+};
+
+TEST_F(ClimateProgramStateTest, TheStateFollowsTheContract)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    set("prog_heat_level2_setpoint", 19);
+    activate("prog_heat_level2");
+
+    const Json p = program();
+    EXPECT_TRUE(p.at("enabled").get<bool>());
+    EXPECT_EQ(p.at("mode_set"), "heat");
+    const Json &heat = p.at("heat");
+    EXPECT_EQ(heat.at("levels"), 2);
+    //remote_ui rejects 2.0 for an integer field.
+    EXPECT_TRUE(heat.at("active_level").is_number_integer()) << heat.dump();
+    EXPECT_EQ(heat.at("active_level").get<int>(), 2);
+    EXPECT_EQ(heat.at("setpoint").get<double>(), 19);
+    EXPECT_TRUE(heat.at("default").is_number());
+    EXPECT_TRUE(p.at("cool").at("active_level").is_null());
+    //Active all day, every day: nothing changes.
+    EXPECT_TRUE(p.at("next_change").is_null()) << p.dump();
+
+    const Json caps = dev("prog")->deviceObject().at("capabilities");
+    EXPECT_EQ(caps.at("program").at("heat_levels"), 2);
+}
+
+TEST_F(ClimateProgramStateTest, NoActiveLevelIsNull)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    EXPECT_TRUE(program().at("heat").at("active_level").is_null());
+}
+
+TEST_F(ClimateProgramStateTest, TheNextChangeIsTheStartOfALaterRange)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    set("prog_heat_level1_setpoint", 21);
+    everyDay("prog_heat_level1", (hourNow() + 2) % 24, (hourNow() + 2) % 24, 59);
+
+    const Json next = program().at("next_change");
+    ASSERT_TRUE(next.is_object()) << program().dump();
+    EXPECT_EQ(next.at("set"), "heat");
+    EXPECT_EQ(next.at("level"), 1);
+    EXPECT_EQ(next.at("setpoint").get<double>(), 21);
+    const std::string at = next.at("at").get<std::string>();
+    ASSERT_EQ(at.size(), 25u) << at;
+    EXPECT_EQ(at[22], ':');
+    const time_t when = parseLocal(at);
+    EXPECT_EQ(when, hourAt(2));
+}
+
+TEST_F(ClimateProgramStateTest, ARangeOverMidnightEndsOneSecondAfterItsEnd)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    const int h = hourNow();
+    //From this hour to the previous one: active now, flips an hour before
+    //it started, tomorrow.
+    everyDay("prog_heat_level1", h, (h + 23) % 24);
+    time_t t = time(nullptr);
+    if (localtime(&t)->tm_min == 0 && localtime(&t)->tm_sec == 0)
+        GTEST_SKIP() << "on the start second";
+    ASSERT_TRUE(on("prog_heat_level1"));
+
+    const Json next = program().at("next_change");
+    ASSERT_TRUE(next.is_object()) << program().dump();
+    EXPECT_TRUE(next.at("level").is_null());
+    EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(23, 1));
+}
+
+TEST_F(ClimateProgramStateTest, ALowerLevelRangeHiddenByAHigherOneChangesNothing)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    activate("prog_heat_level1");
+    everyDay("prog_heat_level2", hourNow(), hourNow(), 59);
+    EXPECT_TRUE(program().at("next_change").is_null()) << program().dump();
+}
+
+TEST_F(ClimateProgramStateTest, ALevelPriorityChangeIsTheNextChange)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    set("prog_heat_level1_setpoint", 23);
+    activate("prog_heat_level2");
+    const int h = (hourNow() + 2) % 24;
+    everyDay("prog_heat_level1", h, h, 59);
+
+    const Json p = program();
+    EXPECT_EQ(p.at("heat").at("active_level"), 2);
+    const Json &next = p.at("next_change");
+    ASSERT_TRUE(next.is_object()) << p.dump();
+    EXPECT_EQ(next.at("level"), 1);
+    EXPECT_EQ(next.at("setpoint").get<double>(), 23);
+    EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(2));
+}
+
+TEST_F(ClimateProgramStateTest, ADisabledProgramHasNoNextChange)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    everyDay("prog_heat_level1", (hourNow() + 2) % 24, (hourNow() + 2) % 24, 59);
+    ASSERT_TRUE(program().at("next_change").is_object());
+    setBool("prog_program_enabled", false);
+    const Json p = program();
+    EXPECT_FALSE(p.at("enabled").get<bool>());
+    EXPECT_TRUE(p.at("next_change").is_null());
+}
+
+TEST_F(ClimateProgramStateTest, ALevelOrEnabledChangeIsPublished)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    pumpFor(300);
+
+    std::vector<Json> seen;
+    sigc::connection c = EventManager::Instance().newEvent.connect(
+        [&seen](const CalaosEvent &ev)
+        {
+            const Json j = ev.toJson();
+            if (ev.getType() == CalaosEvent::EventIOChanged && j.at("data").value("id", "") == "prog" &&
+                j.at("data").contains("device"))
+                seen.push_back(j.at("data").at("device").at("state").at("program"));
+        });
+
+    activate("prog_heat_level1");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return !seen.empty() && seen.back().at("heat").at("active_level") == 1;
+    }));
+
+    seen.clear();
+    setBool("prog_program_enabled", false);
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return !seen.empty() && !seen.back().at("enabled").get<bool>();
+    }));
+    c.disconnect();
 }
