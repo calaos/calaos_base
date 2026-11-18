@@ -27,12 +27,12 @@ et `RegisterClass()` fait de même à l'enregistrement
 (dérivé, [IO/IOFactory.h:81](../src/bin/calaos_server/IO/IOFactory.h)). Deux enregistrements qui
 ne diffèrent que par la casse **entrent en collision** : le premier gagne, la collision est
 seulement journalisée — le code tourne depuis des initialiseurs statiques, avant `main()`
-(dérivé, [IO/IOFactory.h:83-96](../src/bin/calaos_server/IO/IOFactory.h)).
+(dérivé, [IO/IOFactory.h:83-101](../src/bin/calaos_server/IO/IOFactory.h)).
 
 Les **types génériques** (`InputSwitch`, `OutputLight`…) sont dans
 `src/bin/calaos_server/IO/` ; les **implémentations de protocole** sont dans les sous-dossiers
 (`Wago/`, `KNX/`, `Mqtt/`, `Gpio/`, `OneWire/`, `OLA/`, `Hue/`, `LAN/`, `Web/`, `Reolink/`,
-`RemoteUI/`). Les caméras sont dans `IPCam/` et les lecteurs audio dans `Audio/`
+`Klf200/`, `RemoteUI/`). Les caméras sont dans `IPCam/` et les lecteurs audio dans `Audio/`
 (voir [06_ipcam.md](06_ipcam.md) et [05_audio.md](05_audio.md)).
 
 ### ⚠️ La plupart des types génériques ne sont PAS des types XML
@@ -64,7 +64,7 @@ C'est le contrat des drivers retirés (voir plus bas) :
 ```
 
 Le chargeur de pièce saute simplement l'IO nul
-(dérivé, [Room.cpp:176-181](../src/bin/calaos_server/Room.cpp) : `if (io) AddIO(io.release());`).
+(dérivé, [Room.cpp:180-185](../src/bin/calaos_server/Room.cpp) : `if (io) AddIO(io.release());`).
 Le comportement est épinglé par un test :
 `CoreSmokeTest.UnknownIoTypeIsSkipped` charge une pièce contenant `InternalBool` **et**
 `ThisTypeDoesNotExist`, puis vérifie `get_io_count() == 1`
@@ -72,7 +72,7 @@ Le comportement est épinglé par un test :
 
 ⚠️ **Conséquence à connaître** : l'IO inconnu n'est jamais entré dans la pièce, et
 `Room::SaveToXml()` ne sérialise que les IOs de la pièce
-(dérivé, [Room.cpp:187-200](../src/bin/calaos_server/Room.cpp)). **La prochaine sauvegarde de la
+(dérivé, [Room.cpp:192-267](../src/bin/calaos_server/Room.cpp)). **La prochaine sauvegarde de la
 configuration perd donc définitivement l'entrée.** Le serveur démarre, mais il ne conserve pas
 ce qu'il n'a pas su charger.
 
@@ -87,7 +87,7 @@ calaos_server --gendoc <chemin>
 
 produit `<chemin>/io_doc.md` et `<chemin>/io_doc.json`
 (dérivé, [main.cpp:129-134](../src/bin/calaos_server/main.cpp),
-[IO/IOFactory.cpp:70-115](../src/bin/calaos_server/IO/IOFactory.cpp)). Les tableaux de ce document
+[IO/IOFactory.cpp:70-131](../src/bin/calaos_server/IO/IOFactory.cpp)). Les tableaux de ce document
 en sont un extrait de lecture, pas la source d'autorité.
 
 Les devices ne sont pas des types d'IO. Le premier niveau de `io_doc.json` reste la liste des types
@@ -107,7 +107,7 @@ Le paramètre `type` décrit le matériel ; **les interfaces doivent lire `gui_t
 
 Deux valeurs de `gui_type` sont **structurantes** : `ListeRoom::addIOHash()` ne pousse un IO dans
 `cameraCache` que si `gui_type == "camera"`, et dans `audioCache` que si
-`gui_type == "audio_player"` (dérivé, [ListeRoom.cpp:81-87](../src/bin/calaos_server/ListeRoom.cpp)).
+`gui_type == "audio_player"` (dérivé, [ListeRoom.cpp:92-98](../src/bin/calaos_server/ListeRoom.cpp)).
 Ce sont ces deux caches que `get_home` rend dans ses tableaux `cameras` et `audio`.
 
 ---
@@ -118,12 +118,12 @@ Ce sont ces deux caches que `get_home` rend dans ses tableaux `cameras` et `audi
 vérification du certificat par défaut**. Le parc installé est majoritairement en HTTPS
 auto-signé sur le LAN ; un défaut « vérifié » casserait toutes les installations existantes.
 Seuls les services **codés en dur** (`calaos.fr`, push) restent vérifiés, parce qu'ils ne passent
-pas par ces helpers (dérivé, [lib/UrlDownloader.h:143-151](../src/lib/UrlDownloader.h)).
+pas par ces helpers (dérivé, [lib/UrlDownloader.h:149-157](../src/lib/UrlDownloader.h)).
 
 La règle de décision tient en une ligne :
 
 ```cpp
-// (dérivé, src/lib/UrlDownloader.h:156-159, intégral)
+// (dérivé, src/lib/UrlDownloader.h:162-165, intégral)
     static bool insecureParamEnabled(const std::string &paramValue)
     { return paramValue != "false"; }
     void setInsecureFromParam(const std::string &paramValue)
@@ -147,16 +147,16 @@ Trois familles seulement **déclarent** `insecure` dans leur `ioDoc` et l'honore
 
 | famille | site |
 |---|---|
-| Caméras IP (toutes) | [IPCam/IPCam.cpp:39](../src/bin/calaos_server/IPCam/IPCam.cpp), politique appliquée via `IPCam::tlsInsecure()` ([IPCam/IPCam.h:77](../src/bin/calaos_server/IPCam/IPCam.h)) |
-| IOs Web | [IO/Web/WebDocBase.cpp:76](../src/bin/calaos_server/IO/Web/WebDocBase.cpp), appliqué en [IO/Web/WebCtrl.cpp:140,467](../src/bin/calaos_server/IO/Web/WebCtrl.cpp) |
+| Caméras IP (toutes) | [IPCam/IPCam.cpp:40](../src/bin/calaos_server/IPCam/IPCam.cpp), politique appliquée via `IPCam::tlsInsecure()` ([IPCam/IPCam.h:97](../src/bin/calaos_server/IPCam/IPCam.h)) |
+| IOs Web | [IO/Web/WebDocBase.cpp:76](../src/bin/calaos_server/IO/Web/WebDocBase.cpp), appliqué en [IO/Web/WebCtrl.cpp:142,467](../src/bin/calaos_server/IO/Web/WebCtrl.cpp) |
 | Hue | [IO/Hue/HueOutputLightRGB.cpp:43](../src/bin/calaos_server/IO/Hue/HueOutputLightRGB.cpp), appliqué en `:53,145,160` |
 
 Pour les caméras, **tous** les chemins de transfert honorent le paramètre : instantané
-([IPCam/IPCam.cpp:108](../src/bin/calaos_server/IPCam/IPCam.cpp)), commandes PTZ
-(`IPCam::camGet()`, [IPCam/IPCam.h:82-88](../src/bin/calaos_server/IPCam/IPCam.h)), API Synology
-([IPCam/SynoSurveillanceStation.cpp:176,211,244](../src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp)),
+([IPCam/IPCam.cpp:109](../src/bin/calaos_server/IPCam/IPCam.cpp)), commandes PTZ
+(`IPCam::camGet()`, [IPCam/IPCam.h:102-108](../src/bin/calaos_server/IPCam/IPCam.h)), API Synology
+([IPCam/SynoSurveillanceStation.cpp:276,211,244](../src/bin/calaos_server/IPCam/SynoSurveillanceStation.cpp)),
 relais MJPEG de l'API HTTP
-([JsonApiHandlerHttp.cpp:982-987](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) et pièce
+([JsonApiHandlerHttp.cpp:1251-1256](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)) et pièce
 jointe d'une règle
 ([Rules/ActionCameraDownload.h:106-109](../src/bin/calaos_server/Rules/ActionCameraDownload.h)).
 
@@ -167,7 +167,7 @@ d'équipement où l'accrocher :
 |---|---|
 | Bindings Lua (`downloadFile`, POST) | [LuaScript/ScriptBindings.cpp:375,390](../src/bin/calaos_server/LuaScript/ScriptBindings.cpp) |
 | DataLogger (influxdb) | [DataLogger.cpp:59,102,203](../src/bin/calaos_server/DataLogger.cpp) |
-| Squeezebox (pochette via jsonrpc LMS) | [Audio/Squeezebox.cpp:748-750](../src/bin/calaos_server/Audio/Squeezebox.cpp) |
+| Squeezebox (pochette via jsonrpc LMS) | [Audio/Squeezebox.cpp:747-749](../src/bin/calaos_server/Audio/Squeezebox.cpp) |
 | AVR Rose | [Audio/AVRRose.cpp:414,440](../src/bin/calaos_server/Audio/AVRRose.cpp) |
 
 ---
@@ -205,10 +205,10 @@ Les entrées et sorties analogiques, les gradateurs et les capteurs de températ
 **pas** `TDOUBLE` : `InputAnalog`, `InputTemp` et `OutputAnalog` sont `TINT`, et
 `OutputLightDimmer` est `TSTRING`. Les valeurs à virgule circulent par
 `get_value_double()` / `set_value(double)`
-(dérivé, [IOBase.h:105,170](../src/bin/calaos_server/IOBase.h)), indépendamment de `get_type()`,
+(dérivé, [IOBase.h:113,170](../src/bin/calaos_server/IOBase.h)), indépendamment de `get_type()`,
 qui sert à choisir la représentation côté client.
 
-(dérivé, déclarations `class X : public IOBase` de `IO/*.h`, `IPCam/IPCam.h:30`,
+(dérivé, déclarations `class X : public IOBase` de `IO/*.h`, `IPCam/IPCam.h:33`,
 `Audio/AudioPlayer.h:32` ; `set_value_real()` est le point d'extension pur virtuel des familles
 sortie — [IO/OutputLight.h:63](../src/bin/calaos_server/IO/OutputLight.h),
 [IO/OutputLightDimmer.h:71](../src/bin/calaos_server/IO/OutputLightDimmer.h),
@@ -219,9 +219,9 @@ sortie — [IO/OutputLight.h:63](../src/bin/calaos_server/IO/OutputLight.h),
 
 | Type XML | Classe | Fichier | Description |
 |---|---|---|---|
-| `InternalBool` | `Internal` | `IO/IntValue.cpp:28` | Variable interne booléenne |
-| `InternalInt` | `Internal` | `IO/IntValue.cpp:27` | Variable interne numérique |
-| `InternalString` | `Internal` | `IO/IntValue.cpp:29` | Variable interne chaîne |
+| `InternalBool` | `Internal` | `IO/IntValue.cpp:30` | Variable interne booléenne |
+| `InternalInt` | `Internal` | `IO/IntValue.cpp:28` | Variable interne numérique |
+| `InternalString` | `Internal` | `IO/IntValue.cpp:30` | Variable interne chaîne |
 | `Scenario` | `Scenario` | `IO/Scenario.cpp:28` | Bouton de scénario ([04_scenarios.md](04_scenarios.md)) |
 | `InputTime` | `InputTime` | `IO/InputTime.cpp:28` | Déclencheur horaire |
 | `InputTimer` | `InputTimer` | `IO/InputTimer.cpp:27` | Minuterie |
@@ -235,7 +235,7 @@ type par la fabrique est insensible à la casse, mais la classe `Internal` redé
 donnée en **comparant le paramètre `type` à l'octet près** :
 
 ```cpp
-// (dérivé, IO/IntValue.h:53-59, intégral)
+// (dérivé, IO/IntValue.h:56-62, intégral)
     virtual DATA_TYPE get_type()
     {
         if (get_param("type") == "InternalBool") return TBOOL;
@@ -317,7 +317,7 @@ Le Wago est la pièce maîtresse de l'installation : le sous-processus est relan
 reprise soit immédiate après une coupure réseau ou une maintenance.
 
 ```cpp
-// (dérivé, IO/Wago/WagoMap.h:258-265, intégral)
+// (dérivé, IO/Wago/WagoMap.h:266-273, intégral)
     static double respawnDelay(int attempt)
     {
         static const double delays[] = { 1.0, 2.0, 3.0, 5.0 };
@@ -333,7 +333,7 @@ le processus est de nouveau connecté
 (dérivé, [IO/Wago/WagoMap.cpp:110-114](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)). Pour ne pas
 inonder le journal tout en ne restant pas silencieux, une erreur est journalisée **une tentative
 sur dix** (`RESPAWN_LOG_EVERY = 10`, dérivé,
-[IO/Wago/WagoMap.h:251](../src/bin/calaos_server/IO/Wago/WagoMap.h),
+[IO/Wago/WagoMap.h:259](../src/bin/calaos_server/IO/Wago/WagoMap.h),
 [IO/Wago/WagoMap.cpp:165-168](../src/bin/calaos_server/IO/Wago/WagoMap.cpp)).
 
 ---
@@ -352,7 +352,7 @@ sous-processus, lancé avec `--internal-monitor-bus`, surveille le bus
 `KNXInputSwitch`, `KNXInputSwitchLongPress`, `KNXInputSwitchTriple`, `KNXInputAnalog`,
 `KNXInputTemp`, `KNXOutputAnalog`, `KNXOutputLight`, `KNXOutputLightDimmer`, `KNXOutputLightRGB`,
 `KNXOutputShutter`, `KNXOutputShutterSmart` — onze types
-(dérivé, [IO/KNX/KNXIo.cpp:319-329](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)). Depuis T3.2a les
+(dérivé, [IO/KNX/KNXIo.cpp:333-343](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)). Depuis T3.2a les
 onze classes sont des coquilles posées sur le mixin `KNXIo<Base>`, **les noms de type XML sont
 inchangés : ils sont l'ABI des `io.xml` existants**
 (dérivé, [IO/KNX/KNXIo.cpp:22-26,314-317](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)).
@@ -370,7 +370,7 @@ inchangés : ils sont l'ABI des `io.xml` existants**
 (dérivé, [IO/KNX/KNXBase.cpp:33-38](../src/bin/calaos_server/IO/KNX/KNXBase.cpp).)
 
 Les types multi-adresses remplacent `knx_group` par des clés dédiées
-(dérivé, [IO/KNX/KNXIo.cpp:231-236,278-279,301-302](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)) :
+(dérivé, [IO/KNX/KNXIo.cpp:245-250,278-279,301-302](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)) :
 
 - RGB : `knx_group_red` / `_green` / `_blue`, et `listen_knx_group_red` / `_green` / `_blue` ;
 - volets : `knx_group_up` et `knx_group_down`.
@@ -393,7 +393,7 @@ string KNXBase::getReadGroupAddr(const string &group_base)
 
 Avec les deux clés posées, c'est donc **`listen_knx_group` qui est lue**, jamais `knx_group`. La
 même règle s'applique aux variantes `_red` / `_green` / `_blue`. L'écriture, elle, vise toujours
-`knx_group` (dérivé, [IO/KNX/KNXIo.cpp:164,190,218](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)).
+`knx_group` (dérivé, [IO/KNX/KNXIo.cpp:178,190,218](../src/bin/calaos_server/IO/KNX/KNXIo.cpp)).
 
 ---
 
@@ -402,7 +402,7 @@ même règle s'applique aux variantes `_red` / `_green` / `_blue`. L'écriture, 
 **Dossier :** [src/bin/calaos_server/IO/Mqtt/](../src/bin/calaos_server/IO/Mqtt/)
 
 Sous-processus `calaos_mqtt`
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:27-28](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp), source
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:28-29](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp), source
 `MqttExternProc_main.cpp`), piloté depuis le serveur par `MqttCtrl`.
 
 ### Types XML
@@ -423,14 +423,14 @@ Sous-processus `calaos_mqtt`
 | **`topic_pub`** | oui | Topic de **publication** |
 | `path` | oui | Emplacement de la valeur dans le payload |
 
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:405-415](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp).)
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:482-492](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp).)
 
 ⚠️ Les clés sont **`topic_sub`** et **`topic_pub`**. Il n'existe ni `topic` ni `topic_set`.
 
 ⚠️ **`path` n'est pas du JSONPath**, et sa syntaxe d'index de tableau n'est pas celle que
 l'on croit. Le chemin est **découpé sur `/` seul**, et un jeton n'est traité comme un index que
 s'il **commence par `[`** ; tout autre jeton est cherché comme **clé d'objet**
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:145-188](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) :
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:207-250](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) :
 
 | payload | `path` correct |
 |---|---|
@@ -441,9 +441,9 @@ s'il **commence par `[`** ; tout autre jeton est cherché comme **clé d'objet**
 ⚠️ **`weather[0]/description` ne fonctionne pas** : le jeton `weather[0]` ne commence pas par
 `[`, il est donc cherché tel quel comme clé d'objet, `parent.at("weather[0]")` échoue, la valeur
 rendue est **vide** et un avertissement `Error in path …, subpath not found` est journalisé
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:157,177-186](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)).
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:159,177-186](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)).
 C'est pourtant la forme donnée par la description du paramètre publiée à calaos_installer
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:415](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) — voir
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:413](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) — voir
 `docs/refactoring/FINDINGS.md`. L'index doit être **son propre segment**.
 
 ### Paramètres spécifiques
@@ -491,10 +491,10 @@ octet invalide remplacé par `?`, avec un avertissement
 ### Topics de statut (batterie, connexion, signal…)
 
 `MqttCtrl::subscribeStatusTopics(IOBase *io)` souscrit aux topics de statut déclarés et alimente
-`IOBase::status_info` (dérivé, [IO/Mqtt/MqttCtrl.h:39-42](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.h),
-[IOBase.h:62,200-205](../src/bin/calaos_server/IOBase.h)). Les clés vont **par paires
+`IOBase::status_info` (dérivé, [IO/Mqtt/MqttCtrl.h:68-71](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.h),
+[IOBase.h:65,200-205](../src/bin/calaos_server/IOBase.h)). Les clés vont **par paires
 `<sujet>_topic` / `<sujet>_path`**, avec parfois un `<sujet>_expr` de conversion
-(dérivé, [IO/Mqtt/MqttCtrl.cpp:417-440](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) :
+(dérivé, [IO/Mqtt/MqttCtrl.cpp:494-517](../src/bin/calaos_server/IO/Mqtt/MqttCtrl.cpp)) :
 
 | sujet | clés |
 |---|---|
@@ -514,7 +514,7 @@ Notifications associées : `notif_battery` (défaut `"true"`, sous 30 % de batte
 ### MqttCtrl
 
 ```cpp
-// (dérivé, IO/Mqtt/MqttCtrl.h:24-42, extrait)
+// (dérivé, IO/Mqtt/MqttCtrl.h:54-71, extrait)
 void subscribeTopic(const string topic, MsgReceivedSignal callback);
 void publishTopic(const string topic, const string payload);
 string getValueJson(const Params &params, string path, string payload);
@@ -732,7 +732,7 @@ ou `file://`
 - `file_type=json` → chemin découpé sur `/`, **l'index de tableau étant son propre segment
   entre crochets** : `weather/[0]/description`, et non `weather[0]/description`. Le parseur est
   le même que celui de MQTT — mêmes règles, même piège
-  (dérivé, [IO/Web/WebCtrl.cpp:184-227](../src/bin/calaos_server/IO/Web/WebCtrl.cpp)) ;
+  (dérivé, [IO/Web/WebCtrl.cpp:202-245](../src/bin/calaos_server/IO/Web/WebCtrl.cpp)) ;
 - `file_type=xml` → **expression XPath** ;
 - `file_type=text` → `ligne/pos/séparateur` : la ligne est découpée par le séparateur et la valeur
   d'indice `pos` est rendue ; si le séparateur est absent, la ligne entière est rendue.
@@ -783,6 +783,139 @@ voir [06_ipcam.md](06_ipcam.md).
 
 ---
 
+## Driver KLF 200 (VELUX)
+
+**Dossier :** [src/bin/calaos_server/IO/Klf200/](../src/bin/calaos_server/IO/Klf200/)
+
+Fenêtres et volets roulants VELUX pilotés à travers une passerelle **KLF 200**, via le
+sous-processus Python `calaos_klf200` (bibliothèque `pyvlx`, voir
+[14_python_extern_proc.md](14_python_extern_proc.md)) piloté par le singleton `Klf200Ctrl`
+(dérivé, [IO/Klf200/Klf200Ctrl.cpp:32-33](../src/bin/calaos_server/IO/Klf200/Klf200Ctrl.cpp)).
+Une seule session par passerelle, quel que soit le nombre d'IOs qui la citent.
+
+Prérequis matériel : le firmware du KLF 200 doit exposer l'API locale (version **2.0.0.71** ou
+plus, port TCP 51200 en TLS) et le mot de passe est celui du **Wi-Fi** imprimé au dos du boîtier,
+pas celui de l'interface web. Le KLF 150 n'a pas cette API. La passerelle tolère très peu de
+sessions simultanées : un autre client (pont MQTT, Home Assistant) sur la même passerelle entre en
+conflit avec ce driver.
+
+Sécurité : pyvlx ne vérifie **pas** le certificat TLS de la passerelle (certificat auto-signé,
+`ssl.CERT_NONE` dans `pyvlx/connection.py`), et le mot de passe circule dans cette session. Le
+KLF 200 doit donc rester sur un LAN ou un VLAN de confiance.
+
+### Types XML
+
+| Type | Hérite de | Rôle |
+|---|---|---|
+| `Klf200OutputShutterSmart` | `OutputShutterSmart` | Fenêtre ou volet, position réelle 0–100 % |
+| `Klf200InputSwitch` | `InputSwitch` | Capteur de pluie d'une fenêtre |
+
+(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:29](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)
+et [IO/Klf200/Klf200InputSwitch.cpp:26](../src/bin/calaos_server/IO/Klf200/Klf200InputSwitch.cpp)).
+
+### Paramètres
+
+| Paramètre | Obligatoire | Description |
+|---|---|---|
+| `host` | oui | IP ou nom d'hôte de la passerelle KLF 200 |
+| `password` | oui | Mot de passe de la passerelle : celui du Wi-Fi, imprimé sur l'étiquette au dos de la KLF 200 |
+| `node_id` | oui | Numéro du nœud sur la passerelle, 0 à 255 |
+| `io_style` | non (pas de défaut) | `shutter` ou `window` ; posé à `window` quand la passerelle annonce une fenêtre et qu'aucun style n'est choisi, une valeur présente n'est jamais modifiée |
+
+Le `node_id` s'obtient avec le wrapper installé, qui demande le mot de passe au clavier :
+
+```bash
+calaos_klf200 --list --host 192.168.1.50
+```
+
+Sans terminal (script), le mot de passe est lu dans la variable `KLF200_PASSWORD` ; la retirer de
+l'environnement ensuite :
+
+```bash
+read -rs KLF200_PASSWORD && export KLF200_PASSWORD
+calaos_klf200 --list --host 192.168.1.50
+unset KLF200_PASSWORD
+```
+
+Il n'est jamais passé en argument : il serait visible dans `ps` et l'historique du shell. Cette
+variable ne sert qu'à `--list` ; en fonctionnement normal, le serveur transmet au sidecar le
+`password` de chaque IO lu dans `io.xml`.
+
+Les deux IOs d'une même fenêtre (le volet et la pluie) portent le même `host`/`node_id` : le
+registre `Klf200Registry` ne garde qu'un enregistrement par nœud et distribue chaque événement à
+tous les callbacks du nœud (dérivé,
+[IO/Klf200/Klf200Registry.h](../src/bin/calaos_server/IO/Klf200/Klf200Registry.h)). La passerelle
+n'a qu'un mot de passe : le premier enregistré est gardé et envoyé, un IO de la même passerelle
+qui en porte un autre provoque un avertissement (sans la valeur). Quand le dernier IO d'un nœud
+disparaît, `Klf200Ctrl` envoie `unregister` ; une passerelle sans nœud ferme sa session après
+30 s, et un mot de passe changé s'applique dès que plus aucun nœud n'utilise l'ancien.
+
+`Klf200Ctrl` n'est jamais détruit (singleton sur le tas, comme `ReolinkCtrl`) : il est créé par
+le premier IO, donc après `ListeRoom`, et `~ListeRoom()` détruit encore des IOs qui s'en
+désinscrivent (`tests/core/ControllerTeardownOrder_test.cpp`).
+
+### Position réelle, pas de minuterie
+
+`Klf200OutputShutterSmart` est la « seconde option » décrite dans l'en-tête de
+`OutputShutterSmart` : le matériel possède la position. `readConfig()` épingle `time_up` et
+`time_down` à **100** pour que la position interne de la classe de base *soit* le pourcentage
+(dérivé, [IO/Klf200/Klf200OutputShutterSmart.cpp:105-115](../src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp)),
+et `set_value()` est entièrement réécrit : chaque ordre devient une position absolue envoyée à la
+passerelle, aucun timer n'est armé. Les paramètres `time_up`, `time_down`, `impulse_time` et
+`stop_both` sont redéclarés en lecture seule pour que l'installeur ne les exige pas. Le sens
+restauré du cache est remis à l'arrêt à la construction : seule la passerelle sait si
+l'actionneur bouge, et `toggle` ne doit pas décider sur un sens périmé.
+
+Un ordre n'est **jamais annoncé comme pris** quand il ne peut pas partir : si le sous-processus
+redémarre ou si la session avec la passerelle est tombée (dernier statut `gateway` reçu),
+`Klf200Ctrl::setPosition()`/`stop()` répondent `false` sans rien envoyer, `set_value()` journalise
+une erreur, garde l'état de l'IO et répond `false` à la règle ou à l'API. Une règle « fermer s'il
+pleut » ne peut donc pas sembler avoir fonctionné pendant une coupure (dérivé,
+`Klf200GatewayLinks` dans [IO/Klf200/Klf200Registry.h](../src/bin/calaos_server/IO/Klf200/Klf200Registry.h)).
+
+Un événement de la passerelle n'est republié que s'il diffère de ce que **l'IO affiche** (position
+et sens), et non du rapport précédent : après un `set_state N`, le rapport suivant, même identique
+au dernier, ramène l'IO à la position réelle.
+
+Convention de position, identique aux deux bouts et dans le KLF 200 : **0 = ouvert** (volet en
+haut, fenêtre ouverte), **100 = fermé**.
+
+Actions acceptées : `up`, `down`, `stop`, `toggle`, `set N`, `up N`, `down N`, `set_state N`
+(N borné à 0–100 avant d'être publié dans l'état de commande). `impulse up/down` et `calibrate`
+sont refusées (`false`) et retirées de l'IODoc (`IODoc::actionRemove()`) : l'installeur, l'éditeur
+de règles et le MCP ne les proposent pas. Un IO sans `host`, `password` ou `node_id` valide
+refuse tout ordre avec une erreur « not configured ».
+
+L'état affiché (`stop 42`, `up 30`…) vient des événements `node` de la passerelle, qui portent la
+position et le sens de déplacement ; un événement identique au précédent n'est pas republié.
+
+### Capteur de pluie
+
+Le KLF 200 n'expose pas le capteur : quand il pleut, il pose une **limitation de position
+minimale** sur la fenêtre (elle ne peut rester qu'entrouverte), et rien ne signale ce changement
+spontanément. La valeur dépend du modèle (89, 91, 93 % le plus souvent, 100 % sur une VELUX GPU) :
+toute limitation **≥ 89 %** vaut pluie, même seuil que Home Assistant. `calaos_klf200` interroge donc cette limitation pour chaque fenêtre qui a
+un `Klf200InputSwitch`, toutes les **300 s** par défaut (`--rain-poll` sur le wrapper), en sautant
+une fenêtre en mouvement (une requête d'état mi-course peut interrompre le déplacement). Même
+lecture que l'intégration Home Assistant. Une fenêtre sans capteur est signalée une fois en
+avertissement et lit toujours `false`.
+
+### `io_style` des volets
+
+Les deux classes de base `OutputShutter` et `OutputShutterSmart` déclarent désormais un paramètre
+**facultatif et sans défaut** `io_style` (`shutter`, `window`), sur le modèle de `OutputLight`
+(`outlet`, `pump`…) et `InputSwitch` (`door`, `motion`…)
+([IO/OutputShutterSmart.cpp:70-75](../src/bin/calaos_server/IO/OutputShutterSmart.cpp)). Le
+`gui_type` ne change pas. Ce n'est pas propre au KLF 200 : une fenêtre motorisée sur KNX ou Wago
+peut le poser aussi.
+
+Impact sur les configurations existantes : aucun. Contrairement à `InputSwitch` et `OutputLight`,
+rien n'est posé à la construction, donc un volet existant (Wago, GPIO, KNX…) n'a toujours pas
+d'`io_style` dans `io.xml` ni dans l'API JSON : les apps, qui n'ont pas été modifiées, le voient comme
+avant. Seul le driver KLF 200 pose `window` sur un nœud que la passerelle annonce comme fenêtre.
+
+---
+
 ## Driver RemoteUI (IOs embarqués)
 
 **Dossier :** [src/bin/calaos_server/IO/RemoteUI/](../src/bin/calaos_server/IO/RemoteUI/)
@@ -795,7 +928,7 @@ WebSocket. Voir [07_remoteui.md](07_remoteui.md) pour le protocole.
 | `RemoteUI` | `RemoteUI` | `IOBase` — l'appareil lui-même |
 | `RemoteUIOutputRelay` | `RemoteUIOutputRelay` | `OutputLight` — un relais de l'appareil |
 
-(dérivé, [IO/RemoteUI/RemoteUI.cpp:84](../src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp),
+(dérivé, [IO/RemoteUI/RemoteUI.cpp:87](../src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp),
 [IO/RemoteUI/RemoteUIOutputRelay.cpp:29](../src/bin/calaos_server/IO/RemoteUI/RemoteUIOutputRelay.cpp).)
 
 Paramètres de `RemoteUIOutputRelay` : `remote_ui_id` (id de l'appareil parent) et `relay_num`
@@ -806,7 +939,7 @@ Paramètres notables de `RemoteUI` : `device_type` (liste fermée, défaut `wave
 `provisioning_code`, `grid_w`, `grid_h`, plus les informations remontées par l'appareil
 (`device_manufacturer`, `device_platform`, `device_version`, `mac_address`, `auth_token`,
 `device_secret`) — dérivé,
-[IO/RemoteUI/RemoteUI.cpp:99-108](../src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp).
+[IO/RemoteUI/RemoteUI.cpp:102-111](../src/bin/calaos_server/IO/RemoteUI/RemoteUI.cpp).
 
 Les deux sens de communication d'un relais :
 
@@ -839,12 +972,12 @@ seulement annoncé :
 3. ⚠️ **L'IO est effacé du fichier, et un simple redémarrage y suffit.** N'ayant jamais été
    ajouté à sa pièce, il n'existe pour aucun écrivain : `Config::SaveConfigIO()` est l'**unique**
    producteur d'`io.xml` et reconstruit un document **neuf** à partir des seules pièces de
-   `ListeRoom` (dérivé, [CalaosConfig.cpp:313-330](../src/bin/calaos_server/CalaosConfig.cpp),
-   [Room.cpp:187-200](../src/bin/calaos_server/Room.cpp)) ; aucun mécanisme de préservation du
+   `ListeRoom` (dérivé, [CalaosConfig.cpp:421-445](../src/bin/calaos_server/CalaosConfig.cpp),
+   [Room.cpp:192-267](../src/bin/calaos_server/Room.cpp)) ; aucun mécanisme de préservation du
    XML inconnu n'existe (vérifié : `rawXml` / `preserveUnknown` → 0 occurrence dans `src/`).
    Et la réécriture n'attend **aucune action de l'utilisateur** : `main.cpp:196` planifie
    `ListeRoom::checkAutoScenario()` **0,1 s après le démarrage**, qui se termine par
-   `SaveConfigIO()` (dérivé, [ListeRoom.cpp:339-341](../src/bin/calaos_server/ListeRoom.cpp)).
+   `SaveConfigIO()` (dérivé, [ListeRoom.cpp:368-370](../src/bin/calaos_server/ListeRoom.cpp)).
    **Neuf autres** sites la déclenchent : huit dans l'API JSON (ajout/suppression d'IO,
    opérations de pièce) et un dans le provisioning RemoteUI. **Relever les équipements concernés
    avant la mise à jour.**

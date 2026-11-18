@@ -13,12 +13,12 @@ La configuration Calaos est persistée dans trois fichiers XML :
   [16_config_options.md](16_config_options.md) pour la liste complète et documentée de ses options
 
 À côté, deux fichiers d'**état** qui ne sont pas de la configuration et ne vivent pas au même
-endroit (dérivé, [src/lib/ConfigStore.cpp:183-207](../src/lib/ConfigStore.cpp)) :
+endroit (dérivé, [src/lib/ConfigStore.cpp:185-209](../src/lib/ConfigStore.cpp)) :
 
 | Fichier | Format | Contenu | Écrit par |
 |---|---|---|---|
-| `iostates.cache` | **JSON** | dernières valeurs et paramètres des IOs | `Config` ([CalaosConfig.cpp:487-576](../src/bin/calaos_server/CalaosConfig.cpp)) |
-| `events.db` | **SQLite** | journal d'événements **et** tokens de notification push (`push_tokens`) | `HistLogger` ([HistLogger.cpp:41, 107](../src/bin/calaos_server/HistLogger.cpp)) |
+| `iostates.cache` | **JSON** | dernières valeurs et paramètres des IOs | `Config` ([CalaosConfig.cpp:586-663](../src/bin/calaos_server/CalaosConfig.cpp)) |
+| `events.db` | **SQLite** | journal d'événements **et** tokens de notification push (`push_tokens`) | `HistLogger` ([HistLogger.cpp:46, 107](../src/bin/calaos_server/HistLogger.cpp)) |
 
 Les deux sont dans le **répertoire de cache** (`$HOME/.cache/calaos/` par défaut), pas dans le
 répertoire de configuration. Ce sont **deux mécanismes distincts** : le cache d'état n'est pas
@@ -68,7 +68,7 @@ string folder = conf.BackupFiles();
 
 `BackupFiles()` a **trois appelants de production** : le handler HTTP `config`, juste avant
 d'écraser les fichiers de config poussés par un client
-(dérivé, [JsonApiHandlerHttp.cpp:783](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)),
+(dérivé, [JsonApiHandlerHttp.cpp:1023](../src/bin/calaos_server/JsonApiHandlerHttp.cpp)),
 `AdminConfig::set()` (`admin` / `config_set`, voir docs/08), juste avant d'écrire une option de
 `local_config.xml`, et `AdminConfig::restore()` (`admin` / `config_restore`). Pour les trois, un
 dossier vide annule tout : rien n'est écrit sans copie de ce qui serait perdu. Les copies sont en
@@ -116,7 +116,7 @@ et trie par date de modification, **sans jamais parser le nom du dossier**.
 ### Configuration
 
 `Utils::getConfigFile(name)` (dérivé,
-[ConfigStore.cpp:86-137, 165-181](../src/lib/ConfigStore.cpp)) :
+[ConfigStore.cpp:88-139, 165-181](../src/lib/ConfigStore.cpp)) :
 
 1. si la variable d'environnement **`CALAOS_CONFIG`** est posée (ou l'option `--config` du
    serveur, qui passe par `Utils::initConfigOptions()`), c'est elle qui gagne, sans recherche ;
@@ -130,7 +130,7 @@ destructeur (T3.14).
 
 ### Cache
 
-`Utils::getCacheFile(name)` (dérivé, [ConfigStore.cpp:183-207](../src/lib/ConfigStore.cpp)) rend
+`Utils::getCacheFile(name)` (dérivé, [ConfigStore.cpp:185-209](../src/lib/ConfigStore.cpp)) rend
 toujours `$HOME/.cache/calaos/<name>`, en créant le répertoire au besoin. L'option `--cache` du
 serveur permet de le forcer.
 
@@ -153,15 +153,15 @@ Les noms de fichiers eux-mêmes sont des constantes
 ## Format io.xml
 
 Racine `<calaos:ioconfig>`, un seul enfant `<calaos:home>`, puis les pièces
-(dérivé, [CalaosConfig.cpp:259-311, 320-330](../src/bin/calaos_server/CalaosConfig.cpp)).
+(dérivé, [CalaosConfig.cpp:371-419, 320-330](../src/bin/calaos_server/CalaosConfig.cpp)).
 
 Les IOs **ne sont pas des `<calaos:io>`** : le nom de balise porte la catégorie, et le lecteur
 n'en accepte que sept — `calaos:input`, `calaos:output`, `calaos:internal`, `calaos:avr`,
 `calaos:camera`, `calaos:audio`, `calaos:remote_ui` (dérivé,
-[Room.cpp:159-185](../src/bin/calaos_server/Room.cpp)). À l'écriture, `IOBase::SaveToXml()`
+[Room.cpp:163-190](../src/bin/calaos_server/Room.cpp)). À l'écriture, `IOBase::SaveToXml()`
 n'émet que deux de ces sept, `calaos:input` ou `calaos:output` selon `isInput()`, les autres
 classes surchargeant la fonction (dérivé,
-[IOBase.cpp:171-183](../src/bin/calaos_server/IOBase.cpp)).
+[IOBase.cpp:177-189](../src/bin/calaos_server/IOBase.cpp)).
 
 Tous les paramètres d'un IO sont des **attributs** de sa balise : `IOFactory::readParams()` verse
 tout attribut rencontré dans le `Params` de l'IO, et `SaveToXml()` réémet tout le `Params`
@@ -198,7 +198,7 @@ pour `host`/`port`/`var`/`wago_841`/`knx` et l'alias de type `WagoOutputLight`,
 
 L'attribut `hits` de la pièce est le seul champ lu en entier : absent, vide ou illisible, il vaut
 `0` — reproduction délibérée du comportement de l'ancien lecteur TinyXML (dérivé,
-[CalaosConfig.cpp:294-301](../src/bin/calaos_server/CalaosConfig.cpp)).
+[CalaosConfig.cpp:402-409](../src/bin/calaos_server/CalaosConfig.cpp)).
 
 Si `io.xml` n'existe pas, le serveur en écrit un vide (`<calaos:home></calaos:home>`) et continue.
 
@@ -222,7 +222,7 @@ de chaque option (type, valeur par défaut, composant consommateur) est dans
 </calaos:config>
 ```
 
-(dérivé, [ConfigStore.cpp:684-748, 797-801](../src/lib/ConfigStore.cpp) : racine
+(dérivé, [ConfigStore.cpp:707-771, 797-801](../src/lib/ConfigStore.cpp) : racine
 `calaos:config`, enfants `calaos:option` porteurs des attributs `name` et `value`.)
 
 Lecture/écriture via les fonctions libres `Utils::get_config_option[s]` / `set_config_option[s]` /
@@ -253,7 +253,7 @@ Les trois premiers passent tous par `Utils`, qui sérialise les accès inter-pro
 écrit de façon atomique et durable : écriture dans un fichier temporaire du même répertoire,
 `fchmod`/`fchown` aux mode/uid/gid d'origine, `fsync()` du fichier puis du répertoire, et enfin
 `rename()` — ajouté par le commit `7d7808b9` (dérivé,
-[ConfigStore.cpp:457-582](../src/lib/ConfigStore.cpp)). Cela évite qu'une écriture concurrente ne
+[ConfigStore.cpp:464-585](../src/lib/ConfigStore.cpp)). Cela évite qu'une écriture concurrente ne
 perde des clés ou qu'une coupure de courant ne laisse un fichier vide ou aux mauvais droits (le
 fichier contient des secrets : `smtp_password`, `influxdb_token`, `mcp_token`,
 `mcp_service_token`, `cn_pass`).
@@ -273,7 +273,7 @@ côté `calaos_mobile`, hors de ce dépôt.
 
 Racine `<calaos:rules>`, enfants `<calaos:rule>` ; le lecteur exige les attributs `name` **et**
 `type` et ignore tout autre nom de balise (dérivé,
-[CalaosConfig.cpp:371-394](../src/bin/calaos_server/CalaosConfig.cpp)).
+[CalaosConfig.cpp:468-492](../src/bin/calaos_server/CalaosConfig.cpp)).
 
 ⚠️ **Tout est namespacé, et les noms d'attributs ne sont pas ceux qu'on devine** : l'opérateur
 s'écrit `oper` (pas `operator`), la valeur `val` (pas `value`), et le `type` d'une condition ou
@@ -282,7 +282,7 @@ d'une action est le nom **de fabrique**, pas le nom de la classe C++ : les condi
 vide), `mail`, `script`, `touchscreen`, `push` (dérivé,
 [Rules/RulesFactory.cpp:65-135](../src/bin/calaos_server/Rules/RulesFactory.cpp),
 [Rules/ConditionStd.cpp:521-538](../src/bin/calaos_server/Rules/ConditionStd.cpp),
-[Rules/ActionStd.cpp:357-371](../src/bin/calaos_server/Rules/ActionStd.cpp)).
+[Rules/ActionStd.cpp:360-374](../src/bin/calaos_server/Rules/ActionStd.cpp)).
 
 Forme d'une règle simple, **intégrale** — le document que `CalaosTest::minimalRulesXml()` écrit
 et que le serveur relit (dérivé,
@@ -315,7 +315,7 @@ dans un **CDATA**, pas dans un élément `<message>` :
 Les attributs de `<calaos:rule>` autres que `name` et `type` sont versés tels quels dans le
 `Params` de la règle et réémis à la sauvegarde ; c'est par là que passe `auto_scenario`, qui
 rattache une règle d'étape à son scénario (dérivé,
-[Rule.cpp:310-376](../src/bin/calaos_server/Rule.cpp)).
+[Rule.cpp:309-375](../src/bin/calaos_server/Rule.cpp)).
 
 Si `rules.xml` n'existe pas, le serveur en écrit un vide et continue. Un `rules.xml` vide mais
 valide journalise « `<calaos:rules>` node not found » — le test porte sur le **premier enfant**,
@@ -345,7 +345,7 @@ chemin, en entier (dérivé,
    `0600` comme les sauvegardes, car un fichier corrompu garde ses secrets.
    Épinglé par `CorruptIoXmlWithoutBackupDoesNotKillTheProcess`, qui compare le contenu préservé
    au contenu corrompu original (capturé,
-   [tests/core/CalaosConfigRobustness_test.cpp:111-136](../tests/core/CalaosConfigRobustness_test.cpp)).
+   [tests/core/CalaosConfigRobustness_test.cpp:120-145](../tests/core/CalaosConfigRobustness_test.cpp)).
 3. **Restauration** : les backups portant ce nom de fichier sont parcourus **du plus récent au
    plus ancien** (tri par date de modification). Chaque candidat est **d'abord parsé en mémoire** —
    un backup lui-même corrompu ou sous un autre élément racine est sauté avec un avertissement,
@@ -376,7 +376,7 @@ Le canal est **partagé** : depuis E4.2e, la même notification transporte aussi
 **règles désactivées** faute d'un IO manquant, et T3.18 y ajoute la mention des **scénarios**
 concernés — un scénario désactivé ainsi ne repart pas tout seul et exige un `autoscenario
 reenable` explicite (dérivé,
-[CalaosConfig.cpp:398-448](../src/bin/calaos_server/CalaosConfig.cpp)). Tout est agrégé dans un
+[CalaosConfig.cpp:496-546](../src/bin/calaos_server/CalaosConfig.cpp)). Tout est agrégé dans un
 seul corps de message, envoyé une seule fois.
 
 Limites connues, assumées : `backups/corrupt/` n'est pas borné (des boots corrompus répétés
@@ -430,14 +430,14 @@ même que les IOs aient pu se re-synchroniser avec les périphériques physiques
 C'est un **fichier JSON**, `<cache>/iostates.cache`, à exactement deux objets de premier niveau
 — `iostates` (id → valeur, **toujours une chaîne**) et `ioparams` (id → objet de paires
 chaîne/chaîne). Indenté de 4 espaces (dérivé,
-[CalaosConfig.cpp:487-576](../src/bin/calaos_server/CalaosConfig.cpp)).
+[CalaosConfig.cpp:586-663](../src/bin/calaos_server/CalaosConfig.cpp)).
 
 Forme du document (**dérivée** du builder, pas capturée : ce fichier n'est figé par aucun
 golden) pour l'état `t24_io = "t24_value"` et les paramètres `t24_params = {key: value}` de
 `CacheRoundTripAndNoLeftoverTmp` — l'ordre des clés est alphabétique, `nlohmann::json` étant
 un `std::map` (dérivé,
-[CalaosConfig.cpp:540-558](../src/bin/calaos_server/CalaosConfig.cpp),
-[tests/core/CalaosConfigRobustness_test.cpp:300-320](../tests/core/CalaosConfigRobustness_test.cpp)) :
+[CalaosConfig.cpp:627-645](../src/bin/calaos_server/CalaosConfig.cpp),
+[tests/core/CalaosConfigRobustness_test.cpp:309-329](../tests/core/CalaosConfigRobustness_test.cpp)) :
 
 ```json
 {
@@ -539,13 +539,13 @@ ListeRule → Rule::SaveToXml()
 
 ⚠️ **Aucune règle n'est exclue de la sauvegarde**, pas même les règles d'auto-scénario : la
 boucle parcourt `ListeRule` de bout en bout (dérivé,
-[CalaosConfig.cpp:463-467](../src/bin/calaos_server/CalaosConfig.cpp)), et `auto_sc_mark` n'est
+[CalaosConfig.cpp:561-564](../src/bin/calaos_server/CalaosConfig.cpp)), et `auto_sc_mark` n'est
 consulté nulle part sur ce chemin. Les règles d'étape d'un scénario sont donc bien écrites dans
 `rules.xml` — elles portent l'attribut `auto_scenario` — et sont relues au démarrage, puis
 adoptées par `AutoScenario::checkScenarioRules()`. Celles qui portent l'attribut sans avoir été
 adoptées par un scénario sont supprimées par `ListeRoom::checkAutoScenario()`, qui resauvegarde
 ensuite les deux fichiers (dérivé,
-[ListeRoom.cpp:309-342](../src/bin/calaos_server/ListeRoom.cpp)).
+[ListeRoom.cpp:314-372](../src/bin/calaos_server/ListeRoom.cpp)).
 
 ⚠️ **Une règle désactivée est sauvegardée intacte.** Depuis E4.2e/T3.18 (décision utilisateur),
 une règle qui référence un IO introuvable n'est plus amputée : elle est conservée avec toutes ses

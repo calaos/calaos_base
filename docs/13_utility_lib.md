@@ -139,11 +139,11 @@ processus a pu leur donner entre-temps (dérivé, `src/lib/ConfigStore.h:43-47`)
 ⚠️ **`get_config_option()` / `set_config_option()` sont scrutées par `make check`.** Le script
 `tests/check-config-options.sh` scanne les sources à la recherche de ces appels et **échoue** si
 une clé utilisée par le code n'est pas déclarée dans le registre `src/lib/ConfigOptions.cpp`
-(dérivé, `tests/check-config-options.sh:220-262` pour le scan, `:328-339` pour le contrôle). La
+(dérivé, `tests/check-config-options.sh:224-266` pour le scan, `:332-343` pour le contrôle). La
 clé doit être un **littéral chaîne sur la même ligne que l'appel**, ou une constante
 `const char *NAME = "..."` du **même fichier** — toute autre forme est un échec dur du test.
 Le contrôle réciproque existe aussi : une entrée du registre déclarée `consumer(Server)` que
-**aucune** source ne lit est signalée comme orpheline (`:341-353`).
+**aucune** source ne lit est signalée comme orpheline (`:345-357`).
 
 ### Robustesse : configuration corrompue (T2.4)
 
@@ -170,9 +170,9 @@ Les options se construisent par chaînage : `.label()`, `.doc()`, `.defDynamic()
 Le registre est la **source unique** de deux artefacts :
 
 - `ConfigOptions::genMarkdown()` → **[docs/16_config_options.md](16_config_options.md)**
-  (dérivé, `src/lib/ConfigOptions.h:208`) ;
+  (dérivé, `src/lib/ConfigOptions.h:210`) ;
 - `ConfigOptions::genJson()` → sortie lisible par machine, sur le modèle de `io_doc.json`
-  (dérivé, `src/lib/ConfigOptions.h:209`).
+  (dérivé, `src/lib/ConfigOptions.h:211`).
 
 ⚠️ **`docs/16_config_options.md` ne s'édite pas à la main.** `tests/check-config-docs.sh`, câblé
 dans `make check`, régénère le document avec `calaos_config options --markdown` et le compare au
@@ -309,12 +309,12 @@ LOG_LEVEL_UNKNOWN = 0, LOG_LEVEL_CRITICAL = 1, LOG_LEVEL_ERROR = 2,
 LOG_LEVEL_WARNING = 3, LOG_LEVEL_INFO = 4, LOG_LEVEL_DEBUG = 5
 ```
 
-(dérivé, `src/lib/Logger.h:104-111`.)
+(dérivé, `src/lib/Logger.h:112-119`.)
 
 ### Configuration
 
 Les niveaux se règlent par **options de configuration**, pas par variables d'environnement
-(dérivé, `src/lib/Logger.cpp:108` et `:119`) :
+(dérivé, `src/lib/Logger.cpp:125` et `:136`) :
 
 ```sh
 calaos_config set debug_level 5
@@ -322,11 +322,11 @@ calaos_config set debug_domains hifirose:5,network:0
 ```
 
 `debug_level` hors de l'intervalle 0…5 retombe sur `LOG_LEVEL_INFO` (4)
-(dérivé, `src/lib/Logger.cpp:112-114`) ; les domaines non listés dans `debug_domains` gardent le
-niveau global (dérivé, `src/lib/Logger.cpp:117`). Ces deux clés sont **relayées aux pilotes
+(dérivé, `src/lib/Logger.cpp:129-131`) ; les domaines non listés dans `debug_domains` gardent le
+niveau global (dérivé, `src/lib/Logger.cpp:134`). Ces deux clés sont **relayées aux pilotes
 externes et au sidecar MCP** par les variables d'environnement `CALAOS_LOG_LEVEL` et
-`CALAOS_LOG_DOMAINS` (dérivé, `src/bin/calaos_server/McpServerManager.cpp:250-251`), consommées
-côté Python par `src/lib/calaos-python/calaos_extern_proc/logger.py:95` et `:106`.
+`CALAOS_LOG_DOMAINS` (dérivé, `src/bin/calaos_server/McpServerManager.cpp:274-275`), consommées
+côté Python par `src/lib/calaos-python/calaos_extern_proc/logger.py:116` et `:127`.
 Le logger C++ lit lui-même deux variables d'environnement, une seule fois, à l'initialisation
 statique : `CALAOS_FORCE_COLOR` (dérivé, `src/lib/Logger.cpp:43`) et
 `CALAOS_JOURNAL_PRIORITY` (dérivé, `src/lib/Logger.cpp:32`).
@@ -357,7 +357,7 @@ version 2.2. Conséquences mesurées sur un banc conmon 2.1.6 / podman 4.3.1 / s
 ⚠️ **Ces singletons ne sont jamais détruits (T3.14)**, délibérément : le cache de niveaux et la
 table des loggers vivent jusqu'à la fin du processus, sans quoi un destructeur statique les
 réutilisait après leur propre destruction — c'est ce qui imprimait un chemin corrompu à chaque
-arrêt du serveur (dérivé, `src/lib/Logger.cpp:85-99`).
+arrêt du serveur (dérivé, `src/lib/Logger.cpp:102-116`).
 
 ⚠️ **Une écriture ratée ne coupe pas les logs.** `~LogStream()` efface l'état d'erreur de
 `std::cout` après chaque ligne, sans quoi plus rien ne sortirait, et rend `errno` à l'appelant :
@@ -446,7 +446,7 @@ n'existe **pas** de `fromString()` : la conversion depuis une chaîne passe par 
 
 **Fichier :** [src/lib/FileUtils.h](../src/lib/FileUtils.h)
 
-Classe à **méthodes statiques** (dérivé, `src/lib/FileUtils.h:7-36`, intégral pour la liste) :
+Classe à **méthodes statiques** (dérivé, `src/lib/FileUtils.h:7-37`, intégral pour la liste) :
 
 ```cpp
 static std::size_t fileSize(const std::string &filename);
@@ -485,7 +485,7 @@ reste **à l'intérieur** de la racine résolue. Renvoie `true` en cas de succè
 absolu canonique dans `outPath`. Renvoie `false` sur toute tentative de traversée, fichier absent
 ou lien symbolique qui s'échappe de la racine. **L'appelant doit traiter `false` comme « non
 trouvé » (HTTP 404)** pour ne pas divulguer l'arborescence
-(dérivé, `src/lib/FileUtils.h:26-36`).
+(dérivé, `src/lib/FileUtils.h:27-37`).
 
 ---
 
@@ -525,7 +525,7 @@ Client HTTP asynchrone. **Transport : interface multi de libcurl pilotée par la
 (Hue, Web, IPCam, InfluxDB, notifications push…).
 
 ```cpp
-// (dérivé, UrlDownloader.h:126-194)
+// (dérivé, UrlDownloader.h:132-209)
 UrlDownloader *dl = new UrlDownloader("http://api.example.com/data"); //autodelete=false
 dl->setHeader("Authorization", "Bearer token");
 dl->bodyDataSet(R"({"cmd":"on"})");
@@ -538,13 +538,13 @@ dl->httpPost();
 ⚠️ **Trois pièges de nommage** :
 
 - le second paramètre du constructeur est **`autodelete`**, pas « async » —
-  `UrlDownloader(string url, bool autodelete = false)` (dérivé, `src/lib/UrlDownloader.h:126`) ;
+  `UrlDownloader(string url, bool autodelete = false)` (dérivé, `src/lib/UrlDownloader.h:132`) ;
 - il n'y a **pas** de `start()` public ni de `setBody()`. On règle le corps par `bodyDataSet()` et
   on lance par l'un des quatre verbes : `httpGet()`, `httpPost()`, `httpPut()`, `httpDelete()`
-  (dérivé, `src/lib/UrlDownloader.h:176-179`) ;
+  (dérivé, `src/lib/UrlDownloader.h:182-185`) ;
 - les signaux s'appellent `m_signalComplete` (code HTTP), `m_signalCompleteData` (données + code)
   et `m_signalData` (flux) — il n'y a pas de `resultData`
-  (dérivé, `src/lib/UrlDownloader.h:190-192`).
+  (dérivé, `src/lib/UrlDownloader.h:205-207`).
 
 ### Cycle de vie (T2.10)
 
@@ -575,11 +575,11 @@ vérification de certificat par défaut** — le parc installé est en HTTPS aut
 défaut vérifié casserait toutes les installations existantes. Le durcissement est un opt-in **par
 équipement** avec `insecure="false"`. Seules les URLs de service calaos.fr en dur (`NotifManager`
 push…) restent vérifiées, en **ne passant pas** par ces helpers
-(dérivé, `src/lib/UrlDownloader.h:143-159`).
+(dérivé, `src/lib/UrlDownloader.h:149-165`).
 
 `insecureParamEnabled()` est bornée et ne lève jamais : **seule la chaîne exacte `"false"`**
 durcit l'équipement ; tout le reste — paramètre absent ou vide inclus, c'est-à-dire les configs
-antérieures à T2.17 — signifie *insecure* (dérivé, `src/lib/UrlDownloader.h:153-157`) :
+antérieures à T2.17 — signifie *insecure* (dérivé, `src/lib/UrlDownloader.h:159-163`) :
 
 ```cpp
 static bool insecureParamEnabled(const std::string &paramValue)
@@ -589,7 +589,7 @@ static bool insecureParamEnabled(const std::string &paramValue)
 ### Borne mémoire
 
 Le corps de réponse accumulé en interne est plafonné à `defaultBufferMaxSize = 16 * 1024 * 1024`
-(dérivé, `src/lib/UrlDownloader.h:123`), réglable par `bufferMaxSizeSet()`. Les consommateurs en
+(dérivé, `src/lib/UrlDownloader.h:122`), réglable par `bufferMaxSizeSet()`. Les consommateurs en
 flux (MJPEG) reçoivent **tous** les octets en direct par `m_signalData` ; seule la copie interne
 destinée à `m_signalCompleteData` cesse de croître, pour qu'un flux sans fin ne mange pas la RAM
 (dérivé, `src/lib/UrlDownloader.h:96-100`).
@@ -603,13 +603,13 @@ destinée à `m_signalCompleteData` cesse de croître, pour qu'un flux sans fin 
 Parsing et construction de frames WebSocket (RFC 6455). **Deux fichiers seulement l'incluent** :
 `src/bin/calaos_server/WebSocket.h:27` et `src/bin/calaos_server/RemoteUI/RemoteUIManager.cpp:24`
 (dérivé — `grep -rn '#include.*WebSocketFrame' src/`). `HttpServer.cpp:157` et
-`JsonApiHandlerWS.cpp:126` se contentent de nommer la constante `WebSocketFrame::CloseCodeNormal`,
+`JsonApiHandlerWS.cpp:127` se contentent de nommer la constante `WebSocketFrame::CloseCodeNormal`,
 qu'ils obtiennent transitivement ; `HttpClient` ne l'utilise **pas du tout** — les deux mentions de
-`HttpClient.h:52` et `:84` sont dans des commentaires.
+`HttpClient.h:54` et `:86` sont dans des commentaires.
 
 > **SHA1 → OpenSSL (T2.3).** `src/lib/SHA1.{cpp,h}` **n'existent plus**. Le seul condensé SHA-1
 > encore calculé est celui du handshake WebSocket, et il passe par l'EVP d'OpenSSL
-> (dérivé, `src/bin/calaos_server/WebSocket.cpp:400-408`) :
+> (dérivé, `src/bin/calaos_server/WebSocket.cpp:429-443`) :
 >
 > ```cpp
 > uint8_t message_digest[EVP_MAX_MD_SIZE];
@@ -693,7 +693,7 @@ longitude. L'inclusion est faite par l'implémentation seule — `src/lib/TimeRa
 **seul** `#include "sunset.h"` de l'arbre, `TimeRange.h` n'incluant que `<Utils.h>`
 (`src/lib/TimeRange.h:25`). `TimeRange` lit `latitude` / `longitude` dans les options de
 configuration ; c'est d'ailleurs pour cette raison que `tests/check-config-options.sh` scanne ce
-fichier avec une règle dédiée (règle D, dérivé, `tests/check-config-options.sh:277-284`).
+fichier avec une règle dédiée (règle D, dérivé, `tests/check-config-options.sh:281-288`).
 
 ⚠️ **Plages nocturnes (T3.13)** : une plage inversée (`23:00 → 01:00`) était **vide et ne se
 déclenchait jamais** ; elle wrappe désormais sur minuit. Détails et effets de bord dans
@@ -776,7 +776,7 @@ Paquet Python `calaos_extern_proc`, partagé par tous les sidecars Python (Reoli
 ## Bibliothèques tierces embarquées
 
 Toutes sont déclarées dans [src/lib/Makefile.am](../src/lib/Makefile.am) (dérivé,
-`src/lib/Makefile.am:51-142`).
+`src/lib/Makefile.am:51-143`).
 
 | Bibliothèque | Emplacement | Usage |
 |---|---|---|
@@ -790,7 +790,7 @@ Toutes sont déclarées dans [src/lib/Makefile.am](../src/lib/Makefile.am) (dér
 | `uvw` | `src/lib/uvw/src/` | Wrapper C++ de libuv (header-only) |
 | `sunset` | `src/lib/sunset.c` | Lever/coucher du soleil selon latitude/longitude |
 | `nlohmann/json` | `src/lib/json.hpp` | JSON, exposé sous l'alias `Json` par `Utils.h:79-80` |
-| `cpptui` | `src/lib/cpptui/` | TUI header-only (18 k lignes), utilisée **uniquement** par `src/bin/tools/config_tui/`. `EXTRA_DIST` seulement : rien à compiler (`src/lib/Makefile.am:114-119`) |
+| `cpptui` | `src/lib/cpptui/` | TUI header-only (18 k lignes), utilisée **uniquement** par `src/bin/tools/config_tui/`. `EXTRA_DIST` seulement : rien à compiler (`src/lib/Makefile.am:115-120`) |
 
 **Retirée :** TinyXML 2.5.3 + TinyXPath (E4.4e) — 14 242 lignes, deux CVE, remplacée par pugixml.
 

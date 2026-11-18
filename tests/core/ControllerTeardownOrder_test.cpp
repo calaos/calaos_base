@@ -45,6 +45,8 @@
 #include "AVRManager.h"
 #include "AVReceiver.h"
 #include "IOBase.h"
+#include "Klf200Ctrl.h"
+#include "Klf200InputSwitch.h"
 #include "ListeRoom.h"
 #include "ReolinkCtrl.h"
 #include "ReolinkInputSwitch.h"
@@ -130,6 +132,31 @@ Room *roomWithProbe(const std::string &base)
     probe.reset();
 
     //exit(), not _exit(): the static destructors are the subject.
+    std::exit(0);
+}
+
+//Same question for Klf200Ctrl: 'C' when its registry dies.
+[[noreturn]] void klf200Child(const std::string &base)
+{
+    Room *room = roomWithProbe(base);
+
+    Params p = { { "id", "fb5_klf200" },
+                 { "name", "Pluie" },
+                 { "host", "192.0.2.44" },
+                 { "password", "fb5pass" },
+                 { "node_id", "1" } };
+    room->AddIO(new Klf200InputSwitch(p));
+
+    auto probe = std::make_shared<Probe>('C');
+    Klf200Ctrl::Instance().registerNode(Klf200Types::Host("192.0.2.45"),
+                                        Klf200Types::Password("fb5pass"),
+                                        Klf200Types::NodeId(2),
+                                        false,
+                                        [probe](const Params &)
+                                        {
+                                        });
+    probe.reset();
+
     std::exit(0);
 }
 
@@ -233,6 +260,21 @@ TEST(ControllerTeardownOrderTest, AReolinkSwitchLeftAtExitFindsItsController)
     ASSERT_NE(io, std::string::npos) << r.order;
     EXPECT_TRUE(ctrl == std::string::npos || ctrl > io)
         << "ReolinkCtrl was destroyed while a room still held a Reolink switch: " << r.order;
+}
+
+TEST(ControllerTeardownOrderTest, AKlf200SwitchLeftAtExitFindsItsController)
+{
+    const ChildResult r = runInChild(klf200Child);
+
+    ASSERT_FALSE(r.timedOut) << "order seen: " << r.order;
+    ASSERT_TRUE(r.exited) << "the child died on signal " << r.signal << ", order seen: " << r.order;
+    EXPECT_EQ(r.code, 0);
+
+    const size_t io = r.order.find('I');
+    const size_t ctrl = r.order.find('C');
+    ASSERT_NE(io, std::string::npos) << r.order;
+    EXPECT_TRUE(ctrl == std::string::npos || ctrl > io)
+        << "Klf200Ctrl was destroyed while a room still held a KLF 200 switch: " << r.order;
 }
 
 TEST(ControllerTeardownOrderTest, AnAvReceiverLeftAtExitFindsItsManager)

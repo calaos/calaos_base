@@ -151,6 +151,11 @@ void IODoc::actionAdd(const string &name, const string &description)
     m_actions[name] = p;
 }
 
+void IODoc::actionRemove(const string &name)
+{
+    m_actions.erase(name);
+}
+
 void IODoc::aliasAdd(string alias)
 {
     m_aliases.push_back(alias);

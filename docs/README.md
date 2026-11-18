@@ -20,7 +20,7 @@ Documentation technique du projet `calaos_base` pour agents LLM.
 | [11_config_persistence.md](11_config_persistence.md) | local_config.xml, rules.xml, cache d'état |
 | [12_extern_proc.md](12_extern_proc.md) | Framework IPC sous-processus (MQTT, KNX) |
 | [13_utility_lib.md](13_utility_lib.md) | `src/lib/` : le split de `Utils` (Constants, MemMacros, LogSetup, StringUtils, ConfigStore, SystemInfo), Params, Timer, Logger, UrlDownloader, ColorUtils et libs embarquées |
-| [14_python_extern_proc.md](14_python_extern_proc.md) | Drivers Python (calaos_extern_proc, Reolink, Roon) |
+| [14_python_extern_proc.md](14_python_extern_proc.md) | Drivers Python (calaos_extern_proc, Reolink, Roon, KLF 200) |
 | [15_mcp_server.md](15_mcp_server.md) | Sidecar MCP : calaos_mcp, reverse proxy /mcp, tools, auth Bearer |
 | [16_config_options.md](16_config_options.md) | Référence complète des options de `local_config.xml`. ⚠️ **Fichier généré** par `calaos_config options --markdown` depuis le registre `src/lib/ConfigOptions.cpp` — ne pas l'éditer à la main, `tests/check-config-docs.sh` le rediffe à chaque `make check` |
 | [17_device_templates.md](17_device_templates.md) | Templates de devices pour l'assistant de l'installer : format, les six templates climate, valeurs par défaut, `calaos_server --gentemplates` |

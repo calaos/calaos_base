@@ -53,6 +53,8 @@ public:
     void paramAddList(const string &name, const string &description, bool mandatory, const Params &keyvalues, const string &defkey = string(), bool readonly = false, const string &label = string());
     void conditionAdd(const string &name, const string &description);
     void actionAdd(const string &name, const string &description);
+    //For a subclass that refuses an action its base class documents
+    void actionRemove(const string &name);
     void aliasAdd(string alias);
 
     /* A device takes a JSON object as command (spec §5.2, §11): adding a field

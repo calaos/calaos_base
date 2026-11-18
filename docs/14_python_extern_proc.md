@@ -16,12 +16,14 @@ Drivers Python actuels :
 |---|---|---|---|
 | **Reolink** | `IO/Reolink/ExternProcReolink_main.py` | `calaos_reolink` | `reolink_aio` |
 | **Roon** | `Audio/ExternProcRoon_main.py` | `calaos_roon` | `roonapi` |
+| **KLF 200** | `IO/Klf200/ExternProcKlf200_main.py` | `calaos_klf200` | `pyvlx` |
 
-Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl` et `RoonCtrl` appellent
+Le côté C++ ne lance **pas** `python3` directement : `ReolinkCtrl`, `RoonCtrl` et `Klf200Ctrl` appellent
 `startProcess()` sur un **wrapper shell généré par `configure`** depuis
-`calaos_reolink.in` / `calaos_roon.in`. Ce wrapper positionne `PYTHONPATH` puis fait
+`calaos_reolink.in` / `calaos_roon.in` / `IO/Klf200/calaos_klf200.in`. Ce wrapper positionne
+`PYTHONPATH` puis fait
 `exec python3 $CALAOS_PREFIX/lib/calaos/<script>.py "$@"` (intégral,
-`IO/Reolink/calaos_reolink.in:1-4`) :
+`IO/Reolink/calaos_reolink.in:1-3`) :
 
 ```bash
 #!/bin/bash
@@ -30,12 +32,15 @@ export PYTHONPATH=$CALAOS_PREFIX/lib/python:$PYTHONPATH
 exec python3 -u $CALAOS_PREFIX/lib/calaos/ExternProcReolink_main.py "$@"
 ```
 
-Le `-u` du wrapper Reolink n'est pas cosmétique : le stdout du sous-processus est un pipe,
+Le wrapper KLF 200 écrit `$CALAOS_PREFIX/lib/python${PYTHONPATH:+:$PYTHONPATH}` : avec un
+`PYTHONPATH` vide, le `:` final de la forme ci-dessus ajoute le répertoire courant à `sys.path`.
+
+Le `-u` des wrappers Reolink et KLF 200 n'est pas cosmétique : le stdout du sous-processus est un pipe,
 donc Python le bufferise par blocs de 8 Ko, et un driver peu bavard ne publiait jamais rien
 dans le journal — même ses erreurs.
 
-Les deux dépendances tierces sont sondées par `configure` (`configure.ac:194-213`) : si
-`roonapi` ou `reolink_aio` manque, un avertissement est émis et le driver correspondant
+Les trois dépendances tierces sont sondées par `configure` (`configure.ac:206-237`) : si
+`roonapi`, `reolink_aio` ou `pyvlx` manque, un avertissement est émis et le driver correspondant
 n'est pas construit.
 
 ---
@@ -67,7 +72,7 @@ supprimer en recopiant la version courte de cette ligne.
 > (`__init__.py:17`). Le rappeler dans un `__main__` n'est pas une erreur — c'est ce que font
 > les deux drivers de l'arbre — mais ce n'est pas ce qui *active* le log : c'est ce qui le
 > **reconfigure** avec les variables d'environnement telles qu'elles sont à cet instant
-> (`configure_logger()` vide les handlers existants, `logger.py:124`).
+> (`configure_logger()` vide les handlers existants, `logger.py:145`).
 
 ---
 
@@ -177,7 +182,7 @@ Implémente le framing binaire, **strictement identique au C++** :
 En-tête de **5 octets** (`message.py:36`, commentaire du code :
 `# Header is 5 bytes (1 byte type + 4 bytes size)`), longueur écrite octet par octet en
 big-endian (`message.py:78-81`) et relue de même (`message.py:40-45`). C'est le même format
-que `ExternProc.cpp:322-334` et `:398-413`.
+que `ExternProc.cpp:325-337` et `:401-416`.
 
 > ⚠️ **Correction d'une fausseté de ce document.** Une note affirmait ici que « la taille du
 > payload est encodée sur 4 octets côté Python contre 2 octets côté C++ » et invitait à
@@ -212,7 +217,7 @@ rebinder une variable locale. C'est l'appelant qui doit avancer, et
 ### Différence de robustesse avec le C++, mesurée et non corrigée
 
 Le C++ **plafonne** la longueur annoncée à 4 MiB et signale une erreur de framing au-delà
-(`ExternProc.h:53-57`, `ExternProc.cpp:342-357`). **La version Python n'a aucune borne** :
+(`ExternProc.h:53-57`, `ExternProc.cpp:345-360`). **La version Python n'a aucune borne** :
 `message.py:40-45` accepte n'importe quelle longueur sur 32 bits, donc jusqu'à 4 GiB de
 bufférisation dans `recv_buffer`. Le pair étant `calaos_server` lui-même sur un socket Unix
 local, l'exposition est faible — mais l'asymétrie est réelle et consignée dans
@@ -232,7 +237,7 @@ redémarrage »).
 ### Configuration
 
 Variables d'environnement, injectées par `ExternProcServer::startProcess()`
-(`ExternProc.cpp:260-265`) :
+(`ExternProc.cpp:265-268`) :
 
 | Variable | Valeur attendue | Défaut si absente/illisible |
 |---|---|---|
@@ -241,7 +246,7 @@ Variables d'environnement, injectées par `ExternProcServer::startProcess()`
 | `CALAOS_FORCE_COLOR` | exactement `"1"` | couleurs seulement si `stdout` est un tty |
 | `CALAOS_JOURNAL_PRIORITY` | exactement `"1"`, hors tty | pas de préfixe `<n>` ; ce mode retire les couleurs |
 
-Les niveaux Calaos sont traduits en niveaux `logging` Python (intégral, `logger.py:57-63`) :
+Les niveaux Calaos sont traduits en niveaux `logging` Python (intégral, `logger.py:78-84`) :
 
 ```python
 _CALAOS_TO_PYTHON_LEVEL = {
@@ -253,10 +258,10 @@ _CALAOS_TO_PYTHON_LEVEL = {
 }
 ```
 
-La valeur est **bornée à `[0, 4]`** avant traduction (`logger.py:66`). Chaque entrée de
+La valeur est **bornée à `[0, 4]`** avant traduction (`logger.py:87`). Chaque entrée de
 `CALAOS_LOG_DOMAINS` dont le niveau n'est pas un entier est **ignorée en silence**
-(`logger.py:111-119`), et le filtrage par domaine est appliqué sur le **handler**
-(`_DomainLevelFilter`, `logger.py:84-90`).
+(`logger.py:132-140`), et le filtrage par domaine est appliqué sur le **handler**
+(`_DomainLevelFilter`, `logger.py:105-111`).
 
 > ⚠️ La convention numérique n'est **pas** la même partout : le sidecar MCP traduit
 > `CALAOS_LOG_LEVEL` sur l'échelle **1–5** vers les noms uvicorn
@@ -266,7 +271,7 @@ La valeur est **bornée à `[0, 4]`** avant traduction (`logger.py:66`). Chaque 
 ### Utilisation
 
 ```python
-# (dérivé, logger.py:138-143, ExternProcRoon_main.py:3,90,133)
+# (dérivé, logger.py:159-164, ExternProcRoon_main.py:3,90,133)
 from calaos_extern_proc import configure_logger, cDebugDom, cInfoDom, cWarningDom, cErrorDom, cCriticalDom
 
 cDebugDom("reolink")("connexion à la caméra %s", hostname)
@@ -279,16 +284,16 @@ les arguments suivants sont donc ceux de `logging` (formatage `%s` paresseux, ou
 déjà résolue — les deux styles coexistent dans l'arbre).
 
 Format de sortie — `[NIVEAU] <domaine> (<fichier>:<ligne>) <message>`, avec couleur si le flux
-est un terminal (dérivé, `logger.py:39-52`) :
+est un terminal (dérivé, `logger.py:54-67`) :
 
 ```
-[DBG] reolink (ExternProcReolink_main.py:142) connexion à la caméra 192.168.1.50
+[DBG] reolink (ExternProcReolink_main.py:146) connexion à la caméra 192.168.1.50
 [INF] roon (ExternProcRoon_main.py:90) Using Roon server: 192.168.1.10:9330
 ```
 
 Le fichier et la ligne sont ceux de l'**appelant** (`record.pathname`/`record.lineno`), pas
 de `logger.py`. Les cinq marqueurs sont `[DBG] [INF] [WRN] [ERR] [CRI]`, et `[???]` pour un
-niveau inconnu (`logger.py:39-45`).
+niveau inconnu (`logger.py:54-60`).
 
 ---
 
@@ -444,6 +449,109 @@ apparaît **deux fois** dans l'alternation d'actions de `:183` (bénin).
 
 ---
 
+## Driver KLF 200 (Python)
+
+**Fichier :** [src/bin/calaos_server/IO/Klf200/ExternProcKlf200_main.py](../src/bin/calaos_server/IO/Klf200/ExternProcKlf200_main.py)
+
+Utilise la bibliothèque `pyvlx` (async, celle de l'intégration Home Assistant) pour parler à une ou
+plusieurs passerelles VELUX KLF 200. Côté serveur : `Klf200Ctrl` et les deux IOs de
+[02_io_drivers.md](02_io_drivers.md#driver-klf-200-velux).
+
+### Architecture interne
+
+- Boucle `ExternProcClient.run(200)` dans le thread principal (IPC)
+- Event loop `asyncio` dans un **thread séparé** ; les commandes traversent par
+  `run_coroutine_threadsafe()`, l'état revient par `send_message()` (verrou, thread-safe)
+- Une classe `Gateway` par `host` : session pyvlx, reconnexion avec backoff (5 s doublés jusqu'à
+  120 s), nœuds enregistrés, sondage pluie
+- Une tentative de connexion ratée ferme la session qu'elle a ouverte : `pyvlx.connect()` ouvre le
+  TLS **avant** de s'authentifier et ne le referme pas si une étape suivante échoue (mot de passe,
+  version, house monitor) ; sans ça chaque essai laissait un socket, et le KLF 200 n'accepte que
+  quelques sessions
+- Un seul chemin de reconnexion, `Gateway._run()` : le heartbeat de pyvlx reconnecterait aussi
+  (`send_frame()` → `ensure_connected()`), et `connected` reste faux pendant la poignée de main
+  TLS, donc les deux pouvaient ouvrir une session chacun (socket perdu, et un `connection_lost`
+  tardif fermait la session courante). Le heartbeat est arrêté à chaque fermeture de session
+  (`_on_connection_closed`) et après un essai raté ; `pyvlx.connect()` le relance à la session
+  suivante. pyvlx est épinglé (`pyvlx==0.2.36` dans les Dockerfile) parce que ce point dépend de
+  ses internes
+- Chien de garde : un pair muet (coupure de courant ou de Wi-Fi, ni FIN ni RST) laisse pyvlx
+  connecté jusqu'au timeout de retransmission TCP (~15 min) et son heartbeat avale les échecs.
+  `Gateway._watchdog()` envoie un `GetState` toutes les 45 s, **seulement** si la session est
+  ouverte (sinon `do_api_call()` reconnecterait), et coupe la session après 2 échecs : `_run()`
+  reconnecte, et les trames restées dans le transport sont jetées au lieu d'être rejouées
+- Après chaque (re)connexion, la pluie est relue tout de suite, sans attendre le prochain sondage
+- `unregister` retire un nœud ; une passerelle sans nœud ferme sa session après 30 s
+  (`IDLE_GATEWAY_CLOSE_DELAY`) sauf si un nœud revient avant (rechargement de configuration). Un
+  `register` avec un autre mot de passe rouvre la session si plus aucun nœud n'utilise l'ancien,
+  sinon il est ignoré avec un avertissement
+- Arrêt propre : SIGTERM (et SIGINT) ne fait que terminer la boucle `run()` ; `close()` tourne
+  ensuite, aussi quand `run()` rend la main parce que calaos_server a fermé le socket. Il arrête le
+  heartbeat, désactive le house monitor (sinon la session suivante échoue sur la poignée de main
+  TLS) et ferme la session **sans** `pyvlx.disconnect()`, qui redémarre la passerelle et la rend
+  indisponible deux minutes à chaque redémarrage de calaos
+- Le logger `pyvlx` ne descend jamais sous INFO : en DEBUG il trace chaque trame, y compris le
+  début du mot de passe (`FramePasswordEnterRequest`)
+
+### Arguments CLI
+
+```
+--socket / --namespace   IPC (obligatoires ensemble, via parse_known_args)
+--list --host H          liste les nœuds d'une passerelle puis quitte, sans IPC ; mot de
+                         passe dans $KLF200_PASSWORD ou demandé sur le terminal
+--rain-poll N            période du sondage pluie en secondes (défaut 300, minimum 10)
+```
+
+### Messages reçus de calaos_server
+
+Validés par `parse_command()`, fonction pure épinglée par
+[tests/python/test_klf200.py](../tests/python/test_klf200.py) ; tout message refusé est loggué en
+warning et ignoré, jamais levé (une exception tuerait la boucle IPC).
+
+```json
+{"action": "register", "host": "192.168.1.50", "password": "klf200123", "node_id": 3, "rain": false}
+{"action": "set_position", "host": "192.168.1.50", "node_id": 3, "position": 42}
+{"action": "stop", "host": "192.168.1.50", "node_id": 3}
+{"action": "unregister", "host": "192.168.1.50", "node_id": 3}
+```
+
+`rain` n'est vrai que pour le booléen JSON `true` (ou la chaîne `"true"`) : `bool("false")`
+vaudrait vrai.
+
+`position` est borné à 0–100 des deux côtés (`Klf200Wire::buildSetPositionMessage()` et
+`parse_command()`). Le log de réception **rédige** `password`.
+
+### Messages envoyés à calaos_server
+
+```json
+{"status": "connected"}
+{"status": "gateway", "host": "192.168.1.50", "connected": true}
+{"status": "error", "host": "192.168.1.50", "code": "node_not_found", "node_id": 3, "message": "..."}
+{"event": "node", "host": "192.168.1.50", "node_id": 3, "position": 42, "moving": "up", "node_type": "Window", "name": "Bureau", "rain_sensor": true}
+{"event": "rain", "host": "192.168.1.50", "node_id": 3, "rain": true}
+```
+
+`position` vaut `-1` tant que la passerelle n'a rien rapporté. `moving` vaut `up` (ouverture),
+`down` (fermeture) ou `stop`. L'événement `node` est envoyé à **chaque** `register` — y compris
+pour un nœud déjà enregistré par un autre IO, c'est ainsi qu'un IO créé pendant que le processus
+tourne apprend l'état — puis à chaque notification de la passerelle, et une fois par seconde pendant un déplacement (position interpolée
+par pyvlx).
+
+Les codes d'erreur sont un vocabulaire fermé, le même que `Klf200Wire::isKnownErrorCode()` :
+`gateway_connect_failed`, `gateway_not_connected` (commande reçue avant que la session soit
+établie), `node_not_found`, `node_unsupported`, `command_failed`. Le champ
+`message` (texte d'une exception pyvlx) n'est **pas** journalisé côté C++, seule sa taille l'est.
+
+### Pluie
+
+Voir [02_io_drivers.md](02_io_drivers.md#capteur-de-pluie) : limitation minimale ≥ 89 % lue par
+`get_limitation_min()`, sondée toutes les `--rain-poll` secondes pour les nœuds enregistrés avec
+`"rain": true`, un événement `rain` seulement quand la valeur change. Un `register` avec
+`"rain": true` oublie la dernière valeur publiée et relit la pluie aussitôt : un IO pluie recréé
+(rechargement de configuration) reçoit l'état courant même s'il n'a pas changé.
+
+---
+
 ## Variables d'environnement communes
 
 | Variable | Description |
@@ -456,7 +564,7 @@ apparaît **deux fois** dans l'alternation d'actions de `:183` (bénin).
 | `CALAOS_JOURNAL_PRIORITY` | `"1"` préfixe chaque ligne par sa priorité journald (`<n>`), hors tty |
 
 Ces variables sont injectées par `calaos_server` au lancement du sous-processus via
-`ExternProcServer::startProcess()` (`ExternProc.cpp:260-273`). Elles **remplacent**
+`ExternProcServer::startProcess()` (`ExternProc.cpp:265-276`). Elles **remplacent**
 l'environnement du sous-processus : seuls `PATH`, `HOME`, `LANG`, `LC_ALL`, `LANGUAGE`,
 `LD_LIBRARY_PATH` et `PWD` sont hérités en plus.
 
@@ -465,7 +573,7 @@ l'environnement du sous-processus : seuls `PATH`, `HOME`, `LANG`, `LC_ALL`, `LAN
 ## Tests
 
 Les suites Python sont **câblées dans `make check`** depuis T2.14, via
-[tests/run-python-tests.sh](../tests/run-python-tests.sh) (`tests/Makefile.am:26-35`). Le
+[tests/run-python-tests.sh](../tests/run-python-tests.sh) (`tests/Makefile.am:47-56`). Le
 script suit le protocole simple d'automake : `0` = PASS, `77` = SKIP (pas d'interpréteur
 utilisable — `make check` reste vert), `1` = FAIL. Sans `pytest`, il retombe sur
 `python3 -m unittest discover` pour les fichiers `test_t116_*.py`, qui ne demandent que la
@@ -480,6 +588,7 @@ installation** (`src/lib/calaos-python` et `src/bin/calaos_mcp/python`).
 | `test_logger.py` | niveaux, domaines, format (T1.8) |
 | `test_auth.py` | Bearer, rate-limit, ban, identité `X-Forwarded-For` (T1.8) |
 | `test_t116_mcp_client.py`, `test_t116_mcp_config_io.py`, `test_t116_roon.py` | robustesse client MCP et Roon (T1.16) |
+| `test_klf200.py` | grammaire des commandes, trame d'état, lecture pluie du driver KLF 200 |
 
 ---
 
@@ -495,4 +604,4 @@ installation** (`src/lib/calaos-python` et `src/bin/calaos_mcp/python`).
 5. Côté C++ : créer un `MonDriverCtrl` qui lance **le wrapper**, pas `python3` :
    `ExternProcServer::startProcess(Prefix::Instance().binDirectoryGet() + "/calaos_mondriver", "mondriver", args)`
 6. Sonder la dépendance Python tierce dans `configure.ac`, sur le modèle de `roonapi` /
-   `reolink_aio` (`configure.ac:194-213`)
+   `reolink_aio` (`configure.ac:206-226`)

@@ -22,7 +22,7 @@ Detailed technical documentation for each subsystem is in [`docs/`](docs/README.
 | [docs/11_config_persistence.md](docs/11_config_persistence.md) | local_config.xml, rules.xml, state cache |
 | [docs/12_extern_proc.md](docs/12_extern_proc.md) | ExternProc IPC framework (C++ subprocess drivers) |
 | [docs/13_utility_lib.md](docs/13_utility_lib.md) | Utils, Params, Timer, Logger, bundled libraries |
-| [docs/14_python_extern_proc.md](docs/14_python_extern_proc.md) | Python drivers: calaos_extern_proc lib, Reolink, Roon |
+| [docs/14_python_extern_proc.md](docs/14_python_extern_proc.md) | Python drivers: calaos_extern_proc lib, Reolink, Roon, KLF 200 |
 | [docs/15_mcp_server.md](docs/15_mcp_server.md) | MCP sidecar: calaos_mcp Python process, reverse proxy, tools, auth |
 | [docs/16_config_options.md](docs/16_config_options.md) | Reference of every `local_config.xml` option, **generated** by `calaos_config options --markdown`: never edit by hand |
 | [docs/17_device_templates.md](docs/17_device_templates.md) | Device templates for the installer wizard, `calaos_server --gentemplates` |
@@ -42,7 +42,7 @@ Other material under `docs/`, not part of the numbered reference:
 
 Calaos Server is a home automation daemon that controls lights, shutters, sensors, thermostats, music, cameras, and more through a JSON/WebSocket API. It reads configuration from three XML files and runs an event-driven loop based on libuv. It is the server of the Calaos suite; its clients (Calaos Home / calaos_mobile, calaos_installer, calaos_remote_ui panels, the web app) and the Calaos OS daemon it talks to (calaos-container) live in other repositories.
 
-The main binary is `calaos_server`. Several drivers run as **separate subprocesses** (C++ or Python) that communicate with the server over Unix sockets using the `ExternProc` IPC framework. Subprocess drivers: Wago (`calaos_wago`), KNX (`calaos_knx`), MQTT (`calaos_mqtt`), OneWire (`calaos_1wire`), OLA (`calaos_ola`), Lua scripts (`calaos_script`), Reolink (`calaos_reolink`, Python), Roon (`calaos_roon`, Python). KNX, MQTT and OLA are built only when their library is found, Reolink and Roon only when their Python module imports (see Key Dependencies).
+The main binary is `calaos_server`. Several drivers run as **separate subprocesses** (C++ or Python) that communicate with the server over Unix sockets using the `ExternProc` IPC framework. Subprocess drivers: Wago (`calaos_wago`), KNX (`calaos_knx`), MQTT (`calaos_mqtt`), OneWire (`calaos_1wire`), OLA (`calaos_ola`), Lua scripts (`calaos_script`), Reolink (`calaos_reolink`, Python), Roon (`calaos_roon`, Python), KLF 200 (`calaos_klf200`, Python). KNX, MQTT and OLA are built only when their library is found, Reolink, Roon and KLF 200 only when their Python module imports (see Key Dependencies).
 
 An additional Python subprocess, `calaos_mcp`, exposes the home to LLM clients (Claude Desktop, etc.) via the **Model Context Protocol**. Unlike the ExternProc drivers it does *not* use the binary IPC framing: it runs an MCPServer/uvicorn HTTP server on a Unix domain socket and is reverse-proxied through the `/mcp` path of the main HTTP port (5454). See [docs/15_mcp_server.md](docs/15_mcp_server.md).
 
@@ -135,6 +135,7 @@ REGISTER_IO_USERTYPE(WagoOutputLight, WODigital)   // XML type WagoOutputLight, 
 | `IO/OneWire/` | 1-Wire via owfs or the kernel w1 interface — ExternProc |
 | `IO/RemoteUI/` | IOs hosted on embedded RemoteUI devices |
 | `IO/Reolink/` | Reolink cameras — Python ExternProc |
+| `IO/Klf200/` | VELUX windows and shutters through a KLF 200 gateway — Python ExternProc (pyvlx) |
 | `IO/Web/` | HTTP-based IOs |
 
 `IO/` itself holds the protocol-independent types (inputs, outputs, shutters, timers, internal variables, `Scenario`, `InPlageHoraire`).
@@ -271,7 +272,7 @@ Adding a GoogleTest program: copy a recent block of `tests/Makefile.am` (`TESTS 
 | gtest (`gtest/gtest.h`) | the GoogleTest programs of `make check` |
 | `convert` (ImageMagick) | runtime tool of `calaos_picture` |
 
-**Python drivers** (installed separately; `configure` imports the module to decide): `reolink_aio` (Reolink), `roonapi` (Roon); `colorama` (logging of `calaos_extern_proc`)
+**Python drivers** (installed separately; `configure` imports the module to decide): `reolink_aio` (Reolink), `roonapi` (Roon), `pyvlx` (KLF 200); `colorama` (logging of `calaos_extern_proc`)
 
 **MCP sidecar** (enabled by default, disable with `./configure --without-mcp`; needs Python >= 3.11): its Python dependencies are declared in **`src/bin/calaos_mcp/pyproject.toml`, which is the single source of truth** — the Dockerfile, the devcontainer and CI all install from it, never from a hand-written list. Install them with:
 

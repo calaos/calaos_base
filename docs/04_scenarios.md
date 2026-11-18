@@ -22,7 +22,7 @@ Ce qui en découle, et qui commande tout le reste de ce document :
   est **réécrite** au chargement suivant depuis la définition ;
 - **une règle qui ne vient pas du générateur n'est jamais touchée.** Le commentaire posé à l'endroit
   exact où l'on serait tenté de remettre un balayage le dit mot pour mot
-  (dérivé, `ListeRoom.cpp:347-353`) ;
+  (dérivé, `ListeRoom.cpp:377-383`) ;
 - **aucun accesseur de lecture ne mute.** Lire un scénario deux fois rend deux fois la même chose
   (épinglé par `tests/core/AutoScenarioRules_test.cpp:700`,
   `ReadingAScenarioTwiceAnswersTheSameAndChangesNothing`).
@@ -86,7 +86,7 @@ l'invariant « jamais recyclé ».
 `rules.xml`. Un troisième fichier n'aurait pas supprimé le risque de perte, il l'aurait déplacé vers
 chaque outil et chaque procédure de sauvegarde qui l'aurait ignoré. Le serveur lui-même n'accepte au
 téléversement que ces deux fichiers plus `local_config.xml` — liste blanche en dur
-(dérivé, `JsonApiHandlerHttp.cpp:783-785`).
+(dérivé, `JsonApiHandlerHttp.cpp:1023-1025`).
 
 **Le porteur — des params, pas des nœuds enfants — est une mesure**, pas une préférence :
 `calaos_installer` régénère `io.xml` en entier à chaque sauvegarde et **réémet verbatim tous les
@@ -403,16 +403,16 @@ nomme quand même ce qui lui manque (dérivé, `AutoScenario.cpp:229-268`).
 
 `ListeRoom::refreshBrokenScenarios()` parcourt le cache de scénarios ; pour chacun qui est cassé
 **et pas déjà marqué**, elle pose `disabled_missing_io`, arrête proprement un scénario cassé en
-cours d'exécution, et émet un `EventScenarioChanged` (dérivé, `ListeRoom.cpp:603-637`).
+cours d'exécution, et émet un `EventScenarioChanged` (dérivé, `ListeRoom.cpp:634-685`).
 
 **Elle ne lève jamais le drapeau.** C'est le cœur de la décision : remettre l'IO ne suffit pas.
 
 Elle tourne à deux moments, et à deux moments seulement :
 - au démarrage, dans `checkAutoScenario()`, **après** que `rebuildRules()` a régénéré les règles et
   **avant** les deux `Save…()` qui persistent le drapeau — c'est la raison même de sa position,
-  aucun `Save` supplémentaire n'a été ajouté (dérivé, `ListeRoom.cpp:355-360`) ;
+  aucun `Save` supplémentaire n'a été ajouté (dérivé, `ListeRoom.cpp:385-390`) ;
 - après une suppression d'IO **réussie** et **seulement** en politique `Disable`
-  (dérivé, `ListeRoom.cpp:597-598`).
+  (dérivé, `ListeRoom.cpp:628-629`).
 
 `stopBrokenRun()` remet `ioIsActive=false`, `ioStep=-1` et arrête le timer — `ioIsActive` **en
 premier**, pour que l'écriture de `ioStep` juste après ne puisse rien relancer. Sans lui, un
@@ -426,7 +426,7 @@ et `button_start` (qui exige `ioIsActive == false`) ne peut plus le relancer
 Le drapeau est lu **dans le constructeur d'`AutoScenario`**, à côté de `cycle` et `disabled`
 (dérivé, `AutoScenario.cpp:54-56`, `:67`). C'est le seul point garanti **avant** tout
 `SaveConfigIO()` : `ListeRoom::checkAutoScenario()` se termine par un `SaveConfigIO()`
-(`ListeRoom.cpp:358-359`), donc un drapeau relu trop tard — ou pas relu du tout — serait **effacé du
+(`ListeRoom.cpp:388-388`), donc un drapeau relu trop tard — ou pas relu du tout — serait **effacé du
 disque au premier démarrage**, silencieusement et sans aucune action de l'utilisateur.
 
 `setDisabledMissingIo(false)` **supprime le paramètre** au lieu d'écrire `"false"`, pour qu'un
@@ -436,13 +436,13 @@ scénario sain produise **exactement l'`io.xml` qu'il a toujours produit**
 Ce drapeau n'est **pas** `disabled`. `disabled` est un choix utilisateur qui signifie « ne pas
 jouer ce scénario sur son horaire », il est exposé sous le nom **`enabled`** (sa négation) dans le
 payload et **réécrit par chaque `autoscenario modify`** (dérivé, `AutoScenario.h:93-94`,
-`AutoScenario.cpp:186-196`, `IO/Scenario.cpp:291`, `JsonApi.cpp:2541-2542`). Le réutiliser aurait laissé
+`AutoScenario.cpp:186-196`, `IO/Scenario.cpp:291`, `JsonApi.cpp:2705-2706`). Le réutiliser aurait laissé
 le premier `modify` de n'importe quel client relancer un scénario cassé.
 
 ### La réactivation manuelle : `autoscenario reenable`
 
-Disponible sur les **deux transports** (dérivé, `JsonApiHandlerWS.cpp:680-681`,
-`JsonApiHandlerHttp.cpp:1104-1105`).
+Disponible sur les **deux transports** (dérivé, `JsonApiHandlerWS.cpp:767-768`,
+`JsonApiHandlerHttp.cpp:1373-1374`).
 
 ```json
 { "msg": "autoscenario", "msg_id": "…", "data": { "type": "reenable", "id": "io_0" } }
@@ -450,7 +450,7 @@ Disponible sur les **deux transports** (dérivé, `JsonApiHandlerWS.cpp:680-681`
 (⚠️ en HTTP, `type` et `id` sont **à la racine** du document, pas sous `data` — voir
 « Pièges pour les clients » plus bas.)
 
-Trois issues (dérivé, `JsonApi.cpp:2630-2657`, `AutoScenario.cpp:293-327`) :
+Trois issues (dérivé, `JsonApi.cpp:2855-2882`, `AutoScenario.cpp:293-327`) :
 
 | Situation | Réponse |
 |---|---|
@@ -475,14 +475,14 @@ nom** quand il bascule, pour qu'on puisse le suivre d'un ticket à l'autre. Chac
 `✅ FLIPPED` juste au-dessus de son corps. **Ne pas déduire un comportement du nom d'un cas.**
 
 En cas de succès, le drapeau est levé, un `EventScenarioChanged` est émis, et **seul `io.xml`** est
-réécrit — aucune règle n'a été touchée (dérivé, `AutoScenario.cpp:318-325`, `JsonApi.cpp:2653-2655`).
+réécrit — aucune règle n'a été touchée (dérivé, `AutoScenario.cpp:318-325`, `JsonApi.cpp:2878-2880`).
 
 ### La règle d'étape n'est plus détruite
 
 `rules.xml` **conserve l'id mort verbatim**. La politique par défaut de `ListeRule::RemoveRule()` est
 `RuleDetachPolicy::Disable` — la règle est conservée, l'ordre d'évaluation est strictement préservé,
 et `ActionStd::SaveToXml()` réécrit la référence morte telle quelle
-(dérivé, `ListeRule.cpp:437-461`, `ActionStd.cpp:360-372`).
+(dérivé, `ListeRule.cpp:443-467`, `ActionStd.cpp:363-375`).
 
 ---
 
@@ -495,7 +495,7 @@ et `autoscenario list`, sur les deux transports.
 `modify`, et aucune clé lue n'est absente de `get`. Les clés **dérivées** (`category`, `broken`,
 `disabled_missing_io`, `missing_ios`, `schedule`, et `resolved` sur chaque action) sont **acceptées
 et ignorées** à l'écriture, ce qui est précisément ce qui garde l'aller-retour identitaire
-(dérivé, `IO/Scenario.cpp:280-284`, `JsonApi.cpp:179-280`).
+(dérivé, `IO/Scenario.cpp:280-284`, `JsonApi.cpp:221-322`).
 
 Payload complet d'un scénario sain
 (capturé, `tests/core/golden/e40c_ws_autoscenario_get.json`, **intégral**) :
@@ -639,7 +639,7 @@ dans deux états, et ces deux états sont ceux qui comptent.**
 (capturé, `tests/core/golden/e40c_ws_autoscenario_get.json`, `…_get_broken.json` et
 `…_get_repaired.json` pour les trois premières lignes, extraits ; les quatre états sont épinglés
 clé par clé par `tests/core/ScenarioDisabledMissingIo_test.cpp:916` et, à travers l'API,
-par `tests/core/JsonApiScenario_test.cpp:2090`)
+par `tests/core/JsonApiScenario_test.cpp:2033`)
 
 **La troisième ligne est la raison d'être de la décision.** `broken=false` avec le drapeau encore
 posé signifie « l'équipement est revenu, mais personne n'a encore confirmé que la séquence est de
@@ -665,44 +665,44 @@ troisième raison d'`isBroken()` — une de nos règles détruite par un tiers. 
 ### ⭐ L'aller-retour est une identité
 
 `get` → `modify` du **même document** → `get` rend **exactement le même document**, y compris sur un
-scénario cassé (épinglé par `tests/core/JsonApiScenario_test.cpp:2159`,
+scénario cassé (épinglé par `tests/core/JsonApiScenario_test.cpp:2172`,
 `AGetModifyGetRoundTripIsAnIdentityOnlyWhileNothingIsMissing` — nom d'avant la bascule, voir
 l'avertissement plus haut : **les deux moitiés sont des identités**, la saine comme la cassée).
 
 ⚠️ **La seule brèche connue** : un IO scénario qui n'appartient à **aucune** pièce est émis avec
 `room_name` et `room_type` vides, et ce document-là, renvoyé tel quel, est **refusé** — la pièce est
-obligatoire et vérifiée (dérivé, `JsonApi.cpp:192-199`). L'aller-retour est une identité pour tout
+obligatoire et vérifiée (dérivé, `JsonApi.cpp:234-241`). L'aller-retour est une identité pour tout
 scénario rangé dans une pièce, c'est-à-dire tous ceux que l'API sait créer.
 
 ### ⭐ Valider, puis muter
 
 `create` et `modify` refusent le document **avant de toucher quoi que ce soit**
-(dérivé, `JsonApi.cpp:179-280`, et la bannière de `JsonApi.cpp:2495-2498`). Le refus dit ce qui
+(dérivé, `JsonApi.cpp:221-322`, et la bannière de `JsonApi.cpp:2659-2662`). Le refus dit ce qui
 cloche, sous la forme `invalid payload: …` :
 
 | Refus | Site |
 |---|---|
-| le document n'est pas un objet | `JsonApi.cpp:181-185` |
-| pièce inconnue ou absente | `JsonApi.cpp:192-199` |
-| `steps` n'est pas un tableau | `JsonApi.cpp:205-209` |
-| une étape n'est pas un objet | `JsonApi.cpp:216-220` |
-| `step_id` invalide | `JsonApi.cpp:229-233` |
-| `step_id` en double | `JsonApi.cpp:241-245` |
-| `pause` qui n'est pas un nombre fini | `JsonApi.cpp:247-251`, `parseScenarioPause()` en `:121-135` |
-| `actions` qui n'est pas un tableau, ou une action qui n'est pas un objet | `JsonApi.cpp:142-155` |
-| une action qui ne nomme pas d'`io` | `JsonApi.cpp:158-163` |
-| `final_step` qui n'est pas un objet | `JsonApi.cpp:266-270` |
+| le document n'est pas un objet | `JsonApi.cpp:223-227` |
+| pièce inconnue ou absente | `JsonApi.cpp:234-241` |
+| `steps` n'est pas un tableau | `JsonApi.cpp:289-293` |
+| une étape n'est pas un objet | `JsonApi.cpp:258-262` |
+| `step_id` invalide | `JsonApi.cpp:271-275` |
+| `step_id` en double | `JsonApi.cpp:283-287` |
+| `pause` qui n'est pas un nombre fini | `JsonApi.cpp:289-293`, `parseScenarioPause()` en `:163-177` |
+| `actions` qui n'est pas un tableau, ou une action qui n'est pas un objet | `JsonApi.cpp:184-197` |
+| une action qui ne nomme pas d'`io` | `JsonApi.cpp:200-205` |
+| `final_step` qui n'est pas un objet | `JsonApi.cpp:308-312` |
 
 ⛔ **Un id qui ne résout pas n'est PAS un motif de refus.** Refuser rendrait un scénario cassé
 impossible à renommer, et jeter l'action effacerait la seule trace de ce qui manque
-(dérivé, `JsonApi.cpp:165-170`).
+(dérivé, `JsonApi.cpp:207-212`).
 
 ---
 
 ## Les sous-commandes `autoscenario`
 
-Huit, identiques sur les deux transports (dérivé, `JsonApiHandlerWS.cpp:661-684`,
-`JsonApiHandlerHttp.cpp:1085-1108`) :
+Huit, identiques sur les deux transports (dérivé, `JsonApiHandlerWS.cpp:748-771`,
+`JsonApiHandlerHttp.cpp:1354-1377`) :
 
 | `type` | Effet |
 |---|---|
@@ -719,12 +719,12 @@ Huit, identiques sur les deux transports (dérivé, `JsonApiHandlerWS.cpp:661-68
 
 Le message rejoint les sept autres commandes gardées (`set_param`, `del_param`, `audio_db`,
 `set_timerange`, `eventlog`, `register_push`, `settings`) : une session de portée **service**
-reçoit `{"error": "scope denied"}` (dérivé, `JsonApiHandlerWS.cpp:360-367`).
+reçoit `{"error": "scope denied"}` (dérivé, `JsonApiHandlerWS.cpp:428-439`).
 
 ⚠️ **Le filtre porte sur le MESSAGE, pas sur la sous-commande** : `list` et `get` sont donc refusés
 eux aussi, alors qu'ils ne font que lire. C'est délibéré — inventer une exception par sous-commande
 créerait une seconde grammaire d'autorisation pour un seul domaine, là où tout le reste de l'API se
-filtre au message. Épinglé par `tests/core/JsonApiScenario_test.cpp:858`
+filtre au message. Épinglé par `tests/core/JsonApiScenario_test.cpp:1159`
 (`SetTimerangeAndAutoscenarioAreBothScopeDenied`), avec `get_timerange`, resté ouvert, comme
 contraste.
 
@@ -735,12 +735,12 @@ identifiants administrateur.
 
 Un `type` inconnu, vide, absent, ou d'un type autre qu'une chaîne, répond
 `{"error": "unknown autoscenario type"}` sur les deux transports
-(dérivé, `JsonApiHandlerWS.cpp:682-683`, `JsonApiHandlerHttp.cpp:1106-1107`).
+(dérivé, `JsonApiHandlerWS.cpp:710-711`, `JsonApiHandlerHttp.cpp:1375-1376`).
 
 Côté HTTP, c'est **la réponse elle-même qui libère la socket** — `sendJson()` pose
 `Connection: Close`. Auparavant ce transport ne répondait rien **et** ne fermait rien : le client
 tenait la connexion jusqu'à son propre délai d'expiration (dérivé, le commentaire de
-`JsonApiHandlerHttp.cpp:1075-1083`).
+`JsonApiHandlerHttp.cpp:1344-1352`).
 
 ---
 
@@ -774,7 +774,7 @@ dans cette fenêtre écrirait dans un `Scenario` détruit (dérivé, `IO/Scenari
 parfaitement déclenchable : aucun `AutoScenario` n'est construit, les deux portes ne sont donc pas
 évaluées, et `set_value(true)` va droit à `EmitSignalIO()`
 (dérivé, `IO/Scenario.cpp:60-61`, `:210`, `:224-225`). Il est en revanche **invisible** de
-`autoscenario list` et `autoscenario get` (dérivé, `JsonApi.cpp:2379`, `:2389-2394`).
+`autoscenario list` et `autoscenario get` (dérivé, `JsonApi.cpp:2385`, `:2403-2408`).
 
 ---
 
@@ -928,13 +928,13 @@ premières des quatre plages du golden) :
 
 ⚠️ **`day` est numéroté de 1 à 7, lundi = 1, dimanche = 7** — et **pas** comme l'enum C++
 `TimeRange` (où `SUNDAY = 0`, `MONDAY = 1`, `SATURDAY = 6`, `TimeRange.h:58`). Le producteur émet
-`day + 1` sur un index 0 = lundi (dérivé, `JsonApi.cpp:2251-2262`, `TimeRange.cpp:432-436`) ; le
-consommateur relit `"1"` → lundi … `"7"` → dimanche (dérivé, `JsonApi.cpp:2328-2334`). **Toute
+`day + 1` sur un index 0 = lundi (dérivé, `JsonApi.cpp:2415-2426`, `TimeRange.cpp:432-436`) ; le
+consommateur relit `"1"` → lundi … `"7"` → dimanche (dérivé, `JsonApi.cpp:2492-2498`). **Toute
 table écrite depuis les noms de l'enum C++ sera fausse.**
 
 ⚠️ **L'ordre du tableau `ranges` est sémantique** : il est aplati sur les sept jours dans l'ordre
 lundi → dimanche, et la **position** d'une entrée porte donc son jour au même titre que sa clé
-`day` (dérivé, `JsonApi.cpp:2220-2227`, `:2251-2263`).
+`day` (dérivé, `JsonApi.cpp:2383-2390`, `:2415-2427`).
 
 En HTTP, le même objet sans enveloppe
 (capturé, `tests/core/golden/e40c_http_get_timerange.json`).
@@ -1012,11 +1012,11 @@ list<Scenario *> ListeRoom::getAutoScenarios();
 void ListeRoom::checkAutoScenario();      // au démarrage : régénère + détecte + sauvegarde
 void ListeRoom::refreshBrokenScenarios(); // T3.18 : pose le drapeau, ne le lève jamais
 ```
-(dérivé, `ListeRoom.h:169-172`, `:233`)
+(dérivé, `ListeRoom.h:186-189`, `:254`)
 
 `checkAutoScenario()` ne tourne **qu'une fois, au démarrage** (armé par
 `Timer::singleShot(0.1, …)`, `main.cpp:198`) et fait, dans cet ordre
-(dérivé, `ListeRoom.cpp:332-360`) :
+(dérivé, `ListeRoom.cpp:362-390`) :
 
 1. `reportAutoScenariosLostByUpload()` — **avant** que le générateur ne touche à quoi que ce soit,
    pour mesurer sur la configuration telle qu'elle a été chargée ;
@@ -1029,7 +1029,7 @@ void ListeRoom::refreshBrokenScenarios(); // T3.18 : pose le drapeau, ne le lèv
 > adoptée — et le `SaveConfigRule()` deux lignes plus bas persistait la destruction, au premier
 > démarrage, sans aucune action utilisateur. Il n'avait de sens que tant que les règles étaient
 > **adoptées** ; elles sont **régénérées**, donc une règle non revendiquée est la donnée de
-> quelqu'un, pas un déchet (dérivé, `ListeRoom.cpp:347-353`).
+> quelqu'un, pas un déchet (dérivé, `ListeRoom.cpp:377-383`).
 
 ### Défense en profondeur sur le chemin de téléversement
 
@@ -1040,11 +1040,11 @@ tous côté serveur :
 - **Niveau 0 — l'auto-réparation.** La définition n'est **pas** dans `rules.xml`, et les règles sont
   régénérées à chaque chargement : ce qu'un aller-retour ampute est **réécrit** au démarrage suivant.
 - **Niveau 1 — la sauvegarde avant écrasement.** Un `config put` appelle `BackupFiles()` **avant**
-  d'écrire le moindre fichier reçu (dérivé, `JsonApiHandlerHttp.cpp:768-771`).
+  d'écrire le moindre fichier reçu (dérivé, `JsonApiHandlerHttp.cpp:1008-1011`).
 - **Niveau 2 — l'alerte.** Au même instant, le serveur **enregistre** les scénarios qu'il s'apprête
   à écraser (uid, nom, nombre d'étapes) ; le démarrage suivant **consomme** cet enregistrement,
   compare, et lève **une** alerte de configuration nommant ce qui a disparu
-  (dérivé, `JsonApiHandlerHttp.cpp:773-779`, `ListeRoom.cpp:380-463`).
+  (dérivé, `JsonApiHandlerHttp.cpp:1013-1019`, `ListeRoom.cpp:411-494`).
   `config_restore` (docs/08) enregistre de la même façon avant de remplacer les fichiers.
 
 ⛔ **Rien n'est jamais refusé** : supprimer un scénario depuis l'installeur est légitime, et un
@@ -1053,13 +1053,13 @@ enfermerait l'utilisateur dans sa configuration précédente. **Le serveur signa
 
 ⛔ **L'enregistrement n'est PAS un troisième fichier de configuration.** C'est une miette que le
 serveur écrit pour lui-même sous `backups/`, **supprimée à la lecture**, et dont l'absence signifie
-simplement « aucun téléversement à expliquer » (dérivé, `ListeRoom.cpp:37-46`, `:424-428`).
+simplement « aucun téléversement à expliquer » (dérivé, `ListeRoom.cpp:40-49`, `:455-459`).
 Il **fallait** qu'elle traverse le redémarrage : un `config put` réussi arrête la boucle
 d'événements dès la réponse sortie, alors que le canal d'alerte est différé de 30 s — une alerte
 mise en file pendant le put est jetée à tous les coups
-(dérivé, `JsonApiHandlerHttp.cpp:773-778`, `CalaosConfig.cpp:41`, `:233`).
+(dérivé, `JsonApiHandlerHttp.cpp:1013-1018`, `CalaosConfig.cpp:42`, `:345`).
 
-Texte exact de l'alerte (dérivé, `ListeRoom.cpp:449-462`) :
+Texte exact de l'alerte (dérivé, `ListeRoom.cpp:480-493`) :
 
 ```
 The configuration that was uploaded no longer carries scenario data this server had:
@@ -1072,7 +1072,7 @@ The one that was in place before it was backed up first, under <config>/backups.
 ```
 
 Le **nom** d'abord, l'uid en repli : le nom est ce que l'utilisateur reconnaît, l'uid est ce que le
-modèle range (dérivé, `ListeRoom.cpp:482-488`).
+modèle range (dérivé, `ListeRoom.cpp:513-519`).
 
 ---
 
@@ -1098,7 +1098,7 @@ attributs d'un nœud `<calaos:rule>` sont chargés et réécrits tels quels
 `isAutoScenario()` a été supprimé : l'appartenance d'une règle à un scénario se lit **uniquement**
 dans ses params, par les deux index non-possédants de `ListeRule` — `getRuleAutoScenario()` (clé
 `auto_scenario`) et `getRulesOfScenarioUid()` (clé `autoscenario_uid`)
-(dérivé, `ListeRule.cpp:502-530`, `ListeRule.h:214-222`).
+(dérivé, `ListeRule.cpp:508-536`, `ListeRule.h:214-222`).
 
 ---
 
@@ -1109,18 +1109,18 @@ dans ses params, par les deux index non-possédants de `ListeRule` — `getRuleA
 1. ⛔ **`disabled` n'est plus lu, et son absence n'est pas neutre.** Un client qui envoie encore
    `{"disabled": "false"}` en croyant activer son scénario ne reçoit **aucune erreur** : la clé est
    ignorée, `enabled` est absent, et **`enabled` vaut `false` par défaut**. Le scénario est donc
-   créé — ou laissé — **désactivé**, en silence (dérivé, `JsonApi.cpp:114-117`, `:190`). C'est le
+   créé — ou laissé — **désactivé**, en silence (dérivé, `JsonApi.cpp:156-159`, `:232`). C'est le
    seul endroit où l'ancien nom échoue sans le dire.
 2. ⛔ **La pièce est obligatoire et vérifiée**, sur `create` comme sur `modify` : un `room_name` /
    `room_type` qui ne désigne aucune pièce fait répondre
-   `invalid payload: no room "…" of type "…"` (dérivé, `JsonApi.cpp:192-199`). Un `modify` partiel
+   `invalid payload: no room "…" of type "…"` (dérivé, `JsonApi.cpp:234-241`). Un `modify` partiel
    — renommer seulement — qui passait autrefois échoue désormais s'il ne nomme pas correctement la
    pièce. Corollaire : un scénario qui n'appartient à **aucune** pièce est émis avec les deux clés
    vides et son propre payload est alors **refusé** au renvoi.
 3. **Les arguments ne sont pas au même endroit selon le transport** : sous `data` en WebSocket,
    **à la racine** en HTTP — et l'argument ainsi déplacé est le `type` lui-même, c'est-à-dire le
-   sélecteur de sous-commande (dérivé, `JsonApiHandlerWS.cpp:663` vs
-   `JsonApiHandlerHttp.cpp:1087`). Une requête HTTP construite comme une requête WebSocket répond
+   sélecteur de sous-commande (dérivé, `JsonApiHandlerWS.cpp:617` vs
+   `JsonApiHandlerHttp.cpp:1082`). Une requête HTTP construite comme une requête WebSocket répond
    désormais `unknown autoscenario type` au lieu de ne rien répondre.
 4. **`list` et `get` sont refusés aux sessions de portée service**, alors qu'ils ne font que lire :
    le contrôle de portée porte sur le message entier (voir plus haut).
@@ -1128,7 +1128,7 @@ dans ses params, par les deux index non-possédants de `ListeRule` — `getRuleA
    action dont l'IO manque ; seul `missing_ios` dit ce qui manque.
 6. **`step_id` est opaque.** Il est stable et jamais réutilisé, mais rien de sa forme n'est un
    contrat. Un `step_id` renvoyé par le client est accepté s'il respecte `[A-Za-z0-9_]`, refusé s'il
-   est en double, et **alloué par le serveur** s'il est absent (dérivé, `JsonApi.cpp:223-245`).
+   est en double, et **alloué par le serveur** s'il est absent (dérivé, `JsonApi.cpp:265-287`).
 7. **Poser `disabled_missing_io` à la main sur un scénario sain n'a pas d'effet immédiat.** Le
    booléen en mémoire n'est pas touché : le scénario **continue de tourner** jusqu'au prochain
    redémarrage, où il se retrouve désactivé (dérivé, `AutoScenario.cpp:67` — le param n'est relu

@@ -63,7 +63,7 @@ Messages framés sur un socket Unix. Le contrat est écrit dans l'en-tête
 ```
 
 - **En-tête : 5 octets exactement** — `1` octet d'opcode + `4` octets de longueur
-  big-endian (`ExternProc.cpp:322-334` en lecture, `:398-413` en écriture).
+  big-endian (`ExternProc.cpp:325-337` en lecture, `:401-416` en écriture).
 - **Il n'y a pas d'octet de début de trame.** L'opcode est le premier octet du flux.
 - `OPCODE` : `TypeMessage = 0x21`. `TypeUnkown = 0x00` existe dans l'enum
   (`ExternProc.h:71-75`) mais n'est jamais émis : c'est la valeur de repos après `clear()`.
@@ -74,7 +74,7 @@ Messages framés sur un socket Unix. Le contrat est écrit dans l'en-tête
 
 ### Ce que fait le parseur devant une trame invalide
 
-Deux cas, et ils ne se traitent pas pareil (`ExternProc.cpp:336-357`) :
+Deux cas, et ils ne se traitent pas pareil (`ExternProc.cpp:339-360`) :
 
 - **Opcode inconnu** : la trame est marquée non valide, les 5 octets d'en-tête sont
   consommés, et la machine à états **repart en lecture d'en-tête** sur les octets suivants.
@@ -82,7 +82,7 @@ Deux cas, et ils ne se traitent pas pareil (`ExternProc.cpp:336-357`) :
 - **Longueur annoncée > 4 MiB** : un pair cassé ou hostile pourrait annoncer jusqu'à 4 GiB
   et faire buffériser d'autant. Le message est logué en erreur, `hasError()` passe à `true`,
   le tampon est vidé — et l'appelant **ferme la connexion** au lieu de continuer
-  (`ExternProc.cpp:169-177` côté serveur, `:511-518` côté client).
+  (`ExternProc.cpp:169-177` côté serveur, `:515-522` côté client).
 
 ---
 
@@ -150,13 +150,13 @@ Les deux sites de `kill()` de cette classe portent désormais la garde (intégra
 ```
 
 La même garde est portée par `ExternProcServer::terminate()` (`ExternProc.cpp:123-126`) et
-par `McpServerManager::stop()` (`McpServerManager.cpp:163-170`, cf.
+par `McpServerManager::stop()` (`McpServerManager.cpp:187-194`, cf.
 [15_mcp_server.md](15_mcp_server.md)). **Tout nouveau site qui appelle `kill()` sur un
 `uvw::ProcessHandle` doit reprendre cette garde.**
 
 ### Variables d'environnement injectées dans le sous-processus
 
-(dérivé, `ExternProc.cpp:252-273`)
+(dérivé, `ExternProc.cpp:252-276`)
 
 | Variable | Valeur |
 |---|---|
@@ -175,7 +175,7 @@ sous-processus.
 > ⚠️ `CALAOS_CONFIG_PATH` vaut ici `Utils::getConfigPath()`, qui **ignore `--config`** et
 > re-dérive le chemin depuis `$HOME`. Un sous-processus lancé avec un `--config` explicite
 > lit donc potentiellement le mauvais répertoire. Le sidecar MCP contourne le problème
-> autrement (`McpServerManager.cpp:238-245`).
+> autrement (`McpServerManager.cpp:262-269`).
 
 **stdout et stderr** du sous-processus sont capturés sur deux pipes séparés, découpés en
 lignes et réémis par le logger du serveur comme lignes de debug du domaine `process`
@@ -195,7 +195,7 @@ texte et le reporte en tête de la ligne réémise : une erreur du pilote, une f
 À utiliser dans le `main()` du sous-processus driver.
 
 ```cpp
-// (dérivé, ExternProc.h:125-172, ExternProc.cpp:415-441)
+// (dérivé, ExternProc.h:125-172, ExternProc.cpp:418-444)
 class MonDriverProcess : public ExternProcClient
 {
 public:
@@ -228,17 +228,17 @@ EXTERN_PROC_CLIENT_MAIN(MonDriverProcess)
 
 **Le constructeur ne connecte pas le socket.** Il se contente de lire `--socket` et
 `--namespace` dans `argv`, puis d'initialiser le logger sous le nom du namespace
-(`ExternProc.cpp:415-435`). C'est `setup()` qui doit appeler `connectSocket()` — tous les
+(`ExternProc.cpp:418-438`). C'est `setup()` qui doit appeler `connectSocket()` — tous les
 drivers de l'arbre le font en première instruction.
 
 ⚠️ Le constructeur consomme les options en faisant `argc -= 2; argv += 2;` **sans vérifier
-leur position** (`ExternProc.cpp:419-430`) : le contrat est que `--socket` et `--namespace`
+leur position** (`ExternProc.cpp:422-433`) : le contrat est que `--socket` et `--namespace`
 soient les **deux premières** options, dans cet ordre, ce que `startProcess()` garantit. Un
 driver qui recevrait ses propres options avant celles-là verrait `argc`/`argv` corrompus.
 `--namespace` absent fait retomber le nom sur `"extern_process"`.
 
 **`connectSocket()` refuse un chemin trop long** pour `sun_path` au lieu de le tronquer
-silencieusement et de se connecter ailleurs (`ExternProc.cpp:453-460`).
+silencieusement et de se connecter ailleurs (`ExternProc.cpp:456-463`).
 
 `sockfd` est initialisé à `-1` et non à `0`, pour qu'une destruction avant
 `connectSocket()` ne referme pas un descripteur arbitraire (`ExternProc.h:163-165`).
@@ -246,7 +246,7 @@ silencieusement et de se connecter ailleurs (`ExternProc.cpp:453-460`).
 ### Boucle principale
 
 `run(timeoutms)` est un `select()` sur le socket IPC plus les FD ajoutés par `appendFd()`
-(`ExternProc.cpp:523-573`). Trois façons d'en sortir : `select()` renvoie une erreur,
+(`ExternProc.cpp:527-577`). Trois façons d'en sortir : `select()` renvoie une erreur,
 `processSocketRecv()` échoue (pair fermé, ou erreur de framing), ou `handleFdSet()` renvoie
 `false`.
 
@@ -286,26 +286,26 @@ Le protocole MQTT est **volontairement minimal**, et il n'a **ni action ni type*
 
 **Paramètres de connexion au broker** — ils ne passent **pas** par une trame IPC. Ils sont
 sérialisés en JSON et donnés au sous-processus comme **unique argument de ligne de commande**
-(dérivé, `MqttCtrl.cpp:29-41`) :
+(dérivé, `MqttCtrl.cpp:30-42`) :
 
 ```json
 {"host": "192.168.1.5", "port": "1883", "keepalive": "120", "user": "admin", "password": "secret"}
 ```
 
 `user`/`password` ne sont ajoutés que si **les deux** existent dans la configuration de l'IO
-(`MqttCtrl.cpp:35-39`). Le sous-processus exige exactement `argc == 2` après consommation de
+(`MqttCtrl.cpp:36-40`). Le sous-processus exige exactement `argc == 2` après consommation de
 `--socket`/`--namespace` et refuse de démarrer sinon
 (`MqttExternProc_main.cpp:251-255`).
 
 **Serveur → sous-processus** — publier, et rien d'autre
-(dérivé, `MqttCtrl.cpp:107-117` ; consommé par `MqttExternProc_main.cpp:213-231`) :
+(dérivé, `MqttCtrl.cpp:169-179` ; consommé par `MqttExternProc_main.cpp:213-231`) :
 
 ```json
 {"topic": "commandes/lumiere", "payload": "1"}
 ```
 
 **Sous-processus → serveur** — un message reçu du broker
-(dérivé, `MqttExternProc_main.cpp:312-322` ; consommé par `MqttCtrl.cpp:50-83`) :
+(dérivé, `MqttExternProc_main.cpp:312-322` ; consommé par `MqttCtrl.cpp:51-92`) :
 
 ```json
 {"topic": "capteurs/temp", "payload": "21.5"}
@@ -314,8 +314,8 @@ sérialisés en JSON et donnés au sous-processus comme **unique argument de lig
 **Il n'existe pas de message d'abonnement.** Le sous-processus s'abonne à `#` — c'est-à-dire
 à **tout le broker** — dès la connexion (`MqttExternProc_main.cpp:136,153`), et c'est le
 serveur qui filtre : `MqttCtrl::subscribeTopic()` enregistre des callbacks côté serveur
-(`MqttCtrl.cpp:92-105`) et `topicMatchesSubscription()` fait le tri à la réception
-(`MqttCtrl.cpp:69-80`).
+(`MqttCtrl.cpp:103-153`) et `topicMatchesSubscription()` fait le tri à la réception
+(`MqttCtrl.cpp:83-89`).
 
 Les payloads non-UTF8 ne sont plus supprimés en silence : `payloadToJsonString()` remplace
 les octets invalides par `?` et délivre le message (note de version « MQTT »).
@@ -329,10 +329,10 @@ même partout** — c'est mesuré, pas déduit :
 
 | Contrôleur | Politique de respawn sur `processExited` |
 |---|---|
-| `MqttCtrl` (`:43-48`) | relance **immédiate**, sans délai |
-| `KNXCtrl` (`:36-41`, `:48-53`) | relance **immédiate**, sur les deux processus |
-| `OLACtrl` (`:31-36`) | relance **immédiate** |
-| `OwCtrl` (`:33-38`) | relance **immédiate** |
+| `MqttCtrl` (`:44-49`) | relance **immédiate**, sans délai |
+| `KNXCtrl` (`:37-42`, `:49-54`) | relance **immédiate**, sur les deux processus |
+| `OLACtrl` (`:32-37`) | relance **immédiate** |
+| `OwCtrl` (`:34-39`) | relance **immédiate** |
 | `ReolinkCtrl` (`:37-43`) | relance **immédiate**, après purge des caméras enregistrées |
 | `RoonCtrl` (`Audio/RoonPlayer.cpp:39-44`) | relance **immédiate** |
 | `ScriptExec` (`:116-135`) | **aucun** respawn : le handler nettoie et rend la main au script appelant |
@@ -349,7 +349,7 @@ de spawn. Seul Wago s'en protège.
 
 Le Wago est la pièce maîtresse de l'installation : le processus est relancé **pour toujours**,
 avec une rampe courte et un **plafond bas à 5 s** pour que la reprise soit rapide dès que
-l'automate ou le réseau revient (intégral, `WagoMap.h:253-265`) :
+l'automate ou le réseau revient (intégral, `WagoMap.h:261-273`) :
 
 ```cpp
     //Backoff delay in seconds before respawning the subprocess. The Wago is
@@ -365,7 +365,7 @@ l'automate ou le réseau revient (intégral, `WagoMap.h:253-265`) :
 Soit **1 s, 2 s, 3 s, puis 5 s pour toujours**. Le compteur d'échecs est remis à zéro dès que
 `processConnected` est émis (`WagoMap.cpp:110-114`). Toutes les `RESPAWN_LOG_EVERY = 10`
 tentatives, une erreur nomme le binaire et l'automate visé
-(`WagoMap.h:249-251`, `WagoMap.cpp:165-168`). Une seule relance est armée à la fois
+(`WagoMap.h:257-259`, `WagoMap.cpp:165-168`). Une seule relance est armée à la fois
 (`WagoMap.cpp:157-158`).
 
 ---
@@ -375,7 +375,7 @@ tentatives, une erreur nomme le binaire et l'automate visé
 `ExternProcClient` permet d'ajouter des descripteurs à la boucle `select()` :
 
 ```cpp
-// (dérivé, ExternProc.h:147,152-154 ; ExternProc.cpp:539-543,560-570,586-597)
+// (dérivé, ExternProc.h:147,152-154 ; ExternProc.cpp:543-547,560-570,586-597)
 appendFd(socket_fd);    // surveille ce FD
 removeFd(socket_fd);
 

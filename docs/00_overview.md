@@ -14,8 +14,8 @@ Il expose un système d'automatisation basé sur des **règles** (conditions →
 WebSocket) à ses clients UI.
 
 Le binaire principal est `calaos_server`. Des sous-processus sont lancés pour de nombreux drivers
-via le framework `ExternProc` — MQTT, KNX, Wago, OneWire, OLA (C++), Reolink et Roon (Python),
-scripts Lua (dérivé, [src/bin/calaos_server/Makefile.am:358-466](../src/bin/calaos_server/Makefile.am)).
+via le framework `ExternProc` — MQTT, KNX, Wago, OneWire, OLA (C++), Reolink, Roon et KLF 200 (Python),
+scripts Lua (dérivé, [src/bin/calaos_server/Makefile.am:420-559](../src/bin/calaos_server/Makefile.am)).
 Un sous-processus Python supplémentaire, `calaos_mcp`, expose l'installation aux LLM via le Model
 Context Protocol (voir [15_mcp_server.md](15_mcp_server.md)).
 
@@ -40,6 +40,7 @@ src/
         OneWire/           # Bus 1-Wire (via owfs)
         RemoteUI/          # IOs pour appareils embarqués RemoteUI
         Reolink/           # Caméras Reolink
+        Klf200/             # Fenêtres et volets VELUX via passerelle KLF 200
         Wago/              # Automates Wago (Modbus TCP), + libmbus/ vendorisé
         Web/               # IOs HTTP/Web
       IPCam/               # Caméras IP
@@ -74,7 +75,7 @@ src/
 | Config & Persistence | Chargement/sauvegarde XML, cache d'état | [11_config_persistence.md](11_config_persistence.md) |
 | ExternProc IPC | Framework sous-processus (MQTT, KNX) | [12_extern_proc.md](12_extern_proc.md) |
 | Utility Library | Utils, Params, Timer, Logger… | [13_utility_lib.md](13_utility_lib.md) |
-| ExternProc Python | Côté Python du framework (Reolink, Roon) | [14_python_extern_proc.md](14_python_extern_proc.md) |
+| ExternProc Python | Côté Python du framework (Reolink, Roon, KLF 200) | [14_python_extern_proc.md](14_python_extern_proc.md) |
 | MCP Server | Sidecar calaos_mcp (contrôle par LLM) | [15_mcp_server.md](15_mcp_server.md) |
 | Options de config | Registre des options de `local_config.xml` | [16_config_options.md](16_config_options.md) |
 
@@ -106,7 +107,7 @@ main()
                                 // lire une valeur au démarrage s'y ajoute et se décompte ;
                                 // quand le compteur retombe à 0, StartReadRules::ioRead()
                                 // appelle ListeRule::ExecuteStartRules()
-                                // (dérivé, Calaos.cpp:81-91)
+                                // (dérivé, Calaos.cpp:54-64)
   → Timer(0.1, ListeRule::RunEventLoop)  // scrutation des IOs à événement, 10 Hz
   → Timer::singleShot(0.1, ListeRoom::checkAutoScenario)
   → uvw event loop              // boucle libuv principale
@@ -160,16 +161,16 @@ Modbus TCP du driver Wago (port 502 par défaut, dérivé,
   non vide fait un id valide, et les ids réels viennent de `calaos_installer`. Le serveur
   n'en génère lui-même que dans un seul cas — un IO créé par l'API JSON sans id reçoit
   `io_<n>`, le premier entier libre (dérivé,
-  [ListeRoom.cpp:493](../src/bin/calaos_server/ListeRoom.cpp) et
-  [Calaos.cpp:30-43](../src/bin/calaos_server/Calaos.cpp)).
+  [ListeRoom.cpp:497](../src/bin/calaos_server/ListeRoom.cpp) et
+  [Calaos.cpp:30-44](../src/bin/calaos_server/Calaos.cpp)).
 - L'id est **immuable** après construction : `set_param("id")` refuse et journalise, seul
   `IOBase::renameId()` change l'id *et* la clé de la table de hachage
-  (dérivé, [IOBase.cpp:82-107](../src/bin/calaos_server/IOBase.cpp)).
+  (dérivé, [IOBase.cpp:83-107](../src/bin/calaos_server/IOBase.cpp)).
 - Les paramètres d'un IO sont stockés dans un objet `Params` (map string→string).
 - La configuration est cherchée dans cet ordre : `$HOME/.config/calaos/`, puis `/etc/calaos`,
   puis `<prefix>/etc/calaos` ; si aucun n'a d'`io.xml`, `$HOME/.config/calaos/` est créé.
   La variable d'environnement `CALAOS_CONFIG` (ou l'option `--config`) court-circuite cette
-  recherche (dérivé, [src/lib/ConfigStore.cpp:58, 86-137, 165-181](../src/lib/ConfigStore.cpp)).
+  recherche (dérivé, [src/lib/ConfigStore.cpp:60, 86-137, 165-181](../src/lib/ConfigStore.cpp)).
 - Les fichiers de config : `io.xml` (IOs), `rules.xml` (règles), `local_config.xml` (paramètres
   serveur). Le cache d'état et la base d'historique vivent à part, dans `$HOME/.cache/calaos/`.
   Voir [11_config_persistence.md](11_config_persistence.md).

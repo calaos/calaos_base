@@ -164,6 +164,9 @@
 ./src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.cpp
 ./src/bin/calaos_server/IO/Reolink/ReolinkInputSwitch.h
 ./src/bin/calaos_server/IO/ProxyClimate.cpp
+./src/bin/calaos_server/IO/Klf200/Klf200Ctrl.cpp
+./src/bin/calaos_server/IO/Klf200/Klf200InputSwitch.cpp
+./src/bin/calaos_server/IO/Klf200/Klf200OutputShutterSmart.cpp
 ./src/bin/calaos_server/IO/Scenario.cpp
 ./src/bin/calaos_server/IO/Scenario.h
 ./src/bin/calaos_server/IO/ThinIo.h

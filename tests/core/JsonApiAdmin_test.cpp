@@ -526,7 +526,7 @@ protected:
         AdminState::Instance().observeUnreachable();
         AdminState::Instance().loadFlag();
         AdminState::Instance().resetAlertPushes(AdminState::AlertPushInterval);
-        JsonApi::resetVersionsCache();
+        JsonApi::resetRelayCache();
         Utils::set_config_frozen(false);
         drainLoop(10);
     }
@@ -543,7 +543,7 @@ protected:
     void TearDown() override
     {
         drainLoop(30);
-        JsonApi::resetVersionsCache();
+        JsonApi::resetRelayCache();
         Utils::set_config_frozen(false);
     }
 
@@ -1696,7 +1696,7 @@ TEST_F(JsonApiAdminTest, RescueStatusAnswersWhileTheAdminIsNotDefinedAndRelaysDa
     ASSERT_TRUE(ws.login("https"));
     EXPECT_EQ("true", str(ws.admin("admin", { { "action", "rescue_status" } }), "success"));
 
-    JsonApi::resetVersionsCache();
+    JsonApi::resetRelayCache();
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
         if (req.path != "/api/v2/system/rescue")
@@ -1714,7 +1714,7 @@ TEST_F(JsonApiAdminTest, RescueStatusAlwaysAnswersBooleans)
     ASSERT_TRUE(ws.login("https"));
     for (const Json &data: { Json::object(), Json{ { "rescue", "yes" }, { "overlay", 1 } } })
     {
-        JsonApi::resetVersionsCache();
+        JsonApi::resetRelayCache();
         fakeDaemon.setOverride([data](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                                {
             if (req.path != "/api/v2/system/rescue")
@@ -1731,7 +1731,7 @@ TEST_F(JsonApiAdminTest, RescueStatusPipelinedMessagesShareOneDaemonCall)
 {
     WsClient ws;
     ASSERT_TRUE(ws.login("https"));
-    JsonApi::resetVersionsCache();
+    JsonApi::resetRelayCache();
     fakeDaemon.clearLog();
     fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                            {
@@ -1752,6 +1752,93 @@ TEST_F(JsonApiAdminTest, RescueStatusPipelinedMessagesShareOneDaemonCall)
 
     //Still cached afterwards
     ws.admin("admin", { { "action", "rescue_status" } });
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, RescueStatusKeepsTheAnswerForAMinuteAndAnErrorBriefly)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    double now = 1000;
+    JsonApi::resetRelayCache([&now]()
+                             {
+        return now;
+    });
+    fakeDaemon.clearLog();
+    bool answers = true;
+    fakeDaemon.setOverride([&answers](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/rescue")
+            return false;
+        if (answers)
+            res.body = FakeDaemon::ok({ { "rescue", false }, { "overlay", false }, { "snapshot", nullptr } });
+        else
+        {
+            res.status = 503;
+            res.body = FakeDaemon::err("rescue_unavailable");
+        }
+        return true;
+    });
+    auto rescue = [&ws]()
+    {
+        return ws.admin("admin", { { "action", "rescue_status" } });
+    };
+
+    EXPECT_EQ("true", str(rescue(), "success"));
+    now += 59;
+    rescue();
+    EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
+    now += 2;
+    rescue();
+    EXPECT_EQ(2u, fakeDaemon.requests().size()) << requestPaths();
+
+    //An error is forgotten within seconds
+    answers = false;
+    now += 61;
+    expectError(rescue(), "rescue_unavailable");
+    EXPECT_EQ(3u, fakeDaemon.requests().size()) << requestPaths();
+    now += 2;
+    expectError(rescue(), "rescue_unavailable");
+    EXPECT_EQ(3u, fakeDaemon.requests().size()) << requestPaths();
+    answers = true;
+    now += 2;
+    EXPECT_EQ("true", str(rescue(), "success"));
+    EXPECT_EQ(4u, fakeDaemon.requests().size()) << requestPaths();
+}
+
+TEST_F(JsonApiAdminTest, RescueStatusQueueIsBounded)
+{
+    WsClient ws;
+    ASSERT_TRUE(ws.login("https"));
+    JsonApi::resetRelayCache();
+    fakeDaemon.clearLog();
+    fakeDaemon.setOverride([](const FakeDaemon::Request &req, FakeDaemon::Response &res)
+                           {
+        if (req.path != "/api/v2/system/rescue")
+            return false;
+        res.delayMs = 1000;
+        res.body = FakeDaemon::ok({ { "rescue", false }, { "overlay", false }, { "snapshot", nullptr } });
+        return true;
+    });
+
+    const Json msg{ { "msg", "admin" }, { "msg_id", "a" }, { "data", { { "action", "rescue_status" } } } };
+    const int n = 300;
+    for (int i = 0; i < n; i++)
+        ws.post(msg);
+    int served = 0, refused = 0;
+    for (int i = 0; i < n; i++)
+    {
+        const Json data = ws.next()["data"];
+        if (str(data, "success") == "true")
+            served++;
+        else
+        {
+            EXPECT_EQ("admin_unavailable", str(data, "error")) << data.dump();
+            refused++;
+        }
+    }
+    EXPECT_EQ(256, served);
+    EXPECT_EQ(n - 256, refused);
     EXPECT_EQ(1u, fakeDaemon.requests().size()) << requestPaths();
 }
 
@@ -1962,7 +2049,7 @@ TEST_F(JsonApiAdminTest, VersionsWithDataThatIsNotAnObjectIsInternal)
 
     for (const char *body: { "{\"error\":false,\"msg\":\"ok\",\"data\":[]}", "{\"error\":false,\"msg\":\"ok\"}" })
     {
-        JsonApi::resetVersionsCache();
+        JsonApi::resetRelayCache();
         fakeDaemon.setOverride([body](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                                {
             if (req.path != "/api/v2/system/versions")
@@ -2007,8 +2094,8 @@ TEST_F(JsonApiAdminTest, VersionsKeepsTheContainerAnswerForAMinuteAndAnErrorBrie
     WsClient ws;
     ASSERT_TRUE(ws.login("https"));
     double now = 1000;
-    JsonApi::resetVersionsCache([&now]()
-                                {
+    JsonApi::resetRelayCache([&now]()
+                             {
         return now;
     });
     fakeDaemon.clearLog();
@@ -2047,7 +2134,7 @@ TEST_F(JsonApiAdminTest, VersionsPipelinedMessagesShareOneDaemonCall)
 
     for (const bool answers: { true, false })
     {
-        JsonApi::resetVersionsCache();
+        JsonApi::resetRelayCache();
         fakeDaemon.clearLog();
         fakeDaemon.setOverride([answers](const FakeDaemon::Request &req, FakeDaemon::Response &res)
                                {
