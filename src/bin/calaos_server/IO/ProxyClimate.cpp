@@ -258,7 +258,7 @@ void ProxyClimate::resolveLinks()
                     return;
                 programMode = now;
                 applyProgram();
-            });
+                });
         //Drivers are not ready during the load; the appliance's bounds may come later.
         ioAlive.singleShot(0, [this]()
                            {
