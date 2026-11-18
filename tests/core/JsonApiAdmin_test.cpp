@@ -6217,7 +6217,8 @@ TEST_F(JsonApiAdminTest, ConfigSetWritesAfterABackupAndLogsNoValue)
     ASSERT_EQ(1u, added.size());
     const std::string copy = fileText(added[0]);
     EXPECT_NE(std::string::npos, copy.find("name=\"smtp_port\" value=\"25\"")) << copy;
-    EXPECT_EQ(std::string::npos, copy.find("2525")) << copy;
+    //Not a bare "2525": the random mcp_token in the same file contains it about once in 1000 runs
+    EXPECT_EQ(std::string::npos, copy.find("name=\"smtp_port\" value=\"2525\"")) << copy;
 
     const std::string line = std::string("Admin config set smtp_port by 127.0.0.1 (session ") + kAuditId + ")";
     const size_t at = log.find(line);
