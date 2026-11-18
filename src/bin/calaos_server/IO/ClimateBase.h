@@ -71,6 +71,8 @@ public:
     static constexpr const char *DEFAULT_TEMP_UNIT = "°C";
 
     static const vector<ClimateMode> &allModes();
+    //Documents the program params; the derived constructors call it.
+    void documentProgram();
     static string modeName(ClimateMode mode);
     static bool parseMode(const string &name, ClimateMode &mode);
     static string actionName(ClimateAction action);

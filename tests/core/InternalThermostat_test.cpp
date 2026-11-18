@@ -215,7 +215,7 @@ std::string fullThermostat(const std::string &id, bool cool, const std::string &
     return thermostatXml(id, inner + params) + roomIo("InternalInt", id + "_temp");
 }
 
-const std::vector<std::string> THERMOSTATS = { "allp", "wide", "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
+const std::vector<std::string> THERMOSTATS = { "allp", "prog", "wide", "th", "rev", "lock", "lag", "bare", "dangling", "taken", "novalue", "nosp", "nosensor", "coolonly", "refuse", "badparams", "safe", "slow", "fight", "duo_a", "duo_b", "both", "same", "duel", "tiny", "zero", "short", "guard", "safefight" };
 
 std::string house()
 {
@@ -227,6 +227,11 @@ std::string house()
                               paramXml("sensor_timeout", "3600") + paramXml("emitter", "radiator") +
                               paramXml("humidity_max", "70") + paramXml("valid_min", "-20") +
                               paramXml("valid_max", "60") + paramXml("modes", "off,heat,cool,auto"));
+    //The program params live apart from allp: its levels would write setpoints under the other asserts.
+    ios += fullThermostat("prog", true,
+                          paramXml("heat_levels", "1") + paramXml("cool_levels", "1") +
+                              paramXml("heat_default_setpoint", "17") + paramXml("cool_default_setpoint", "26") +
+                              paramXml("cool_default_off", "false") + paramXml("program_min_gap", "2"));
     ios += fullThermostat("wide", true, paramXml("hysteresis", "2"));
     ios += fullThermostat("th", false, paramXml("hysteresis", "0.5"));
     ios += fullThermostat("rev", true, paramXml("hysteresis", "0.5") + paramXml("min_range", "2"));
@@ -1964,11 +1969,17 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
                                                 "min_off_time", "put_back_delay",
                                                 "put_back_delay_max", "sensor_timeout",
                                                 "emitter", "humidity_max", "valid_min",
-                                                "valid_max", "modes" };
+                                                "valid_max", "modes",
+                                                "heat_levels", "cool_levels",
+                                                "heat_default_setpoint",
+                                                "cool_default_setpoint",
+                                                "program_min_gap", "cool_default_off" };
     const std::set<std::string> askedWhenUsed = { "min_range" };
 
     load();
-    const std::set<std::string> loadReads = dev("allp")->takeParamReads();
+    std::set<std::string> loadReads = dev("allp")->takeParamReads();
+    const std::set<std::string> programReads = dev("prog")->takeParamReads();
+    loadReads.insert(programReads.begin(), programReads.end());
     //Taking clears: what follows is what the commands below ask for.
     EXPECT_TRUE(dev("allp")->takeParamReads().empty());
 
@@ -2003,7 +2014,7 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
     std::set<std::string> docNames;
     for (const Json &p: doc.at("parameters"))
         docNames.insert(p.at("name").get<std::string>());
-    for (const std::set<std::string> *reads: { &loadReads, &usedReads })
+    for (const std::set<std::string> *reads: std::initializer_list<const std::set<std::string> *> { &loadReads, &usedReads })
     {
         for (const std::string &name: *reads)
             EXPECT_TRUE(docNames.count(name) || checkedNotHonoured.count(name))

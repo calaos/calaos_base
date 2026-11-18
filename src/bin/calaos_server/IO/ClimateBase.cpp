@@ -698,6 +698,37 @@ uint64_t ClimateBase::lockoutWait(bool on, bool forced, const std::optional<uint
     return until > now ? until - now : 0;
 }
 
+void ClimateBase::documentProgram()
+{
+    static_assert(MAX_PROGRAM_LEVELS == 6, "the levels descriptions below say 6");
+    ioDoc->paramAdd("heat_levels",
+                    _("Number of schedule levels of the heating program, 0 for no program, at most 6 (more is "
+                      "capped, an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
+                      "own setpoint io. The program IOs (heat_default, and a range and a setpoint per level) are "
+                      "created hidden at load when missing, and removed when this param no longer asks for them."),
+                    IODoc::TYPE_INT, false, "0", false, _("Heating program levels"));
+    ioDoc->paramAdd("cool_levels",
+                    _("Number of schedule levels of the cooling program, 0 for no program, at most 6 (more is "
+                      "capped, an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
+                      "own setpoint io. The program IOs (cool_default, cool_default_off, and a range and a setpoint "
+                      "per level) are created hidden at load when missing, and removed when this param no longer "
+                      "asks for them."),
+                    IODoc::TYPE_INT, false, "0", false, _("Cooling program levels"));
+    ioDoc->paramAdd("heat_default_setpoint", _("Heating setpoint outside the levels of the program."),
+                    IODoc::TYPE_FLOAT, false, "17", false, _("Default heating setpoint"));
+    ioDoc->paramAdd("cool_default_setpoint", _("Cooling setpoint outside the levels of the program."),
+                    IODoc::TYPE_FLOAT, false, "26", false, _("Default cooling setpoint"));
+    ioDoc->paramAdd("cool_default_off",
+                    _("Outside the levels of the program, cooling stops instead of keeping a setpoint."),
+                    IODoc::TYPE_BOOL, false, "false", false, _("Cooling off by default"));
+    ioDoc->paramAdd("program_min_gap",
+                    _("Smallest gap between the low and the high setpoint the program writes in auto."),
+                    IODoc::TYPE_FLOAT, false, "2", false, _("Auto minimum gap"));
+    for (const char *name: { "heat_levels", "cool_levels", "heat_default_setpoint", "cool_default_setpoint",
+                             "cool_default_off", "program_min_gap" })
+        ioDoc->paramInChild(name);
+}
+
 int ClimateBase::levelsParam(const string &set, ClimateMode mode)
 {
     const string name = set + "_levels";
@@ -1156,10 +1187,19 @@ Json ClimateBase::programNextChange(const string &modeSet)
             programLevelAt(set, t, level);
             if (level == before)
                 continue;
-            //Heat wins a tie: it is first in `sets`.
-            if (bestAt == 0 || t < bestAt)
+            //The range ends one second before the instant it flips (end bound included);
+            //the contract reports the end as written. A start is reported as is.
+            bool started = false;
+            if (level > 0)
             {
-                bestAt = t;
+                auto *r = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, level)));
+                started = r && !r->isActiveAt(t - 1);
+            }
+            const time_t reported = started ? t : t - 1;
+            //Heat wins a tie: it is first in `sets`.
+            if (bestAt == 0 || reported < bestAt)
+            {
+                bestAt = reported;
                 bestSet = set;
                 bestLevel = level;
             }

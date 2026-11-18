@@ -985,9 +985,9 @@ public:
     bool blind = false;
 
 protected:
-    bool currentMode(ClimateMode &mode) override
+    bool currentMode(ClimateMode &out) override
     {
-        return !blind && InternalThermostat::currentMode(mode);
+        return !blind && InternalThermostat::currentMode(out);
     }
 };
 
@@ -1250,7 +1250,7 @@ TEST_F(ClimateProgramStateTest, TheNextChangeIsTheStartOfALaterRange)
     EXPECT_EQ(when, hourAt(2));
 }
 
-TEST_F(ClimateProgramStateTest, ARangeOverMidnightEndsOneSecondAfterItsEnd)
+TEST_F(ClimateProgramStateTest, ARangeOverMidnightReportsItsEndAsWritten)
 {
     load();
     ASSERT_TRUE(mode("prog", "heat"));
@@ -1266,7 +1266,7 @@ TEST_F(ClimateProgramStateTest, ARangeOverMidnightEndsOneSecondAfterItsEnd)
     const Json next = program().at("next_change");
     ASSERT_TRUE(next.is_object()) << program().dump();
     EXPECT_TRUE(next.at("level").is_null());
-    EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(23, 1));
+    EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(23));
 }
 
 TEST_F(ClimateProgramStateTest, ALowerLevelRangeHiddenByAHigherOneChangesNothing)
@@ -1294,6 +1294,38 @@ TEST_F(ClimateProgramStateTest, ALevelPriorityChangeIsTheNextChange)
     EXPECT_EQ(next.at("level"), 1);
     EXPECT_EQ(next.at("setpoint").get<double>(), 23);
     EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(2));
+}
+
+TEST_F(ClimateProgramStateTest, TheNextChangeIsRepublishedAfterARangeEditWithoutALevelChange)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    everyDay("prog_heat_level1", (hourNow() + 2) % 24, (hourNow() + 2) % 24, 59);
+    pumpFor(300);
+
+    std::vector<Json> seen;
+    sigc::connection c = EventManager::Instance().newEvent.connect(
+        [&seen](const CalaosEvent &ev)
+        {
+            const Json j = ev.toJson();
+            if (ev.getType() == CalaosEvent::EventIOChanged && j.at("data").value("id", "") == "prog" &&
+                j.at("data").contains("device"))
+                seen.push_back(j.at("data").at("device").at("state").at("program"));
+        });
+
+    //What set_timerange does: the edit, then the owner's notification. The
+    //range stays inactive, so the level itself does not change.
+    everyDay("prog_heat_level1", (hourNow() + 3) % 24, (hourNow() + 3) % 24, 59);
+    IOChangeHub::Instance().notify("prog_heat_level1");
+    ASSERT_TRUE(pumpUntil([&]()
+                          {
+        return !seen.empty();
+    }));
+    c.disconnect();
+
+    const Json next = seen.back().at("next_change");
+    ASSERT_TRUE(next.is_object()) << seen.back().dump();
+    EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(3));
 }
 
 TEST_F(ClimateProgramStateTest, ADisabledProgramHasNoNextChange)

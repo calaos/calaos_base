@@ -525,3 +525,35 @@ TEST_F(ProxyClimateProgramTest, EmulatedAutoWritesTheEmulatedPair)
     EXPECT_EQ(high->get_value_double(), 26);
     EXPECT_TRUE(writesTo("pe_target").empty());
 }
+
+TEST_F(ProxyClimateProgramTest, TheStateCarriesTheProgram)
+{
+    mode("pg", "heat");
+    setLevel("pg_heat_level1_setpoint", 21);
+    activate("pg_heat_level1");
+
+    const Json dev = ListeRoom::Instance().findIOAs<ProxyClimate>("pg")->deviceObject();
+    EXPECT_EQ(dev.at("capabilities").at("program").at("heat_levels"), 2);
+    EXPECT_EQ(dev.at("capabilities").at("program").at("cool_levels"), 1);
+    const Json &p = dev.at("state").at("program");
+    EXPECT_TRUE(p.at("enabled").get<bool>());
+    EXPECT_EQ(p.at("mode_set"), "heat");
+    EXPECT_EQ(p.at("heat").at("levels"), 2);
+    EXPECT_EQ(p.at("heat").at("active_level").get<int>(), 1);
+    EXPECT_EQ(p.at("heat").at("setpoint").get<double>(), 21);
+    EXPECT_EQ(p.at("cool").at("levels"), 1);
+    EXPECT_TRUE(p.at("cool").at("active_level").is_null());
+    EXPECT_TRUE(p.contains("next_change"));
+}
+
+TEST_F(ProxyClimateProgramTest, AModeCommandWithAnActiveProgramUnderEmulation)
+{
+    mode("pe", "heat");
+    ASSERT_EQ(lastNumber("pe_target"), 17);
+    writes().clear();
+
+    ASSERT_TRUE(io("pe")->set_value(std::string(R"({"mode":"auto"})")));
+    pumpFor(20);
+    //The emulated range is driven by the program: never a single setpoint.
+    EXPECT_TRUE(writesTo("pe_target").empty());
+}

@@ -140,6 +140,7 @@ InternalThermostat::InternalThermostat(Params &p):
         ioDoc->paramInChild(name);
 
     const string owner = _(" An output belongs to a single thermostat: a second one linking it ignores the link.");
+    documentProgram();
     ioDoc->linkRoleAdd("current_temp", _("Current temperature"),
                        _("Temperature the regulation reads. The outputs stay off until it has "
                          "delivered a reading since the start (a cached or retained value does "
@@ -191,6 +192,8 @@ InternalThermostat::~InternalThermostat()
 
 void InternalThermostat::resolveLinks()
 {
+    //Replayed on a reload: the old subscriptions would fire every evaluation twice.
+    triggers.clear();
     hysteresis = nonNegativeParam("hysteresis", DEFAULT_HYSTERESIS);
     floorCooling = getDeviceParam("emitter") == "floor";
     humidityMax = nonNegativeParam("humidity_max", DEFAULT_HUMIDITY_MAX);
