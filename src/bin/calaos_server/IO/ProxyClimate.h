@@ -80,6 +80,8 @@ protected:
     bool applyCommand(const Json &command) override;
     //target_temp is refused while auto drives the unit from the range.
     bool applyCommandField(const string &field, const Json &value, string &reason) override;
+    //A mode commanded by Calaos waits for the appliance's report, unless the emulation decides it.
+    void applyProgram() override;
 
 private:
     using Clock = std::chrono::steady_clock;
@@ -96,8 +98,13 @@ private:
     void startRemoteTemp();
     void relayRemoteTemp();
     void logUnknownMode(const string &raw);
+    void warnAutoWithoutRange();
     //The mode seen by the last program trigger.
     std::optional<ClimateMode> programMode;
+    //The mode of the command being applied, when it comes from Calaos.
+    std::optional<ClimateMode> modeCommanded;
+    //Warned once: auto asked of an appliance without a low/high pair.
+    bool autoRangeWarned = false;
     IOChangeHub::Subscription modeSubscription;
 
     //The appliance's own spelling of auto: "auto" or "heat_cool".

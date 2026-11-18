@@ -559,7 +559,44 @@ bool ProxyClimate::applyCommandField(const string &field, const Json &value, str
         reason = "auto drives target_temp from target_temp_low and target_temp_high";
         return false;
     }
-    return ClimateBase::applyCommandField(field, value, reason);
+    if (field == "mode" && value.is_string())
+    {
+        ClimateMode mode;
+        if (parseMode(value.get<string>(), mode))
+            modeCommanded = mode;
+    }
+    const bool ok = ClimateBase::applyCommandField(field, value, reason);
+    modeCommanded.reset();
+    return ok;
+}
+
+void ProxyClimate::applyProgram()
+{
+    if (modeCommanded && !emu.active)
+    {
+        //currentMode() still reads the previous report: the echo applies the program.
+        ClimateMode reported;
+        if (!unitMode(reported) || reported != *modeCommanded)
+        {
+            programMode.reset();
+            return;
+        }
+        programMode = reported;
+    }
+    warnAutoWithoutRange();
+    ClimateBase::applyProgram();
+}
+
+void ProxyClimate::warnAutoWithoutRange()
+{
+    ClimateMode mode;
+    if (autoRangeWarned || !currentMode(mode) || mode != ClimateMode::Auto || emu.active ||
+        (linkIo(LOW) && linkIo(HIGH) && isWritable(LOW) && isWritable(HIGH)) ||
+        (programLevels("heat") + programLevels("cool") == 0))
+        return;
+    autoRangeWarned = true;
+    cWarningDom("device") << "Device(" << get_param("id") << "): the program is not applied in auto, "
+                          << "the appliance has no writable low and high setpoints";
 }
 
 /* {"mode":"auto","target_temp_low":18} must not start the unit against the

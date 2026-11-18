@@ -3374,13 +3374,16 @@ msgid "Heating program levels"
 msgstr "Niveaux du programme de chauffage"
 
 msgid "Number of schedule levels of the heating program, 0 for no program."
-msgstr "Nombre de niveaux du programme horaire de chauffage, 0 pour aucun programme."
+msgstr ""
+"Nombre de niveaux du programme horaire de chauffage, 0 pour aucun programme."
 
 msgid "Cooling program levels"
 msgstr "Niveaux du programme de climatisation"
 
 msgid "Number of schedule levels of the cooling program, 0 for no program."
-msgstr "Nombre de niveaux du programme horaire de climatisation, 0 pour aucun programme."
+msgstr ""
+"Nombre de niveaux du programme horaire de climatisation, 0 pour aucun "
+"programme."
 
 msgid "Default heating setpoint"
 msgstr "Consigne de chauffage par défaut"
@@ -3389,19 +3392,27 @@ msgid "Heating setpoint outside the levels of the program."
 msgstr "Consigne de chauffage hors des niveaux du programme."
 
 msgid "Default cooling setpoint"
-msgstr "Consigne de froid par défaut"
+msgstr "Consigne de climatisation par défaut"
 
 msgid "Cooling setpoint outside the levels of the program."
-msgstr "Consigne de froid hors des niveaux du programme."
+msgstr "Consigne de climatisation hors des niveaux du programme."
 
 msgid "Cooling off by default"
-msgstr "Froid arrêté par défaut"
+msgstr "Climatisation arrêtée par défaut"
 
-msgid "Outside the levels of the program, cooling stops instead of keeping a setpoint."
-msgstr "Hors des niveaux du programme, le froid s'arrête au lieu de garder une consigne."
+msgid ""
+"Outside the levels of the program, cooling stops instead of keeping a "
+"setpoint."
+msgstr ""
+"Hors des niveaux du programme, la climatisation s'arrête au lieu de garder "
+"une consigne."
 
 msgid "Auto minimum gap"
 msgstr "Écart minimal en auto"
 
-msgid "Smallest gap between the low and the high setpoint the program writes in auto."
-msgstr "Plus petit écart entre la consigne basse et la haute que le programme écrit en auto."
+msgid ""
+"Smallest gap between the low and the high setpoint the program writes in "
+"auto."
+msgstr ""
+"Plus petit écart entre la consigne basse et la haute que le programme écrit "
+"en auto."

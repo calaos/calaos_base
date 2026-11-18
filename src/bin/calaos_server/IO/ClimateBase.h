@@ -207,7 +207,7 @@ protected:
      * `off` for the cool default "arrêt". False without levels or IO. */
     bool programSetpoint(const string &set, double &value, bool &off);
     //Writes the setpoint of the current mode, if the program runs.
-    void applyProgram();
+    virtual void applyProgram();
 
 private:
     int levelsParam(const string &set, ClimateMode mode);

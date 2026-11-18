@@ -507,6 +507,8 @@ un programme natif : pas d'exclusion.
     dans `capabilities`), la paire n'est pas écrite et le refus est journalisé.
   - Comme pour `applyRange`, la paire n'est pas écrite si l'une des deux bornes n'a jamais
     été reçue (proxy qui n'a pas encore publié) : le prochain déclencheur réessaie.
+  - Un appareil en `auto` sans paire `target_temp_low`/`target_temp_high` inscriptible (sans
+    émulation) : le programme n'écrit rien et le journal le dit une seule fois.
 - **Mode `auto` sur un seul jeu.** Si seul `heat_levels` > 0, le programme écrit `low` ; la borne
   haute n'est modifiée que pour respecter l'écart. Symétrique pour `cool_levels` seul.
 

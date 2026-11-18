@@ -382,7 +382,7 @@ TEST_F(ProxyClimateProgramTest, AutoWritesTheLowHighPair)
     mode("pg", "heat_cool");
     ASSERT_EQ(writesTo("pg_low_cmd").size(), 1u);
     ASSERT_EQ(writesTo("pg_high_cmd").size(), 1u);
-    EXPECT_EQ(lastNumber("pg_low_cmd"), 17 < 16 ? 16 : 17);
+    EXPECT_EQ(lastNumber("pg_low_cmd"), 17);
     EXPECT_EQ(lastNumber("pg_high_cmd"), 26);
     EXPECT_TRUE(writesTo("pg_target").empty());
 }
@@ -394,7 +394,7 @@ TEST_F(ProxyClimateProgramTest, AutoKeepsTheGap)
     setLevel("pg_heat_level1_setpoint", 25);
     activate("pg_heat_level1");
     EXPECT_EQ(lastNumber("pg_low_cmd"), 25);
-    EXPECT_GE(lastNumber("pg_high_cmd") - lastNumber("pg_low_cmd"), 2);
+    EXPECT_EQ(lastNumber("pg_high_cmd"), 27);
 }
 
 TEST_F(ProxyClimateProgramTest, AutoWaitsForTheBoundsOfTheAppliance)
@@ -414,6 +414,7 @@ TEST_F(ProxyClimateProgramTest, AutoWithoutAPairWritesNothing)
     mode("ps", "heat_cool");
     activate("ps_heat_level1");
     EXPECT_TRUE(writesTo("ps_target").empty());
+    EXPECT_TRUE(writesTo("ps_mode_cmd").empty());
 }
 
 TEST_F(ProxyClimateProgramTest, DisabledProgramWritesNothing)
@@ -464,7 +465,45 @@ TEST_F(ProxyClimateProgramTest, AWriteFromTheApplianceDoesNotDisableTheProgram)
     //The next level change applies the program again.
     activate("pg_heat_level2");
     activate("pg_heat_level1", false);
-    EXPECT_NE(lastNumber("pg_target"), 23.5);
+    EXPECT_EQ(lastNumber("pg_target"), 17);
+    activate("pg_heat_level1");
+    EXPECT_EQ(lastNumber("pg_target"), 21);
+}
+
+TEST_F(ProxyClimateProgramTest, TheFirstReportedModeAppliesTheProgram)
+{
+    //programMode is still empty: a first report is a change.
+    mode("pg", "cool");
+    ASSERT_EQ(writesTo("pg_target").size(), 1u);
+    EXPECT_EQ(lastNumber("pg_target"), 26);
+}
+
+TEST_F(ProxyClimateProgramTest, AModeCommandedByCalaosWritesOnlyTheNewModeSetpoint)
+{
+    mode("pg", "heat");
+    ASSERT_EQ(lastNumber("pg_target"), 17);
+    writes().clear();
+
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"cool"})")));
+    pumpFor(5);
+    EXPECT_EQ(writesTo("pg_mode_cmd").back().text, "cool");
+    EXPECT_TRUE(writesTo("pg_target").empty());
+
+    mode("pg", "cool");
+    ASSERT_EQ(writesTo("pg_target").size(), 1u);
+    EXPECT_EQ(lastNumber("pg_target"), 26);
+
+    //Heat to auto: the pair, never a single setpoint.
+    publishPair("pg", 18, 24);
+    writes().clear();
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"auto"})")));
+    pumpFor(5);
+    EXPECT_TRUE(writesTo("pg_target").empty());
+    EXPECT_TRUE(writesTo("pg_low_cmd").empty());
+    mode("pg", "heat_cool");
+    EXPECT_EQ(writesTo("pg_low_cmd").size(), 1u);
+    EXPECT_EQ(writesTo("pg_high_cmd").size(), 1u);
+    EXPECT_TRUE(writesTo("pg_target").empty());
 }
 
 TEST_F(ProxyClimateProgramTest, EmulatedAutoWritesTheEmulatedPair)
