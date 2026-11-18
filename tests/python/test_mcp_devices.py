@@ -3,6 +3,7 @@
 # set_io_state description is rendered from IODoc.
 import asyncio
 import copy
+import glob
 import json
 import os
 import sys
@@ -438,9 +439,13 @@ def test_a_device_without_json_format_is_not_documented(iodoc_file):
 
 def test_the_real_iodoc_is_rendered_and_its_example_accepted(monkeypatch):
     # make check points CALAOS_IODOC_PATH at what calaos_server --gendoc wrote.
-    path = os.environ.get(iodoc.ENV_PATH) or os.path.join(
-        os.path.dirname(__file__), "..", "..", "src", "bin", "calaos_mcp",
-        "io_doc.json")
+    # Run outside make check (bin/test of one suite), only the build tree of the
+    # worktree holds the generated file.
+    root = os.path.join(os.path.dirname(__file__), "..", "..")
+    tail = os.path.join("src", "bin", "calaos_mcp", "io_doc.json")
+    path = os.environ.get(iodoc.ENV_PATH) or next(
+        iter(sorted(glob.glob(os.path.join(root, "build-*", tail)))
+             + [os.path.join(root, tail)]))
     assert os.path.exists(path), "build first: make writes src/bin/calaos_mcp/io_doc.json"
     monkeypatch.setenv(iodoc.ENV_PATH, path)
     devices = iodoc.load_devices()
