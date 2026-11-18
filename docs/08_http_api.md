@@ -2701,7 +2701,8 @@ docs/17.
     complète, donc toute plage hebdomadaire ; un créneau solaire est évalué à sa date réelle.
   - `at` est l'instant du changement : le début de la plage qui devient active, ou la fin de
     la plage telle qu'elle est écrite (`22:30:00` pour une plage jusqu'à 22:30), pas la seconde
-    suivante.
+    suivante. Exception : quand un changement de mois coupe une plage qui passe minuit, `at`
+    est `00:00:00` du premier jour du nouveau mois.
   - Format : `at` est une chaîne ISO 8601 avec décalage, en heure locale du serveur
     (`2026-11-17T22:30:00+01:00`) : sans ambiguïté au changement d'heure et lisible sans
     fuseau.

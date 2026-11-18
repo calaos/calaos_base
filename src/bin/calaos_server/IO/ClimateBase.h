@@ -102,6 +102,9 @@ public:
     using LoopClock = uint64_t (*)();
     static void setLoopClock(LoopClock clock);
 
+    //The next level change of the set(s) of `modeSet` after `now`; null when none within 7 days.
+    Json programNextChange(const string &modeSet, time_t now);
+
 protected:
     ClimateBase(Params &p);
 
@@ -222,8 +225,7 @@ private:
     //The pair applyProgramRange() writes; false when it would not write one.
     bool programRangePair(double &low, double &high, bool quiet);
     Json programState();
-    Json programNextChange(const string &modeSet);
-    bool programLevelAt(const string &set, time_t t, int &level);
+    int programLevelAt(const string &set, time_t t);
 
     //Both bounds linked and writable.
     bool rangeAvailable();

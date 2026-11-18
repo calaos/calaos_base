@@ -445,7 +445,8 @@ ajoutés aux templates par CP-BASE-LEVELS (thermostats) et CP-BASE-PROXY (`espho
   manquants, plages vides, consigne = valeur courante du `_default` du jeu.
   À 0 niveau pour un jeu, son `_default` est supprimé, ainsi que `cool_default_off` pour le
   jeu froid. À 0 niveau au total (chaud et froid), `program_enabled` est supprimé aussi. Cela
-  vaut à chaque chargement de la configuration, y compris après un changement de params.
+  s'applique au chargement de la configuration ; un changement de params prend effet au
+  rechargement suivant.
 
 ### Application
 

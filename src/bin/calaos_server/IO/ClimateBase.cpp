@@ -1132,26 +1132,22 @@ Json ClimateBase::programState()
         program[set] = j;
     }
 
-    program["next_change"] = enabled ? programNextChange(modeSet) : Json(nullptr);
+    program["next_change"] = enabled ? programNextChange(modeSet, time(nullptr)) : Json(nullptr);
     return program;
 }
 
-bool ClimateBase::programLevelAt(const string &set, time_t t, int &level)
+int ClimateBase::programLevelAt(const string &set, time_t t)
 {
-    level = 0;
     for (int n = 1; n <= programLevels(set); n++)
     {
         auto *range = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, n)));
         if (range && range->isActiveAt(t))
-        {
-            level = n;
-            return true;
-        }
+            return n;
     }
-    return true;
+    return 0;
 }
 
-Json ClimateBase::programNextChange(const string &modeSet)
+Json ClimateBase::programNextChange(const string &modeSet, time_t now)
 {
     vector<string> sets;
     if (modeSet == "auto")
@@ -1159,7 +1155,6 @@ Json ClimateBase::programNextChange(const string &modeSet)
     else if (!modeSet.empty())
         sets = { modeSet };
 
-    const time_t now = time(nullptr);
     const time_t horizon = now + 7 * 24 * 3600;
     time_t bestAt = 0;
     string bestSet;
@@ -1179,23 +1174,28 @@ Json ClimateBase::programNextChange(const string &modeSet)
         std::sort(instants.begin(), instants.end());
         instants.erase(std::unique(instants.begin(), instants.end()), instants.end());
 
-        int before = 0;
-        programLevelAt(set, now, before);
+        const int before = programLevelAt(set, now);
         for (time_t t: instants)
         {
-            int level = 0;
-            programLevelAt(set, t, level);
+            const int level = programLevelAt(set, t);
             if (level == before)
                 continue;
             //The range ends one second before the instant it flips (end bound included);
-            //the contract reports the end as written. A start is reported as is.
-            bool started = false;
+            //the contract reports the end as written. A start is reported as is, and so
+            //is a cut by a month change: that one happens at 00:00:00, not the second before.
+            bool atInstant = false;
             if (level > 0)
             {
                 auto *r = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, level)));
-                started = r && !r->isActiveAt(t - 1);
+                atInstant = r && !r->isActiveAt(t - 1);
             }
-            const time_t reported = started ? t : t - 1;
+            const int prev = programLevelAt(set, t - 1);
+            if (!atInstant && prev > 0)
+            {
+                auto *r = dynamic_cast<InPlageHoraire *>(linkIo(levelRole(set, prev)));
+                atInstant = r && r->isActiveAt(t, true) && !r->isActiveAt(t);
+            }
+            const time_t reported = atInstant ? t : t - 1;
             //Heat wins a tie: it is first in `sets`.
             if (bestAt == 0 || reported < bestAt)
             {

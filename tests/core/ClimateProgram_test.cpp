@@ -1189,6 +1189,17 @@ protected:
         r->hasChanged();
     }
 
+    int startHour = 0;
+
+    void SetUp() override
+    {
+        ClimateProgramTest::SetUp();
+        startHour = hourNow();
+    }
+
+    //The expected instants are built from the hour of the start; skip when the run crossed it.
+    bool hourRolled() const { return hourNow() != startHour; }
+
     static int hourNow()
     {
         time_t t = time(nullptr);
@@ -1265,6 +1276,8 @@ TEST_F(ClimateProgramStateTest, ARangeOverMidnightReportsItsEndAsWritten)
     const Json next = program().at("next_change");
     ASSERT_TRUE(next.is_object()) << program().dump();
     EXPECT_TRUE(next.at("level").is_null());
+    if (hourRolled())
+        GTEST_SKIP() << "the hour changed during the test";
     EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(23));
 }
 
@@ -1281,6 +1294,8 @@ TEST_F(ClimateProgramStateTest, AnInvalidRangeIsSkippedWhenLookingForTheNextChan
 
     const Json next = program().at("next_change");
     ASSERT_TRUE(next.is_object()) << program().dump();
+    if (hourRolled())
+        GTEST_SKIP() << "the hour changed during the test";
     EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(2));
 }
 
@@ -1328,6 +1343,8 @@ TEST_F(ClimateProgramStateTest, ALevelPriorityChangeIsTheNextChange)
     ASSERT_TRUE(next.is_object()) << p.dump();
     EXPECT_EQ(next.at("level"), 1);
     EXPECT_EQ(next.at("setpoint").get<double>(), 23);
+    if (hourRolled())
+        GTEST_SKIP() << "the hour changed during the test";
     EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(2));
 }
 
@@ -1360,6 +1377,8 @@ TEST_F(ClimateProgramStateTest, TheNextChangeIsRepublishedAfterARangeEditWithout
 
     const Json next = seen.back().at("next_change");
     ASSERT_TRUE(next.is_object()) << seen.back().dump();
+    if (hourRolled())
+        GTEST_SKIP() << "the hour changed during the test";
     EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(3));
 }
 
@@ -1373,6 +1392,171 @@ TEST_F(ClimateProgramStateTest, ADisabledProgramHasNoNextChange)
     const Json p = program();
     EXPECT_FALSE(p.at("enabled").get<bool>());
     EXPECT_TRUE(p.at("next_change").is_null());
+}
+
+TEST_F(ClimateProgramStateTest, ADisabledRangeNeverChanges)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    activate("prog_heat_level1");
+    everyDay("prog_heat_level2", (hourNow() + 2) % 24, (hourNow() + 2) % 24, 59);
+    range("prog_heat_level1")->set_param("enabled", "false");
+    range("prog_heat_level2")->set_param("enabled", "false");
+
+    const Json p = program();
+    EXPECT_EQ(p.at("heat").at("active_level"), 1);
+    EXPECT_TRUE(p.at("next_change").is_null()) << p.dump();
+    //a disabled range keeps its value whatever the date
+    EXPECT_TRUE(range("prog_heat_level1")->isActiveAt(time(nullptr) + 3 * 24 * 3600));
+    EXPECT_FALSE(range("prog_heat_level2")->isActiveAt(time(nullptr) + 3 * 24 * 3600));
+}
+
+//Fixed dates, so the month and the sun cases do not depend on the clock of the run.
+class ClimateProgramCalendarTest: public ClimateProgramStateTest
+{
+protected:
+    static time_t local(int y, int mo, int d, int h = 0, int mi = 0, int s = 0)
+    {
+        struct tm tm = {};
+        tm.tm_year = y - 1900;
+        tm.tm_mon = mo - 1;
+        tm.tm_mday = d;
+        tm.tm_hour = h;
+        tm.tm_min = mi;
+        tm.tm_sec = s;
+        tm.tm_isdst = -1;
+        return mktime(&tm);
+    }
+
+    static void everyWeekday(const std::string &id, const TimeRange &t, const std::vector<int> &months)
+    {
+        InPlageHoraire *r = range(id);
+        ASSERT_NE(r, nullptr);
+        r->clear();
+        if (!months.empty())
+        {
+            r->months.reset();
+            for (int m: months)
+                r->months.set(m);
+        }
+        for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
+            addOn(r, d, t);
+        r->hasChanged();
+    }
+
+    //"+01:00" form of the UTC offset at `t`
+    static std::string tzSuffix(time_t t)
+    {
+        char buf[16];
+        struct tm tm = *localtime(&t);
+        strftime(buf, sizeof(buf), "%z", &tm);
+        std::string z = buf;
+        return z.substr(0, 3) + ":" + z.substr(3);
+    }
+
+    static std::string isoLocal(time_t t)
+    {
+        char buf[32];
+        struct tm tm = *localtime(&t);
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &tm);
+        return buf + tzSuffix(t);
+    }
+
+    Json nextAt(time_t now) { return dev("prog")->programNextChange("heat", now); }
+
+    static std::string atOf(const Json &next)
+    {
+        EXPECT_TRUE(next.is_object()) << next.dump();
+        return next.is_object() ? next.at("at").get<std::string>() : std::string();
+    }
+};
+
+TEST_F(ClimateProgramCalendarTest, AMonthChangeCutsAnOvernightRangeAtMidnight)
+{
+    load();
+    everyWeekday("prog_heat_level1", span("22", "0", "0", "6", "0", "0"), { InPlageHoraire::JANUARY });
+    EXPECT_EQ(atOf(nextAt(local(2027, 1, 31, 23))), "2027-02-01T00:00:00" + tzSuffix(local(2027, 2, 1)));
+}
+
+TEST_F(ClimateProgramCalendarTest, ARangeEndingAtTheEndOfTheDayKeepsItsWrittenEnd)
+{
+    load();
+    everyWeekday("prog_heat_level1", span("20", "0", "0", "23", "59", "59"), { InPlageHoraire::JANUARY });
+    EXPECT_EQ(atOf(nextAt(local(2027, 1, 31, 21))), "2027-01-31T23:59:59" + tzSuffix(local(2027, 1, 31)));
+}
+
+TEST_F(ClimateProgramCalendarTest, AnIncludedMonthStartsAtMidnightOfItsFirstDay)
+{
+    load();
+    everyWeekday("prog_heat_level1", span("22", "0", "0", "6", "0", "0"), { InPlageHoraire::FEBRUARY });
+    const Json next = nextAt(local(2027, 1, 31, 12));
+    EXPECT_EQ(atOf(next), "2027-02-01T00:00:00" + tzSuffix(local(2027, 2, 1)));
+    EXPECT_EQ(next.at("level"), 1);
+}
+
+TEST_F(ClimateProgramCalendarTest, ARangeBeyondTheHorizonGivesNoNextChange)
+{
+    load();
+    everyWeekday("prog_heat_level1", span("8", "0", "0", "9", "0", "0"), { InPlageHoraire::JULY });
+    EXPECT_TRUE(nextAt(local(2027, 1, 10, 12)).is_null());
+}
+
+TEST_F(ClimateProgramCalendarTest, ASolarBoundIsEvaluatedAtItsOwnDate)
+{
+    load();
+    TimeRange t = span("0", "0", "0", "23", "59", "59");
+    t.start_type = TimeRange::HTYPE_SUNRISE;
+    everyWeekday("prog_heat_level1", t, {});
+
+    std::vector<time_t> starts;
+    for (int mo: { 1, 7 })
+    {
+        const time_t midnight = local(2027, mo, 10);
+        const time_t expected = midnight + t.getStartTimeSec(2027, mo, 10);
+        EXPECT_EQ(atOf(nextAt(midnight)), isoLocal(expected));
+        starts.push_back(expected - midnight);
+    }
+    EXPECT_NE(starts[0], starts[1]);
+}
+
+TEST_F(ClimateProgramCalendarTest, AnOvernightRangeEndsAtTheSolarEndOfItsStartDay)
+{
+    load();
+    TimeRange t = span("22", "0", "0", "0", "0", "0");
+    t.end_type = TimeRange::HTYPE_SUNRISE;
+    InPlageHoraire *r = range("prog_heat_level1");
+    r->clear();
+    for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
+        addOn(r, d, t);
+
+    const time_t midnight = local(2027, 1, 10);
+    const long end = t.getEndTimeSec(2027, 1, 10);
+    std::vector<time_t> instants;
+    r->changeInstants(local(2027, 1, 11), local(2027, 1, 11, 12), instants);
+    EXPECT_NE(std::find(instants.begin(), instants.end(), midnight + 86400 + end + 1), instants.end());
+}
+
+TEST_F(ClimateProgramCalendarTest, TheChangeOfTimeKeepsTheLocalHours)
+{
+    //POSIX rule, without tzdata: CET, CEST from the last Sunday of March to the last of October.
+    const char *old = getenv("TZ");
+    const std::string saved = old ? old : "";
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+
+    load();
+    everyWeekday("prog_heat_level1", span("8", "0", "0", "9", "0", "0"), {});
+    //the day of 23 hours, then the one of 25
+    EXPECT_EQ(atOf(nextAt(local(2027, 3, 27, 12))), "2027-03-28T08:00:00+02:00");
+    EXPECT_EQ(atOf(nextAt(local(2027, 3, 28, 8, 30))), "2027-03-28T09:00:00+02:00");
+    EXPECT_EQ(atOf(nextAt(local(2027, 10, 30, 12))), "2027-10-31T08:00:00+01:00");
+    EXPECT_EQ(atOf(nextAt(local(2027, 10, 31, 8, 30))), "2027-10-31T09:00:00+01:00");
+
+    if (old)
+        setenv("TZ", saved.c_str(), 1);
+    else
+        unsetenv("TZ");
+    tzset();
 }
 
 TEST_F(ClimateProgramStateTest, ALevelOrEnabledChangeIsPublished)

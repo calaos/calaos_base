@@ -187,14 +187,18 @@ bool InPlageHoraire::isInRanges(vector<TimeRange> *plage, long cur,
     return val;
 }
 
-bool InPlageHoraire::isActiveAt(time_t t)
+bool InPlageHoraire::isActiveAt(time_t t, bool ignoreMonths)
 {
+    //A disabled range is frozen: hasChanged() never moves it
+    if (!isEnabled())
+        return value;
+
     tzset(); //Force reload of timezone data
     //copy, localtime() returns a pointer to a shared buffer
     struct tm today = *localtime(&t);
 
     //If the month is not set, the time_range is always false
-    if (!months.test(today.tm_mon))
+    if (!ignoreMonths && !months.test(today.tm_mon))
         return false;
 
     long cur = today.tm_hour * 3600 +
@@ -214,6 +218,10 @@ bool InPlageHoraire::isActiveAt(time_t t)
 
 void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
 {
+    //A disabled range never changes
+    if (!isEnabled())
+        return;
+
     tzset();
     struct tm day = *localtime(&from);
     //Starts a day early: an overnight range of that day ends inside the window.
@@ -223,9 +231,11 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
     auto at = [](const struct tm &d, long sec)
     {
         struct tm tm = d;
-        tm.tm_hour = 0;
-        tm.tm_min = 0;
-        tm.tm_sec = static_cast<int>(sec);
+        //Wall-clock fields: a big tm_sec is counted in elapsed time by mktime, an
+        //hour off on the days of a clock change.
+        tm.tm_hour = static_cast<int>(sec / 3600);
+        tm.tm_min = static_cast<int>(sec % 3600 / 60);
+        tm.tm_sec = static_cast<int>(sec % 60);
         tm.tm_isdst = -1;
         return mktime(&tm);
     };
