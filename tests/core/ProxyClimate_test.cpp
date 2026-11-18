@@ -315,7 +315,17 @@ std::string house()
     all += param("swing_modes", "off,both") + param("min_range", "2") + param("sensor_timeout", "3600");
     all += param("emulate_range", "true") + param("hysteresis", "0.5") + param("min_on_time", "60");
     all += param("min_off_time", "60") + param("changeover_delay", "120");
+    all += param("heat_levels", "1") + param("cool_levels", "1") + param("heat_default_setpoint", "18");
+    all += param("cool_default_setpoint", "25") + param("cool_default_off", "true") +
+           param("program_min_gap", "2");
     salon += device("allp", all);
+
+    std::string prg = in("prg_mode") + out("prg_mode_cmd") + in("prg_target") + out("prg_target_cmd");
+    prg += link("mode", "prg_mode", "prg_mode_cmd") + link("target_temp", "prg_target", "prg_target_cmd");
+    prg += param("modes", "off,heat,cool") + param("heat_levels", "1") + param("cool_levels", "1");
+    prg += param("heat_default_setpoint", "18") + param("cool_default_setpoint", "25");
+    prg += param("cool_default_off", "true");
+    salon += device("prg", prg);
 
     //Setpoint IO without bounds: the documented defaults apply.
     salon += device("dflt", out("dflt_target") + link("target_temp", "dflt_target"));
@@ -1018,11 +1028,16 @@ TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
 {
     const std::set<std::string> takenAtLoad = { "remote_temp_keepalive", "readback_hold", "sensor_timeout",
                                                 "emulate_range", "hysteresis", "min_on_time",
-                                                "min_off_time", "changeover_delay" };
+                                                "min_off_time", "changeover_delay", "heat_levels", "cool_levels",
+                                                "program_min_gap" };
+    //Only read when the program is created, so by a device that offers heat and cool.
+    const std::set<std::string> takenWhenProgramIsCreated = { "heat_default_setpoint", "cool_default_setpoint",
+                                                              "cool_default_off" };
     const std::set<std::string> askedWhenUsed = { "modes", "fan_modes", "swing_modes", "min_range",
                                                   "auto_payload" };
 
     const std::set<std::string> loadReads = dev("allp")->takeParamReads();
+    const std::set<std::string> programReads = dev("prg")->takeParamReads();
     //Taking clears: what follows is what the commands below ask for.
     EXPECT_TRUE(dev("allp")->takeParamReads().empty());
 
@@ -1043,14 +1058,16 @@ TEST_F(ProxyClimateTest, EveryDocumentedParamIsRead)
             continue;
         const std::string name = p.at("name").get<std::string>();
         documented++;
-        if (takenAtLoad.count(name))
+        if (takenWhenProgramIsCreated.count(name))
+            EXPECT_TRUE(programReads.count(name)) << name << " is documented but not read at the program creation";
+        else if (takenAtLoad.count(name))
             EXPECT_TRUE(loadReads.count(name)) << name << " is documented but not read at load";
         else if (askedWhenUsed.count(name))
             EXPECT_TRUE(usedReads.count(name)) << name << " is documented but never asked";
         else
             ADD_FAILURE() << name << " is documented: say when the proxy reads it";
     }
-    EXPECT_EQ(takenAtLoad.size() + askedWhenUsed.size(), documented);
+    EXPECT_EQ(takenAtLoad.size() + takenWhenProgramIsCreated.size() + askedWhenUsed.size(), documented);
 
     //And the other way: a param the proxy reads is documented.
     std::set<std::string> docNames;

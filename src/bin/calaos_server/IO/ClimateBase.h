@@ -206,6 +206,8 @@ protected:
     /* The setpoint the set asks for now: its active level, else its default.
      * `off` for the cool default "arrêt". False without levels or IO. */
     bool programSetpoint(const string &set, double &value, bool &off);
+    //Writes the setpoint of the current mode, if the program runs.
+    virtual void applyProgram();
 
 private:
     int levelsParam(const string &set, ClimateMode mode);
@@ -214,7 +216,6 @@ private:
     bool programRunning();
     //A change seen by the program, which applies only if the current mode uses `set`.
     void programChanged(const string &set);
-    void applyProgram();
     void applyProgramRange();
 
     //Both bounds linked and writable.

@@ -300,6 +300,20 @@ Json esphomeClimate()
                             "ESPHome needs a few lines of YAML to take it (see the notes): Calaos publishes it on "
                             "<topic_prefix>/calaos/remote_temp."),
                           false, "number", false));
+    fields.push_back(number("heat_levels", _("Heating program levels"),
+                            _("Number of schedule levels of the heating program, 0 for no program."), 0, 6, 1, "", 0));
+    fields.push_back(number("cool_levels", _("Cooling program levels"),
+                            _("Number of schedule levels of the cooling program, 0 for no program."), 0, 6, 1, "", 0));
+    fields.push_back(number("heat_default_setpoint", _("Default heating setpoint"),
+                            _("Heating setpoint outside the levels of the program."), 0, 50, 0.5, "°C", 17));
+    fields.push_back(number("cool_default_setpoint", _("Default cooling setpoint"),
+                            _("Cooling setpoint outside the levels of the program."), 0, 50, 0.5, "°C", 26));
+    fields.push_back(flag("cool_default_off", _("Cooling off by default"),
+                          _("Outside the levels of the program, cooling stops instead of keeping a setpoint."),
+                          false));
+    fields.push_back(number("program_min_gap", _("Auto minimum gap"),
+                            _("Smallest gap between the low and the high setpoint the program writes in auto."), 0, 10,
+                            0.5, "°C", 2));
 
     const Json ios = {
         owned("mode", "output", "MqttOutputString", esphomeOutput(_("{name} mode"), "mode")),
@@ -347,7 +361,13 @@ Json esphomeClimate()
                           param("hysteresis", "0.5", "emulate_range"),
                           param("min_on_time", "300", "emulate_range"),
                           param("min_off_time", "300", "emulate_range"),
-                          param("changeover_delay", "600", "emulate_range") };
+                          param("changeover_delay", "600", "emulate_range"),
+                          param("heat_levels", "{heat_levels}"),
+                          param("cool_levels", "{cool_levels}"),
+                          param("heat_default_setpoint", "{heat_default_setpoint}"),
+                          param("cool_default_setpoint", "{cool_default_setpoint}"),
+                          param("cool_default_off", "{cool_default_off}"),
+                          param("program_min_gap", "{program_min_gap}") };
 
     const string yaml =
         _("ESPHome takes no remote temperature over MQTT out of the box. For a Mitsubishi CN105 climate "

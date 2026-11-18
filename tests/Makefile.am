@@ -8662,3 +8662,21 @@ core_Klf200Ctrl_test_DEPENDENCIES = $(KLF200_TEST_OBJECTS) \
                   $(CORE_TEST_DEPS) \
                   $(top_builddir)/src/lib/libcalaos_common.la
 endif
+
+#The schedule program on a ProxyClimate, with a fake ESPHome transport. Own
+#HAVE_GTEST block so this stays a pure append at the end of the file.
+if HAVE_GTEST
+TESTS += core/ProxyClimateProgram_test
+check_PROGRAMS += core/ProxyClimateProgram_test
+core_ProxyClimateProgram_test_SOURCES = core/ProxyClimateProgram_test.cpp \
+                  core/CalaosCoreFixture.cpp \
+                  core/CalaosCoreFixture.h
+core_ProxyClimateProgram_test_CPPFLAGS = $(CORE_TEST_CPPFLAGS)
+core_ProxyClimateProgram_test_LDADD = $(CORE_TEST_LDADD) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+core_ProxyClimateProgram_test_DEPENDENCIES = $(CORE_TEST_DEPS) \
+                  $(top_builddir)/src/lib/libcalaos_common.la \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ClimateBase.$(OBJEXT) \
+                  $(CALAOS_SERVER_BUILDDIR)/IO/ProxyClimate.$(OBJEXT)
+endif
