@@ -248,6 +248,17 @@ void ProxyClimate::resolveLinks()
     if (ListeRoom::Instance().get_io(id) == this)
     {
         setupProgram();
+        //A mode changed on the appliance is a trigger too; a repeated report is not.
+        if (linkIo(MODE))
+            modeSubscription = IOChangeHub::Instance().subscribe(
+                linkIoId(MODE), [this](IOBase &)
+                {
+                ClimateMode now;
+                if (!currentMode(now) || programMode == now)
+                    return;
+                programMode = now;
+                applyProgram();
+            });
         //Drivers are not ready during the load; the appliance's bounds may come later.
         ioAlive.singleShot(0, [this]()
                            {

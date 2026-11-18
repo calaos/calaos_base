@@ -262,15 +262,6 @@ protected:
         pumpFor(5);
     }
 
-    //The appliance's own mode change is no trigger: the program applies at the next one.
-    static void trigger(const std::string &id)
-    {
-        io(id + "_program_enabled")->set_value(false);
-        pumpFor(5);
-        io(id + "_program_enabled")->set_value(true);
-        pumpFor(5);
-    }
-
     //The appliance published its bounds.
     static void publishPair(const std::string &id, double low, double high)
     {
@@ -352,7 +343,6 @@ TEST_F(ProxyClimateProgramTest, NoLevelsNoProgram)
 TEST_F(ProxyClimateProgramTest, HeatWritesTheDefaultThenTheLevel)
 {
     mode("pg", "heat");
-    trigger("pg");
     ASSERT_EQ(writesTo("pg_target").size(), 1u);
     EXPECT_EQ(lastNumber("pg_target"), 17);
 
@@ -369,7 +359,6 @@ TEST_F(ProxyClimateProgramTest, HeatWritesTheDefaultThenTheLevel)
 TEST_F(ProxyClimateProgramTest, CoolWritesTheCoolSet)
 {
     mode("pg", "cool");
-    trigger("pg");
     EXPECT_EQ(lastNumber("pg_target"), 26);
 
     setLevel("pg_cool_level1_setpoint", 24);
@@ -380,12 +369,10 @@ TEST_F(ProxyClimateProgramTest, CoolWritesTheCoolSet)
 TEST_F(ProxyClimateProgramTest, CoolOffWritesTheHighestSetpoint)
 {
     mode("po", "cool");
-    trigger("po");
     EXPECT_EQ(lastNumber("po_target"), 30);
 
     publishPair("po", 18, 24);
     mode("po", "heat_cool");
-    trigger("po");
     EXPECT_EQ(lastNumber("po_high_cmd"), 30);
 }
 
@@ -393,7 +380,6 @@ TEST_F(ProxyClimateProgramTest, AutoWritesTheLowHighPair)
 {
     publishPair("pg", 18, 24);
     mode("pg", "heat_cool");
-    trigger("pg");
     ASSERT_EQ(writesTo("pg_low_cmd").size(), 1u);
     ASSERT_EQ(writesTo("pg_high_cmd").size(), 1u);
     EXPECT_EQ(lastNumber("pg_low_cmd"), 17 < 16 ? 16 : 17);
@@ -446,6 +432,21 @@ TEST_F(ProxyClimateProgramTest, DisabledProgramWritesNothing)
     EXPECT_EQ(writesTo("pg_target").size(), 1u);
 }
 
+TEST_F(ProxyClimateProgramTest, AModeChangeOnTheApplianceAppliesTheProgram)
+{
+    mode("pg", "heat");
+    EXPECT_EQ(lastNumber("pg_target"), 17);
+    const size_t before = writesTo("pg_target").size();
+
+    //Same mode reported again: no trigger.
+    feed("pg_mode")->deliver(std::string("heat"));
+    pumpFor(5);
+    EXPECT_EQ(writesTo("pg_target").size(), before);
+
+    mode("pg", "cool");
+    EXPECT_EQ(lastNumber("pg_target"), 26);
+}
+
 TEST_F(ProxyClimateProgramTest, AWriteFromTheApplianceDoesNotDisableTheProgram)
 {
     mode("pg", "heat");
@@ -469,7 +470,6 @@ TEST_F(ProxyClimateProgramTest, AWriteFromTheApplianceDoesNotDisableTheProgram)
 TEST_F(ProxyClimateProgramTest, EmulatedAutoWritesTheEmulatedPair)
 {
     mode("pe", "heat_cool");
-    trigger("pe");
     pumpFor(20);
     IOBase *low = nullptr;
     IOBase *high = nullptr;

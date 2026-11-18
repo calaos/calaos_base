@@ -96,6 +96,9 @@ private:
     void startRemoteTemp();
     void relayRemoteTemp();
     void logUnknownMode(const string &raw);
+    //The mode seen by the last program trigger.
+    std::optional<ClimateMode> programMode;
+    IOChangeHub::Subscription modeSubscription;
 
     //The appliance's own spelling of auto: "auto" or "heat_cool".
     string autoReported;
