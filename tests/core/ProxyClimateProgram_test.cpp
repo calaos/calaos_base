@@ -556,11 +556,17 @@ TEST_F(ProxyClimateProgramTest, AModeCommandWithAnActiveProgramUnderEmulation)
     pumpFor(20);
     //The emulated range is driven by the program: never a single setpoint.
     EXPECT_TRUE(writesTo("pe_target").empty());
+    IOBase *low = nullptr;
+    IOBase *high = nullptr;
     for (const Device::Link &l: ListeRoom::Instance().findIOAs<ProxyClimate>("pe")->getLinks())
     {
         if (l.name == "target_temp_low")
-            EXPECT_EQ(io(l.io)->get_value_double(), 17);
+            low = io(l.io);
         if (l.name == "target_temp_high")
-            EXPECT_EQ(io(l.io)->get_value_double(), 26);
+            high = io(l.io);
     }
+    ASSERT_NE(low, nullptr);
+    ASSERT_NE(high, nullptr);
+    EXPECT_EQ(low->get_value_double(), 17);
+    EXPECT_EQ(high->get_value_double(), 26);
 }

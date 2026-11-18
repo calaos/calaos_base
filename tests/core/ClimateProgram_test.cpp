@@ -1485,6 +1485,15 @@ TEST_F(ClimateProgramCalendarTest, ARangeEndingAtTheEndOfTheDayKeepsItsWrittenEn
     EXPECT_EQ(atOf(nextAt(local(2027, 1, 31, 21))), "2027-01-31T23:59:59" + tzSuffix(local(2027, 1, 31)));
 }
 
+TEST_F(ClimateProgramCalendarTest, AMonthChangeCutsARangeStillActiveAtMidnight)
+{
+    load();
+    everyWeekday("prog_heat_level1", span("0", "0", "0", "23", "59", "59"), { InPlageHoraire::JANUARY });
+    const Json next = nextAt(local(2027, 1, 31, 12));
+    EXPECT_EQ(atOf(next), "2027-02-01T00:00:00" + tzSuffix(local(2027, 2, 1)));
+    EXPECT_TRUE(next.at("level").is_null());
+}
+
 TEST_F(ClimateProgramCalendarTest, AnIncludedMonthStartsAtMidnightOfItsFirstDay)
 {
     load();
