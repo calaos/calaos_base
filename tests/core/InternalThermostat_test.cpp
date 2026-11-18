@@ -2014,7 +2014,7 @@ TEST_F(InternalThermostatTest, EveryDocumentedParamIsRead)
     std::set<std::string> docNames;
     for (const Json &p: doc.at("parameters"))
         docNames.insert(p.at("name").get<std::string>());
-    for (const std::set<std::string> *reads: std::initializer_list<const std::set<std::string> *> { &loadReads, &usedReads })
+    for (const std::set<std::string> *reads: std::initializer_list<const std::set<std::string> *>{ &loadReads, &usedReads })
     {
         for (const std::string &name: *reads)
             EXPECT_TRUE(docNames.count(name) || checkedNotHonoured.count(name))

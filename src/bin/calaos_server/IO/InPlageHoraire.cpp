@@ -236,15 +236,12 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
         day.tm_min = 0;
         day.tm_sec = 0;
         day.tm_isdst = -1;
-        if (mktime(&day) == (time_t)-1)
-            continue;
+        mktime(&day);
 
         //Month changes and the end of every range that stops at 23:59:59.
         out.push_back(at(day, 0));
 
         vector<TimeRange> *ranges = getRangesForWeekday(day.tm_wday);
-        if (!ranges)
-            continue;
         for (TimeRange &h: *ranges)
         {
             if (!h.isValid())
@@ -268,7 +265,7 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
     out.erase(std::remove_if(out.begin(), out.end(), [from, to](time_t t)
                              {
         return t <= from || t > to;
-    }),
+              }),
               out.end());
 }
 

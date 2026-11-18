@@ -1185,8 +1185,7 @@ protected:
         ASSERT_NE(r, nullptr);
         r->clear();
         for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
-            addOn(r, d, span(std::to_string(sh).c_str(), "0", "0", std::to_string(eh).c_str(), "0",
-                             std::to_string(es).c_str()));
+            addOn(r, d, span(std::to_string(sh).c_str(), "0", "0", std::to_string(eh).c_str(), "0", std::to_string(es).c_str()));
         r->hasChanged();
     }
 
@@ -1269,6 +1268,42 @@ TEST_F(ClimateProgramStateTest, ARangeOverMidnightReportsItsEndAsWritten)
     EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(23));
 }
 
+TEST_F(ClimateProgramStateTest, AnInvalidRangeIsSkippedWhenLookingForTheNextChange)
+{
+    load();
+    ASSERT_TRUE(mode("prog", "heat"));
+    set("prog_heat_level1_setpoint", 21);
+    everyDay("prog_heat_level1", (hourNow() + 2) % 24, (hourNow() + 2) % 24, 59);
+    InPlageHoraire *r = range("prog_heat_level1");
+    for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
+        addOn(r, d, span("x", "0", "0", "y", "0", "0"));
+    r->hasChanged();
+
+    const Json next = program().at("next_change");
+    ASSERT_TRUE(next.is_object()) << program().dump();
+    EXPECT_EQ(parseLocal(next.at("at").get<std::string>()), hourAt(2));
+}
+
+TEST_F(ClimateProgramStateTest, CoolingDefaultOffGivesANullSetpointToTheNextChange)
+{
+    load();
+    ASSERT_TRUE(mode("off", "cool"));
+    ASSERT_TRUE(on("off_cool_default_off"));
+    const int h = hourNow();
+    everyDay("off_cool_level1", h, (h + 23) % 24);
+    time_t t = time(nullptr);
+    if (localtime(&t)->tm_min == 0 && localtime(&t)->tm_sec == 0)
+        GTEST_SKIP() << "on the start second";
+    ASSERT_TRUE(on("off_cool_level1"));
+
+    const Json p = dev("off")->deviceObject().at("state").at("program");
+    const Json &next = p.at("next_change");
+    ASSERT_TRUE(next.is_object()) << p.dump();
+    EXPECT_EQ(next.at("set"), "cool");
+    EXPECT_TRUE(next.at("level").is_null());
+    EXPECT_TRUE(next.at("setpoint").is_null()) << p.dump();
+}
+
 TEST_F(ClimateProgramStateTest, ALowerLevelRangeHiddenByAHigherOneChangesNothing)
 {
     load();
@@ -1307,11 +1342,11 @@ TEST_F(ClimateProgramStateTest, TheNextChangeIsRepublishedAfterARangeEditWithout
     sigc::connection c = EventManager::Instance().newEvent.connect(
         [&seen](const CalaosEvent &ev)
         {
-            const Json j = ev.toJson();
-            if (ev.getType() == CalaosEvent::EventIOChanged && j.at("data").value("id", "") == "prog" &&
-                j.at("data").contains("device"))
-                seen.push_back(j.at("data").at("device").at("state").at("program"));
-        });
+        const Json j = ev.toJson();
+        if (ev.getType() == CalaosEvent::EventIOChanged && j.at("data").value("id", "") == "prog" &&
+            j.at("data").contains("device"))
+            seen.push_back(j.at("data").at("device").at("state").at("program"));
+    });
 
     //What set_timerange does: the edit, then the owner's notification. The
     //range stays inactive, so the level itself does not change.
@@ -1350,11 +1385,11 @@ TEST_F(ClimateProgramStateTest, ALevelOrEnabledChangeIsPublished)
     sigc::connection c = EventManager::Instance().newEvent.connect(
         [&seen](const CalaosEvent &ev)
         {
-            const Json j = ev.toJson();
-            if (ev.getType() == CalaosEvent::EventIOChanged && j.at("data").value("id", "") == "prog" &&
-                j.at("data").contains("device"))
-                seen.push_back(j.at("data").at("device").at("state").at("program"));
-        });
+        const Json j = ev.toJson();
+        if (ev.getType() == CalaosEvent::EventIOChanged && j.at("data").value("id", "") == "prog" &&
+            j.at("data").contains("device"))
+            seen.push_back(j.at("data").at("device").at("state").at("program"));
+    });
 
     activate("prog_heat_level1");
     ASSERT_TRUE(pumpUntil([&]()
