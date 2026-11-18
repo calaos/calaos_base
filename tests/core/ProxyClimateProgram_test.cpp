@@ -224,6 +224,7 @@ std::string house()
     ios += pairDevice("pg", LEVELS);
     ios += pairDevice("po", LEVELS + param("cool_default_off", "true"));
     ios += pairDevice("pn", std::string());
+    ios += pairDevice("pm", LEVELS + param("modes", "off,heat,cool"));
     ios += singleDevice("ps", param("heat_levels", "1") + param("cool_levels", "1"));
     ios += singleDevice("pe", param("heat_levels", "1") + param("cool_levels", "1") +
                                   param("emulate_range", "true") + param("min_range", "2"));
@@ -524,6 +525,58 @@ TEST_F(ProxyClimateProgramTest, ASetpointOfTheModeCommandWinsOverTheProgram)
     //The next trigger applies the program again.
     mode("pg", "heat");
     EXPECT_EQ(lastNumber("pg_target"), 17);
+}
+
+TEST_F(ProxyClimateProgramTest, ARefusedSetpointLeavesTheProgramToTheModeEcho)
+{
+    mode("pg", "heat");
+    ASSERT_EQ(lastNumber("pg_target"), 17);
+    writes().clear();
+
+    //A number is clamped to the bounds, a string is refused: the mode goes through alone.
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"cool","target_temp":"warm"})")));
+    pumpFor(5);
+    EXPECT_TRUE(writesTo("pg_target").empty());
+    mode("pg", "cool");
+    EXPECT_EQ(lastNumber("pg_target"), 26);
+}
+
+TEST_F(ProxyClimateProgramTest, ARefusedModeStillLetsTheNextRealChangeApplyTheProgram)
+{
+    mode("pm", "heat");
+    publishPair("pm", 18, 24);
+    ASSERT_EQ(lastNumber("pm_target"), 17);
+    writes().clear();
+
+    //auto is not offered: the setpoint is written, the mode is not.
+    ASSERT_TRUE(io("pm")->set_value(std::string(R"({"mode":"auto","target_temp":22})")));
+    pumpFor(5);
+    EXPECT_TRUE(writesTo("pm_mode_cmd").empty());
+    EXPECT_EQ(lastNumber("pm_target"), 22);
+
+    //A change made on the unit itself is still a trigger.
+    mode("pm", "heat_cool");
+    EXPECT_EQ(writesTo("pm_low_cmd").size(), 1u);
+    EXPECT_EQ(writesTo("pm_high_cmd").size(), 1u);
+}
+
+TEST_F(ProxyClimateProgramTest, TheRangeOfAModeCommandWinsOverTheProgram)
+{
+    mode("pg", "heat");
+    publishPair("pg", 18, 24);
+    writes().clear();
+
+    ASSERT_TRUE(io("pg")->set_value(
+        std::string(R"({"mode":"auto","target_temp_low":19,"target_temp_high":23})")));
+    pumpFor(5);
+    mode("pg", "heat_cool");
+    pumpFor(5);
+    for (const Write &w: writesTo("pg_low_cmd"))
+        EXPECT_NE(w.number, 17);
+    for (const Write &w: writesTo("pg_high_cmd"))
+        EXPECT_NE(w.number, 26);
+    EXPECT_EQ(lastNumber("pg_low_cmd"), 19);
+    EXPECT_EQ(lastNumber("pg_high_cmd"), 23);
 }
 
 TEST_F(ProxyClimateProgramTest, EmulatedAutoWritesTheEmulatedPair)

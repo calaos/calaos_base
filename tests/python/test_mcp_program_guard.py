@@ -1,11 +1,12 @@
 # set_io_state and the IOs of a climate program: the guard follows the owned links
 # published in device.ios, never the shape of an id, and leaves every other IO alone.
 import json
+import re
 
 import pytest
 
 from calaos_mcp.tools import io
-from calaos_mcp.tools._home import program_ios
+from calaos_mcp.tools._home import _PROGRAM_ROLE, program_ios
 
 from test_mcp_devices import FakeClient, built_iodoc_path, item, run
 
@@ -147,9 +148,8 @@ def test_a_program_io_is_refused_whatever_its_id_looks_like():
 def test_the_role_list_covers_what_the_server_documents():
     # The io_doc of thermostat and proxy names the program params: the levels cap and
     # cool_default_off must be roles the guard knows, or a new one would slip through.
-    import re
-    from calaos_mcp.tools._home import _PROGRAM_ROLE
-    doc = json.load(open(built_iodoc_path()))["devices"]["thermostat"]["parameters"]
+    with open(built_iodoc_path()) as f:
+        doc = json.load(f)["devices"]["thermostat"]["parameters"]
     params = {p["name"]: p for p in doc}
     caps = {int(m.group(1)) for p in params.values() if p["name"].endswith("_levels")
             for m in [re.search(r"at most (\d+)", p["description"])] if m}
@@ -170,7 +170,9 @@ def test_a_failing_get_home_refuses_the_write_and_sends_nothing():
     assert client.sent == []
 
 
-def test_run_scenario_does_not_depend_on_the_program():
+def test_run_scenario_only_checks_the_scenario_id():
+    # scenario.py reads get_home to validate the id and never reads the program: the cache
+    # is used without error, nothing more is claimed.
     from calaos_mcp.tools import scenario
     items, _ = full_climate("chauffage")
     items.append(item("night", gui_type="scenario", io_type="inout"))

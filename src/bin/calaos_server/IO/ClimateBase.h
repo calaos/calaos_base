@@ -134,6 +134,8 @@ protected:
 
     bool applyCommand(const Json &command) override;
     bool applyCommandField(const string &field, const Json &value, string &reason) override;
+    //target_temp_low/_high checked together; a proxy needs to know whether they went through.
+    virtual bool applyRange(const Json &command);
 
     //The IO a role is written to: its command_io, else its io.
     IOBase *writeTarget(const string &role);
@@ -231,7 +233,6 @@ private:
     bool rangeAvailable();
     //min of the low IO, max of the high IO.
     Bounds rangeBounds();
-    bool applyRange(const Json &command);
 
     double sensorTimeoutS = DEFAULT_SENSOR_TIMEOUT;
 

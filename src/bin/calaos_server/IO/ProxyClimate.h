@@ -80,6 +80,7 @@ protected:
     bool applyCommand(const Json &command) override;
     //target_temp is refused while auto drives the unit from the range.
     bool applyCommandField(const string &field, const Json &value, string &reason) override;
+    bool applyRange(const Json &command) override;
     //A mode commanded by Calaos waits for the appliance's report, unless the emulation decides it.
     void applyProgram() override;
 
@@ -103,6 +104,9 @@ private:
     std::optional<ClimateMode> programMode;
     //The mode of the command being applied, when it comes from Calaos.
     std::optional<ClimateMode> modeCommanded;
+    //What applyCommand() really wrote: the mode, and at least one setpoint.
+    std::optional<ClimateMode> modeApplied;
+    bool setpointApplied = false;
     //Warned once: auto asked of an appliance without a low/high pair.
     bool autoRangeWarned = false;
     IOChangeHub::Subscription modeSubscription;

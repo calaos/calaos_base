@@ -242,6 +242,7 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
 
     //A wall time of the repeated hour of a clock change happens twice, and mktime() picks
     //one of them. Both are candidates, as isActiveAt() follows the wall clock on both.
+    //A shift of one hour is assumed: a 30 minute one (Lord Howe) is not covered.
     auto add = [&out, &at](const struct tm &d, long sec)
     {
         const time_t t = at(d, sec);
