@@ -597,6 +597,13 @@ bool ProxyClimate::applyCommand(const Json &command)
     const bool nested = emu.evaluating;
     emu.evaluating = true;
     const bool applied = ClimateBase::applyCommand(command);
+    //The setpoint of the command wins over the program, as on ClimateBase: the appliance's
+    //echo of the new mode must not apply the program on top of it.
+    ClimateMode commanded;
+    if (applied && command.contains("mode") && command.at("mode").is_string() &&
+        parseMode(command.at("mode").get<string>(), commanded) &&
+        (command.contains(TARGET) || command.contains(LOW) || command.contains(HIGH)))
+        programMode = commanded;
     emu.evaluating = nested;
     if (emu.enabled)
         emulate();

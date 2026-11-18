@@ -1568,6 +1568,47 @@ TEST_F(ClimateProgramCalendarTest, TheChangeOfTimeKeepsTheLocalHours)
     tzset();
 }
 
+TEST_F(ClimateProgramCalendarTest, ARepeatedHourIsReportedAtEachOfItsPasses)
+{
+    //The hour 02:00-03:00 of 2027-10-31 happens twice; the range follows the wall clock,
+    //so it starts at both 02:30.
+    const char *old = getenv("TZ");
+    const std::string saved = old ? old : "";
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+
+    load();
+    everyWeekday("prog_heat_level1", span("2", "30", "0", "2", "45", "0"), {});
+    EXPECT_EQ(atOf(nextAt(local(2027, 10, 31, 0))), "2027-10-31T02:30:00+02:00");
+    EXPECT_EQ(atOf(nextAt(local(2027, 10, 31, 0) + 2 * 3600 + 30 * 60 + 1)), "2027-10-31T02:45:00+02:00");
+    EXPECT_EQ(atOf(nextAt(local(2027, 10, 31, 0) + 2 * 3600 + 45 * 60 + 1)), "2027-10-31T02:30:00+01:00");
+
+    if (old)
+        setenv("TZ", saved.c_str(), 1);
+    else
+        unsetenv("TZ");
+    tzset();
+}
+
+TEST_F(ClimateProgramCalendarTest, AMissingHourStartsNothing)
+{
+    //02:00-03:00 of 2027-03-28 does not exist: a range inside it never runs that day.
+    const char *old = getenv("TZ");
+    const std::string saved = old ? old : "";
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
+
+    load();
+    everyWeekday("prog_heat_level1", span("2", "30", "0", "2", "45", "0"), {});
+    EXPECT_EQ(atOf(nextAt(local(2027, 3, 28, 0))), "2027-03-29T02:30:00+02:00");
+
+    if (old)
+        setenv("TZ", saved.c_str(), 1);
+    else
+        unsetenv("TZ");
+    tzset();
+}
+
 TEST_F(ClimateProgramStateTest, ALevelOrEnabledChangeIsPublished)
 {
     load();

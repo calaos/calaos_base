@@ -506,6 +506,26 @@ TEST_F(ProxyClimateProgramTest, AModeCommandedByCalaosWritesOnlyTheNewModeSetpoi
     EXPECT_TRUE(writesTo("pg_target").empty());
 }
 
+TEST_F(ProxyClimateProgramTest, ASetpointOfTheModeCommandWinsOverTheProgram)
+{
+    mode("pg", "heat");
+    ASSERT_EQ(lastNumber("pg_target"), 17);
+    writes().clear();
+
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"cool","target_temp":22})")));
+    pumpFor(5);
+    mode("pg", "cool");
+    pumpFor(5);
+    ASSERT_FALSE(writesTo("pg_target").empty());
+    EXPECT_EQ(lastNumber("pg_target"), 22);
+    for (const Write &w: writesTo("pg_target"))
+        EXPECT_NE(w.number, 26);
+
+    //The next trigger applies the program again.
+    mode("pg", "heat");
+    EXPECT_EQ(lastNumber("pg_target"), 17);
+}
+
 TEST_F(ProxyClimateProgramTest, EmulatedAutoWritesTheEmulatedPair)
 {
     mode("pe", "heat_cool");
