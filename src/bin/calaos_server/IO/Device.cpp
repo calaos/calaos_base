@@ -500,8 +500,9 @@ Json Device::deviceIos()
     std::map<string, string> ios;
     for (const Link &l: links)
     {
-        if (ListeRoom::Instance().get_io(l.io))
-            ios[l.name] = l.io;
+        //The first link of a role is the one linkIo() reads.
+        if (findLink(l.name) == &l && ListeRoom::Instance().get_io(l.io))
+            ios.emplace(l.name, l.io);
     }
     return Json(ios);
 }

@@ -553,7 +553,21 @@ bool ProxyClimate::applyCommandField(const string &field, const Json &value, str
     const bool ok = ClimateBase::applyCommandField(field, value, reason);
     //Only the mode field sets it: another field must not clear a pending mode.
     if (field == "mode")
+    {
+        if (ok)
+            modeApplied = modeCommanded;
         modeCommanded.reset();
+    }
+    else if (ok && field == TARGET)
+        setpointApplied = true;
+    return ok;
+}
+
+bool ProxyClimate::applyRange(const Json &command)
+{
+    const bool ok = ClimateBase::applyRange(command);
+    if (ok)
+        setpointApplied = true;
     return ok;
 }
 
@@ -596,7 +610,14 @@ bool ProxyClimate::applyCommand(const Json &command)
 {
     const bool nested = emu.evaluating;
     emu.evaluating = true;
+    modeApplied.reset();
+    setpointApplied = false;
     const bool applied = ClimateBase::applyCommand(command);
+    //The setpoint of the command wins over the program, as on ClimateBase: the appliance's
+    //echo of the new mode must not apply the program on top of it. Both must have been
+    //written: a refused one leaves the unit as it was.
+    if (modeApplied && setpointApplied)
+        programMode = modeApplied;
     emu.evaluating = nested;
     if (emu.enabled)
         emulate();

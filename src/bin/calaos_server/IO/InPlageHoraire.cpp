@@ -240,6 +240,23 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
         return mktime(&tm);
     };
 
+    //A wall time of the repeated hour of a clock change happens twice, and mktime() picks
+    //one of them. Both are candidates, as isActiveAt() follows the wall clock on both.
+    //A shift of one hour is assumed: a 30 minute one (Lord Howe) is not covered.
+    auto add = [&out, &at](const struct tm &d, long sec)
+    {
+        const time_t t = at(d, sec);
+        out.push_back(t);
+        const struct tm wall = *localtime(&t);
+        for (time_t other: { t - 3600, t + 3600 })
+        {
+            const struct tm o = *localtime(&other);
+            if (o.tm_hour == wall.tm_hour && o.tm_min == wall.tm_min && o.tm_sec == wall.tm_sec &&
+                o.tm_mday == wall.tm_mday && o.tm_mon == wall.tm_mon)
+                out.push_back(other);
+        }
+    };
+
     for (int i = 0; i < 10; i++, day.tm_mday++)
     {
         day.tm_hour = 12;
@@ -249,7 +266,7 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
         mktime(&day);
 
         //Month changes and the end of every range that stops at 23:59:59.
-        out.push_back(at(day, 0));
+        add(day, 0);
 
         vector<TimeRange> *ranges = getRangesForWeekday(day.tm_wday);
         for (TimeRange &h: *ranges)
@@ -261,13 +278,13 @@ void InPlageHoraire::changeInstants(time_t from, time_t to, vector<time_t> &out)
             //The end bound is included: the range goes false one second later.
             if (start <= end)
             {
-                out.push_back(at(day, start));
-                out.push_back(at(day, end + 1));
+                add(day, start);
+                add(day, end + 1);
             }
             else
             {
-                out.push_back(at(day, start));
-                out.push_back(at(day, 86400 + end + 1));
+                add(day, start);
+                add(day, 86400 + end + 1);
             }
         }
     }

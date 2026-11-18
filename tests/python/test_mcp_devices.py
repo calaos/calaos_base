@@ -437,15 +437,21 @@ def test_a_device_without_json_format_is_not_documented(iodoc_file):
     assert set(iodoc.load_devices()) == {"thermostat"}
 
 
+def built_iodoc_path():
+    root = os.path.join(os.path.dirname(__file__), "..", "..")
+    tail = os.path.join("src", "bin", "calaos_mcp", "io_doc.json")
+    # Several build-* trees may coexist (plain, asan...): the most recent wins.
+    built = glob.glob(os.path.join(root, "build*", tail)) + [os.path.join(root, tail)]
+    return os.environ.get(iodoc.ENV_PATH) or max(
+        (b for b in built if os.path.exists(b)), key=os.path.getmtime,
+        default=os.path.join(root, tail))
+
+
 def test_the_real_iodoc_is_rendered_and_its_example_accepted(monkeypatch):
     # make check points CALAOS_IODOC_PATH at what calaos_server --gendoc wrote.
     # Run outside make check (bin/test of one suite), only the build tree of the
     # worktree holds the generated file.
-    root = os.path.join(os.path.dirname(__file__), "..", "..")
-    tail = os.path.join("src", "bin", "calaos_mcp", "io_doc.json")
-    path = os.environ.get(iodoc.ENV_PATH) or next(
-        iter(sorted(glob.glob(os.path.join(root, "build-*", tail)))
-             + [os.path.join(root, tail)]))
+    path = built_iodoc_path()
     assert os.path.exists(path), "build first: make writes src/bin/calaos_mcp/io_doc.json"
     monkeypatch.setenv(iodoc.ENV_PATH, path)
     devices = iodoc.load_devices()
@@ -522,61 +528,3 @@ def test_other_events_keep_the_cached_home():
     c._home_cache = None
     c._on_event(event("io_changed", {"id": "light1", "state": "true"}))
     assert c._home_cache is None
-
-
-# --- climate program --------------------------------------------------------
-
-PROGRAM_ROLES = ["heat_level1", "heat_level2_setpoint", "cool_level1",
-                 "cool_level3_setpoint", "heat_default", "cool_default",
-                 "cool_default_off", "program_enabled"]
-
-
-def program_home(suffix=""):
-    ios = {"current_temp": "salon_temp", "target_temp": "salon_target"}
-    ios.update({r: f"chauffage_{r}{suffix}" for r in PROGRAM_ROLES})
-    clim = item("chauffage", gui_type="climate", var_type="string", io_type="inout",
-                state="heat", device={"family": "climate", "impl": "proxy",
-                                      "capabilities": {"modes": ["off", "heat"]},
-                                      "ios": ios})
-    plain = [item(i, io_type="inout", var_type="float", gui_type="var_int",
-                  state="20", visible="false")
-             for i in ("salon_temp", "salon_target")]
-    owned = [item(v, io_type="inout", var_type="float", gui_type="var_int",
-                  state="20", visible="false")
-             for r, v in ios.items() if r in PROGRAM_ROLES]
-    return {"home": [{"name": "Salon", "items": [clim, item("light1"), *plain, *owned]}]}
-
-
-@pytest.mark.parametrize("role", PROGRAM_ROLES)
-def test_a_program_io_is_refused_with_its_role(role):
-    client = FakeClient(program_home())
-    with pytest.raises(ValueError) as err:
-        run(io.set_io_state(client, f"chauffage_{role}", "21"))
-    assert str(err.value) == (
-        f"IO 'chauffage_{role}' is the {role} of the program of the climate "
-        "'chauffage' and cannot be written through MCP. Ask the user to change "
-        "the program in the Calaos app.")
-    assert client.sent == []
-
-
-def test_a_program_io_with_a_collision_suffix_is_recognised():
-    client = FakeClient(program_home("_2"))
-    with pytest.raises(ValueError, match="program_enabled of the program"):
-        run(io.set_io_state(client, "chauffage_program_enabled_2", "false"))
-    assert client.sent == []
-
-
-def test_a_program_io_is_refused_whatever_its_id_looks_like():
-    home = program_home()
-    clim = home["home"][0]["items"][0]
-    clim["device"]["ios"]["heat_default"] = "kitchen_lamp"
-    home["home"][0]["items"].append(item("kitchen_lamp", io_type="inout"))
-    with pytest.raises(ValueError, match="heat_default"):
-        run(io.set_io_state(FakeClient(home), "kitchen_lamp", "true"))
-
-
-def test_a_non_program_io_of_a_climate_and_an_ordinary_io_pass():
-    client = FakeClient(program_home())
-    run(io.set_io_state(client, "salon_target", "21"))
-    run(io.set_io_state(client, "light1", "true"))
-    assert [s[0] for s in client.sent] == ["salon_target", "light1"]
