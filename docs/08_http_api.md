@@ -2709,7 +2709,11 @@ docs/17.
   - `set` : le jeu concerné (`"heat"` ou `"cool"`) ; `level` : le niveau actif **après** le
     changement (`null` = défaut) ; `setpoint` : la consigne après le changement (`null` pour
     l'arrêt du froid).
-  - Rien dans les 7 jours (aucun créneau, plages vides, ou niveau actif en permanence), ou
+  - Heure répétée d'un changement d'heure (02:30 deux fois) : les deux passages sont
+    rapportés, chacun avec son décalage, car `isActiveAt` suit l'heure murale. Heure absente
+    (02:30 n'existe pas) : aucun début n'y est rapporté.
+  - Rien dans les 7 jours (aucun créneau, plages vides ou désactivées, ou niveau actif en
+    permanence), ou
     programme désactivé, ou mode hors `heat`/`cool`/`auto` : `"next_change": null`. La clé est
     toujours présente quand `program` l'est.
   - En `auto`, c'est le plus proche des deux jeux. L'interface affiche alors la consigne du
