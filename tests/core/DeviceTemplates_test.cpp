@@ -288,6 +288,12 @@ Values esphomeCommon()
     v["temp_step"] = 0.5;
     v["fan_modes"] = Json::array();
     v["swing_modes"] = Json::array();
+    v["heat_levels"] = 0;
+    v["cool_levels"] = 0;
+    v["heat_default_setpoint"] = 17;
+    v["cool_default_setpoint"] = 26;
+    v["cool_default_off"] = false;
+    v["program_min_gap"] = 2;
     return v;
 }
 
@@ -428,18 +434,36 @@ std::map<std::string, Expected> expectations()
     std::map<std::string, Expected> e;
     e["esphome_full"] = { { "mode", "current_temp", "target_temp_low", "target_temp_high", "action", "fan_mode",
                             "swing_mode", "remote_temp", "remote_temp_source" },
-                          { { "modes", allModes },
+                          { { "heat_levels", "0" },
+                            { "cool_levels", "0" },
+                            { "heat_default_setpoint", "17" },
+                            { "cool_default_setpoint", "26" },
+                            { "cool_default_off", "false" },
+                            { "program_min_gap", "2" },
+                            { "modes", allModes },
                             { "auto_payload", "heat_cool" },
                             { "fan_modes", "auto,low,high" },
                             { "swing_modes", "off,vertical" },
                             { "remote_temp_keepalive", "120" },
                             { "sensor_timeout", "9000" } } };
     e["esphome_minimal"] = { { "mode", "current_temp", "target_temp" },
-                             { { "modes", "off,heat,cool" }, { "auto_payload", "heat_cool" } } };
+                             { { "heat_levels", "0" },
+                            { "cool_levels", "0" },
+                            { "heat_default_setpoint", "17" },
+                            { "cool_default_setpoint", "26" },
+                            { "cool_default_off", "false" },
+                            { "program_min_gap", "2" },
+                            { "modes", "off,heat,cool" }, { "auto_payload", "heat_cool" } } };
     //The range links are added by the device at load.
     e["esphome_emulated"] = { { "mode", "current_temp", "target_temp", "target_temp_low", "target_temp_high",
                                 "action", "remote_temp", "remote_temp_source" },
-                              { { "modes", "off,heat,cool,auto" },
+                              { { "heat_levels", "0" },
+                            { "cool_levels", "0" },
+                            { "heat_default_setpoint", "17" },
+                            { "cool_default_setpoint", "26" },
+                            { "cool_default_off", "false" },
+                            { "program_min_gap", "2" },
+                            { "modes", "off,heat,cool,auto" },
                                 { "auto_payload", "heat_cool" },
                                 { "remote_temp_keepalive", "120" },
                                 { "sensor_timeout", "9000" },

@@ -329,8 +329,8 @@ Contrat de CP-CONTRACT (climate-program). Le code (CP-BASE-LEVELS, CP-BASE-PROXY
 CP-BASE-STATE) et les interfaces se codent contre ce texte.
 
 > **Contrat en cours de livraison.** Les niveaux, leurs IOs, l'application et
-> `InternalThermostat` sont livrés par CP-BASE-LEVELS. Restent à livrer CP-BASE-PROXY
-> (ProxyClimate) et CP-BASE-STATE (`state.program`).
+> `InternalThermostat` sont livrés par CP-BASE-LEVELS, ProxyClimate par CP-BASE-PROXY.
+> Reste à livrer CP-BASE-STATE (`state.program`).
 
 ### Modèle
 
