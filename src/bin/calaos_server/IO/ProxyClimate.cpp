@@ -610,6 +610,9 @@ bool ProxyClimate::applyCommand(const Json &command)
 {
     const bool nested = emu.evaluating;
     emu.evaluating = true;
+    //A rule fired by one of our writes can call back in: the outer command keeps its flags.
+    const auto outerMode = modeApplied;
+    const bool outerSetpoint = setpointApplied;
     modeApplied.reset();
     setpointApplied = false;
     const bool applied = ClimateBase::applyCommand(command);
@@ -618,6 +621,8 @@ bool ProxyClimate::applyCommand(const Json &command)
     //written: a refused one leaves the unit as it was.
     if (modeApplied && setpointApplied)
         programMode = modeApplied;
+    modeApplied = outerMode;
+    setpointApplied = outerSetpoint;
     emu.evaluating = nested;
     if (emu.enabled)
         emulate();

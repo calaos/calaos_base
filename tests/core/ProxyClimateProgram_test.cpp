@@ -30,6 +30,7 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <thread>
@@ -54,6 +55,24 @@ std::vector<Write> &writes()
 {
     static std::vector<Write> w;
     return w;
+}
+
+//Runs once, from inside the next write to the armed io: a synchronous rule on that write.
+struct WriteHook
+{
+    std::string id;
+    std::function<void()> fn;
+};
+
+WriteHook &writeHook()
+{
+    static WriteHook h;
+    return h;
+}
+
+void armWriteHook(const std::string &id, std::function<void()> fn)
+{
+    writeHook() = { id, std::move(fn) };
 }
 
 } //namespace
@@ -90,6 +109,12 @@ private:
     {
         writes().push_back({ get_param("id"), text, number });
         EmitSignalIO();
+        if (writeHook().fn && get_param("id") == writeHook().id)
+        {
+            auto f = std::move(writeHook().fn);
+            writeHook() = {};
+            f();
+        }
     }
 
     std::string text;
@@ -240,6 +265,7 @@ protected:
     {
         CoreFixture::SetUp();
         writes().clear();
+        writeHook() = {};
         loadConfig(house(), rulesXmlDocument(""));
         //The start waits for the loop.
         pumpFor(20);
@@ -248,6 +274,7 @@ protected:
 
     void TearDown() override
     {
+        writeHook() = {};
         CoreFixture::TearDown();
         pumpFor(5);
     }
@@ -331,6 +358,39 @@ TEST_F(ProxyClimateProgramTest, ProgramIosAreCreatedFromTheParams)
     //The setpoint bounds are those of the appliance's setpoint.
     EXPECT_EQ(io("pg_heat_default")->get_param("value_min"), "16");
     EXPECT_EQ(io("pg_heat_default")->get_param("value_max"), "30");
+}
+
+//docs/17 "IOs possédés": the roles are created by the server, io_doc.json does not list them.
+TEST_F(ProxyClimateProgramTest, TheOwnedRolesMatchTheGoldenList)
+{
+    auto owned = [](const std::string &id)
+    {
+        std::vector<std::string> roles;
+        for (const Device::Link &l: ListeRoom::Instance().findIOAs<ProxyClimate>(id)->getLinks())
+        {
+            if (l.io == id + "_" + l.name && l.name != "mode")
+                roles.push_back(l.name);
+        }
+        std::sort(roles.begin(), roles.end());
+        return roles;
+    };
+    using Roles = std::vector<std::string>;
+
+    const Roles full = { "cool_default", "cool_default_off", "cool_level1", "cool_level1_setpoint",
+                         "heat_default", "heat_level1", "heat_level1_setpoint", "heat_level2",
+                         "heat_level2_setpoint", "program_enabled" };
+    EXPECT_EQ(owned("pg"), full);
+    EXPECT_EQ(owned("po"), full);
+    EXPECT_EQ(owned("pm"), full);
+    EXPECT_EQ(owned("ps"), (Roles{ "cool_default", "cool_default_off", "cool_level1", "cool_level1_setpoint",
+                                   "heat_default", "heat_level1", "heat_level1_setpoint",
+                                   "program_enabled" }));
+    //emulate_range owns the pair it drives.
+    Roles emulated = owned("ps");
+    emulated.push_back("target_temp_high");
+    emulated.push_back("target_temp_low");
+    EXPECT_EQ(owned("pe"), emulated);
+    EXPECT_EQ(owned("pn"), Roles());
 }
 
 TEST_F(ProxyClimateProgramTest, NoLevelsNoProgram)
@@ -525,6 +585,49 @@ TEST_F(ProxyClimateProgramTest, ASetpointOfTheModeCommandWinsOverTheProgram)
     //The next trigger applies the program again.
     mode("pg", "heat");
     EXPECT_EQ(lastNumber("pg_target"), 17);
+}
+
+TEST_F(ProxyClimateProgramTest, ANestedCommandKeepsTheStateOfTheOuterOne)
+{
+    mode("pg", "heat");
+    ASSERT_EQ(lastNumber("pg_target"), 17);
+    writes().clear();
+
+    armWriteHook("pg_target", []()
+                 {
+        io("pg")->set_value(std::string(R"({"fan_mode":"auto"})"));
+    });
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"cool","target_temp":22})")));
+    pumpFor(5);
+    ASSERT_FALSE(writeHook().fn);
+
+    //The command wrote both: the echo of the mode must not apply the program over 22.
+    mode("pg", "cool");
+    EXPECT_EQ(lastNumber("pg_target"), 22);
+}
+
+//The nested range sets the setpoint flag of its own call: it must not make the mode of the
+//outer command look like one that came with a setpoint.
+TEST_F(ProxyClimateProgramTest, ANestedRangeDoesNotSuppressTheProgramOfTheOuterMode)
+{
+    mode("pg", "heat");
+    publishPair("pg", 18, 24);
+    writes().clear();
+
+    armWriteHook("pg_mode_cmd", []()
+                 {
+        io("pg")->set_value(std::string(R"({"target_temp_low":19,"target_temp_high":23})"));
+    });
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"auto"})")));
+    pumpFor(5);
+    ASSERT_FALSE(writeHook().fn);
+    ASSERT_EQ(lastNumber("pg_low_cmd"), 19);
+    ASSERT_EQ(lastNumber("pg_high_cmd"), 23);
+
+    //The outer command carried no setpoint: the echo of the mode applies the program.
+    mode("pg", "heat_cool");
+    EXPECT_EQ(lastNumber("pg_low_cmd"), 17);
+    EXPECT_EQ(lastNumber("pg_high_cmd"), 26);
 }
 
 TEST_F(ProxyClimateProgramTest, ARefusedSetpointLeavesTheProgramToTheModeEcho)
