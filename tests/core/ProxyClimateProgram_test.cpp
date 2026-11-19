@@ -56,6 +56,13 @@ std::vector<Write> &writes()
     return w;
 }
 
+//Runs once, from inside the next write to pg_target: a synchronous rule on the setpoint.
+std::function<void()> &onTargetWrite()
+{
+    static std::function<void()> f;
+    return f;
+}
+
 } //namespace
 
 //A broker output: remembers and echoes what it is given.
@@ -90,6 +97,12 @@ private:
     {
         writes().push_back({ get_param("id"), text, number });
         EmitSignalIO();
+        if (get_param("id") == "pg_target" && onTargetWrite())
+        {
+            auto f = std::move(onTargetWrite());
+            onTargetWrite() = nullptr;
+            f();
+        }
     }
 
     std::string text;
@@ -525,6 +538,25 @@ TEST_F(ProxyClimateProgramTest, ASetpointOfTheModeCommandWinsOverTheProgram)
     //The next trigger applies the program again.
     mode("pg", "heat");
     EXPECT_EQ(lastNumber("pg_target"), 17);
+}
+
+TEST_F(ProxyClimateProgramTest, ANestedCommandKeepsTheStateOfTheOuterOne)
+{
+    mode("pg", "heat");
+    ASSERT_EQ(lastNumber("pg_target"), 17);
+    writes().clear();
+
+    onTargetWrite() = []()
+    {
+        io("pg")->set_value(std::string(R"({"fan_mode":"auto"})"));
+    };
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"cool","target_temp":22})")));
+    pumpFor(5);
+    ASSERT_FALSE(onTargetWrite());
+
+    //The command wrote both: the echo of the mode must not apply the program over 22.
+    mode("pg", "cool");
+    EXPECT_EQ(lastNumber("pg_target"), 22);
 }
 
 TEST_F(ProxyClimateProgramTest, ARefusedSetpointLeavesTheProgramToTheModeEcho)
