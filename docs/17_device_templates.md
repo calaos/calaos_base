@@ -465,8 +465,10 @@ journalisée si refusée. Entre deux déclencheurs, la consigne reste libre : un
 manuelle (interface, règle, télécommande) tient jusqu'au prochain déclencheur. Sur un
 `ProxyClimate`, l'écriture va à la consigne cible de l'appareil et l'emporte sur son
 programme natif jusqu'à la prochaine écriture de Calaos ; Calaos ne ré-impose pas la
-consigne entre deux déclencheurs. Les plages écrivent aussi les consignes d'un climate qui a
-un programme natif : pas d'exclusion.
+consigne entre deux déclencheurs. Une commande `{"mode","target_temp"}` garde sa consigne
+sur un `ProxyClimate` comme sur un `ClimateBase` : l'écho du nouveau mode par l'appareil
+n'applique pas le programme par-dessus ; seul le prochain déclencheur le fait. Les plages
+écrivent aussi les consignes d'un climate qui a un programme natif : pas d'exclusion.
 
 **Consigne d'un jeu** `s` (`heat` ou `cool`), pour un instant donné :
 

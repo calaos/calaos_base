@@ -288,6 +288,21 @@ TEST_F(DeviceTest, UnresolvedLinkLeavesTheCapabilityOutButLoadsTheDevice)
     EXPECT_TRUE(roundTripIo());
 }
 
+TEST_F(DeviceTest, ARoleLinkedTwiceIsPublishedWithTheLinkThatIsRead)
+{
+    std::string inner;
+    inner += internalIoXml("InternalString", OWNED_MODE, "Mode");
+    inner += internalIoXml("InternalInt", OWNED_TARGET, "Target");
+    inner += linkXml("mode", OWNED_MODE);
+    inner += linkXml("mode", OWNED_TARGET);
+    loadConfig(ioXmlDocument(roomXml(ROOM_NAME, ROOM_TYPE, deviceXml(DEV, inner))),
+               rulesXmlDocument(""));
+
+    ASSERT_NE(device(), nullptr);
+    EXPECT_EQ(device()->linkIo("mode"), io(OWNED_MODE));
+    EXPECT_EQ(device()->deviceObject().at("ios").at("mode"), OWNED_MODE);
+}
+
 TEST_F(DeviceTest, SaveNestsOwnedIosLinksAndParamsInFileOrder)
 {
     loadConfig(salonHouse(), rulesXmlDocument(""));

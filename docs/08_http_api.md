@@ -2558,6 +2558,12 @@ appliqués quand même. Un JSON invalide (y compris un nombre hors de la plage d
 `1e400`) est refusé en entier. `[1]` ou `"x"` ne commencent pas par `{` : ce sont des modes,
 refusés comme tels.
 
+Quand le programme d'un climate est actif, une commande `{mode, target_temp}` (ou
+`target_temp_low`/`target_temp_high`) garde sa consigne : le programme ne la remplace pas, y compris
+sur un `ProxyClimate` où l'appareil renvoie ensuite le nouveau mode. Cela vaut si le mode et au
+moins une consigne ont été appliqués ; si l'un est refusé, le programme s'applique comme
+d'habitude. Seul le déclencheur suivant le réapplique.
+
 La réponse garde le contrat de `set_state` : `{"success":"true"}` si **au moins un champ** a
 été appliqué, `{"success":"false"}` sinon (tous refusés, JSON invalide, objet vide). Un succès
 peut donc cacher des champs refusés ; le journal les nomme. Toute commande, même refusée,
@@ -2709,9 +2715,12 @@ docs/17.
   - `set` : le jeu concerné (`"heat"` ou `"cool"`) ; `level` : le niveau actif **après** le
     changement (`null` = défaut) ; `setpoint` : la consigne après le changement (`null` pour
     l'arrêt du froid).
-  - Rien dans les 7 jours (aucun créneau, plages vides, ou niveau actif en permanence), ou
-    programme désactivé, ou mode hors `heat`/`cool`/`auto` : `"next_change": null`. La clé est
-    toujours présente quand `program` l'est.
+  - Heure répétée d'un changement d'heure (02:30 deux fois) : les deux passages sont
+    rapportés, chacun avec son décalage, car `isActiveAt` suit l'heure murale. Heure absente
+    (02:30 n'existe pas) : aucun début n'est rapporté pour une plage entièrement dans ce trou.
+  - Rien dans les 7 jours (aucun créneau, plages vides ou désactivées, ou niveau actif en
+    permanence), ou programme désactivé, ou mode hors `heat`/`cool`/`auto` :
+    `"next_change": null`. La clé est toujours présente quand `program` l'est.
   - En `auto`, c'est le plus proche des deux jeux. L'interface affiche alors la consigne du
     jeu de `next_change.set` (`next_change.setpoint`), pas une paire.
   - Un changement qui ne modifie pas la consigne (un niveau de même température qui en
