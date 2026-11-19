@@ -57,11 +57,22 @@ std::vector<Write> &writes()
     return w;
 }
 
-//Runs once, from inside the next write to pg_target: a synchronous rule on the setpoint.
-std::function<void()> &onTargetWrite()
+//Runs once, from inside the next write to the armed io: a synchronous rule on that write.
+struct WriteHook
 {
-    static std::function<void()> f;
-    return f;
+    std::string id;
+    std::function<void()> fn;
+};
+
+WriteHook &writeHook()
+{
+    static WriteHook h;
+    return h;
+}
+
+void armWriteHook(const std::string &id, std::function<void()> fn)
+{
+    writeHook() = { id, std::move(fn) };
 }
 
 } //namespace
@@ -98,10 +109,10 @@ private:
     {
         writes().push_back({ get_param("id"), text, number });
         EmitSignalIO();
-        if (get_param("id") == "pg_target" && onTargetWrite())
+        if (writeHook().fn && get_param("id") == writeHook().id)
         {
-            auto f = std::move(onTargetWrite());
-            onTargetWrite() = nullptr;
+            auto f = std::move(writeHook().fn);
+            writeHook() = {};
             f();
         }
     }
@@ -254,6 +265,7 @@ protected:
     {
         CoreFixture::SetUp();
         writes().clear();
+        writeHook() = {};
         loadConfig(house(), rulesXmlDocument(""));
         //The start waits for the loop.
         pumpFor(20);
@@ -262,6 +274,7 @@ protected:
 
     void TearDown() override
     {
+        writeHook() = {};
         CoreFixture::TearDown();
         pumpFor(5);
     }
@@ -580,17 +593,41 @@ TEST_F(ProxyClimateProgramTest, ANestedCommandKeepsTheStateOfTheOuterOne)
     ASSERT_EQ(lastNumber("pg_target"), 17);
     writes().clear();
 
-    onTargetWrite() = []()
-    {
+    armWriteHook("pg_target", []()
+                 {
         io("pg")->set_value(std::string(R"({"fan_mode":"auto"})"));
-    };
+    });
     ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"cool","target_temp":22})")));
     pumpFor(5);
-    ASSERT_FALSE(onTargetWrite());
+    ASSERT_FALSE(writeHook().fn);
 
     //The command wrote both: the echo of the mode must not apply the program over 22.
     mode("pg", "cool");
     EXPECT_EQ(lastNumber("pg_target"), 22);
+}
+
+//The nested range sets the setpoint flag of its own call: it must not make the mode of the
+//outer command look like one that came with a setpoint.
+TEST_F(ProxyClimateProgramTest, ANestedRangeDoesNotSuppressTheProgramOfTheOuterMode)
+{
+    mode("pg", "heat");
+    publishPair("pg", 18, 24);
+    writes().clear();
+
+    armWriteHook("pg_mode_cmd", []()
+                 {
+        io("pg")->set_value(std::string(R"({"target_temp_low":19,"target_temp_high":23})"));
+    });
+    ASSERT_TRUE(io("pg")->set_value(std::string(R"({"mode":"auto"})")));
+    pumpFor(5);
+    ASSERT_FALSE(writeHook().fn);
+    ASSERT_EQ(lastNumber("pg_low_cmd"), 19);
+    ASSERT_EQ(lastNumber("pg_high_cmd"), 23);
+
+    //The outer command carried no setpoint: the echo of the mode applies the program.
+    mode("pg", "heat_cool");
+    EXPECT_EQ(lastNumber("pg_low_cmd"), 17);
+    EXPECT_EQ(lastNumber("pg_high_cmd"), 26);
 }
 
 TEST_F(ProxyClimateProgramTest, ARefusedSetpointLeavesTheProgramToTheModeEcho)
