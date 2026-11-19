@@ -30,6 +30,7 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <algorithm>
 #include <functional>
 #include <string>
 #include <thread>
@@ -344,6 +345,39 @@ TEST_F(ProxyClimateProgramTest, ProgramIosAreCreatedFromTheParams)
     //The setpoint bounds are those of the appliance's setpoint.
     EXPECT_EQ(io("pg_heat_default")->get_param("value_min"), "16");
     EXPECT_EQ(io("pg_heat_default")->get_param("value_max"), "30");
+}
+
+//docs/17 "IOs possédés": the roles are created by the server, io_doc.json does not list them.
+TEST_F(ProxyClimateProgramTest, TheOwnedRolesMatchTheGoldenList)
+{
+    auto owned = [](const std::string &id)
+    {
+        std::vector<std::string> roles;
+        for (const Device::Link &l: ListeRoom::Instance().findIOAs<ProxyClimate>(id)->getLinks())
+        {
+            if (l.io == id + "_" + l.name && l.name != "mode")
+                roles.push_back(l.name);
+        }
+        std::sort(roles.begin(), roles.end());
+        return roles;
+    };
+    using Roles = std::vector<std::string>;
+
+    const Roles full = { "cool_default", "cool_default_off", "cool_level1", "cool_level1_setpoint",
+                         "heat_default", "heat_level1", "heat_level1_setpoint", "heat_level2",
+                         "heat_level2_setpoint", "program_enabled" };
+    EXPECT_EQ(owned("pg"), full);
+    EXPECT_EQ(owned("po"), full);
+    EXPECT_EQ(owned("pm"), full);
+    EXPECT_EQ(owned("ps"), (Roles{ "cool_default", "cool_default_off", "cool_level1", "cool_level1_setpoint",
+                                   "heat_default", "heat_level1", "heat_level1_setpoint",
+                                   "program_enabled" }));
+    //emulate_range owns the pair it drives.
+    Roles emulated = owned("ps");
+    emulated.push_back("target_temp_high");
+    emulated.push_back("target_temp_low");
+    EXPECT_EQ(owned("pe"), emulated);
+    EXPECT_EQ(owned("pn"), Roles());
 }
 
 TEST_F(ProxyClimateProgramTest, NoLevelsNoProgram)
