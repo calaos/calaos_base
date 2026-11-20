@@ -1770,7 +1770,9 @@ L'installer déverrouille (`admin_unlock`), puis réutilise `admin_session` pour
 mot de passe admin en mémoire, par hôte, pour la durée de l'application. La session expire
 15 min après l'émission, quoi qu'il fasse : sur `bad_session` il refait **un seul**
 `admin_unlock` automatique avec ce mot de passe, puis rejoue la requête. Il ne redemande la
-saisie que si ce nouveau déverrouillage échoue. La session n'est jamais envoyée vers un hôte
+saisie que si ce nouveau déverrouillage échoue. Le mot de passe gardé est oublié sur
+`bad_password` ou `admin_not_set`, quand l'utilisateur change, quand les identifiants du foyer
+sont effacés et à la fermeture de l'application ; il n'est jamais servi à un autre hôte. La session n'est jamais envoyée vers un hôte
 en `http`.
 
 Pour valider la session, calaos_server appelle `GET /api/v2/admin/status` avec
