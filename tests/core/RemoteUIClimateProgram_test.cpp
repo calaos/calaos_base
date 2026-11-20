@@ -32,6 +32,7 @@
 #include "libuvw.h"
 
 #include <chrono>
+#include <set>
 #include <thread>
 
 using namespace Calaos;
@@ -188,6 +189,36 @@ protected:
         return false;
     }
 
+    //Ids of the program IOs of a device, read from the full (unfiltered) device object.
+    std::set<std::string> programIoIds(const char *id)
+    {
+        std::set<std::string> ids;
+        const Json ios = device(id)->deviceObject().at("ios");
+        for (auto it = ios.begin(); it != ios.end(); ++it)
+            if (hasProgramIo(Json{ { it.key(), 1 } }))
+                ids.insert(it.value().get<std::string>());
+        return ids;
+    }
+
+    //Ids of the io_items of the config sent to the screen.
+    std::vector<std::string> configIoIds()
+    {
+        sent.clear();
+        handler->sendConfigUpdate();
+        for (const std::string &raw: sent)
+        {
+            const Json env = Json::parse(raw, nullptr, false);
+            if (!env.is_object() || env.value("msg", "") != "remote_ui_config_update")
+                continue;
+            std::vector<std::string> ids;
+            for (const Json &item: env.at("data").at("io_items"))
+                ids.push_back(item.value("id", ""));
+            return ids;
+        }
+        ADD_FAILURE() << "no remote_ui_config_update sent";
+        return {};
+    }
+
     RemoteUI *screen = nullptr;
     std::shared_ptr<PanelClient> client;
     std::unique_ptr<PanelHandler> handler;
@@ -256,4 +287,69 @@ TEST_F(RemoteUIClimateProgramTest, IoChangedCarriesNoProgram)
         EXPECT_FALSE(hasProgramIo(data.at("device").at("ios")));
     }
     EXPECT_TRUE(seen);
+}
+
+TEST_F(RemoteUIClimateProgramTest, ConfigIoItemsCarryNoProgramIo)
+{
+    const std::set<std::string> program = programIoIds(WITH);
+    ASSERT_GT(program.size(), 10u);
+
+    const std::vector<std::string> ids = configIoIds();
+    for (const std::string &id: ids)
+        EXPECT_EQ(program.count(id), 0u) << id;
+
+    //The io_items of a programmed climate are the ones of a plain thermostat, no more.
+    const std::set<std::string> unique(ids.begin(), ids.end());
+    EXPECT_EQ(unique.size(), ids.size());
+    size_t with = 0, without = 0;
+    for (const std::string &id: ids)
+    {
+        //"ruip_with" is a prefix of "ruip_without": match with the separator.
+        if (id.rfind(std::string(WITHOUT) + "_", 0) == 0)
+            ++without;
+        else if (id.rfind(std::string(WITH) + "_", 0) == 0)
+            ++with;
+    }
+    EXPECT_EQ(with, without);
+    EXPECT_LE(ids.size(), 24u);
+}
+
+TEST_F(RemoteUIClimateProgramTest, TheClimateStaysWritableButNotItsProgram)
+{
+    configIoIds();
+    EXPECT_TRUE(screen->hasWritableIO(WITH));
+    for (const std::string &id: programIoIds(WITH))
+    {
+        EXPECT_FALSE(screen->hasWritableIO(id)) << id;
+        EXPECT_FALSE(screen->hasReferencedIO(id)) << id;
+    }
+}
+
+TEST_F(RemoteUIClimateProgramTest, ProgramIoChangesAreNotRelayed)
+{
+    configIoIds();
+    const std::set<std::string> program = programIoIds(WITH);
+    ASSERT_FALSE(program.empty());
+
+    sent.clear();
+    for (const std::string &id: program)
+    {
+        IOBase *io = ListeRoom::Instance().get_io(id);
+        if (!io)
+            continue;
+        if (io->get_type() == TBOOL)
+            io->set_value(true);
+        else
+            io->set_value(17.0);
+    }
+    pumpFor(500);
+
+    for (const std::string &raw: sent)
+    {
+        const Json env = Json::parse(raw, nullptr, false);
+        if (!env.is_object() || env.value("msg", "") != "event")
+            continue;
+        const std::string id = env.at("data").at("data").value("id", "");
+        EXPECT_EQ(program.count(id), 0u) << id;
+    }
 }

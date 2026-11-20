@@ -300,7 +300,10 @@ void RemoteUIWebSocketHandler::adjustEvent(Json &eventJson)
     auto device = data->find("device");
     if (device == data->end())
         return;
-    const string id = data->value("id", "");
+    const auto idIt = data->find("id");
+    if (idIt == data->end() || !idIt->is_string())
+        return;
+    const string id = idIt->get<string>();
     if (Device *dev = ListeRoom::Instance().findIOAs<Device>(id))
         dev->trimForRemoteUi(*device);
 }

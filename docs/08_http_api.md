@@ -2745,7 +2745,8 @@ pour « Aucun niveau » de docs/17.
   IOs de programme (les rôles ci-dessus, `program_enabled` compris) sont aussi absents de
   `device.ios`, et ne sont pas développés en IOs référencés ni émis seuls. Un climate avec
   programme pèse donc pour un écran autant qu'un climate sans. Les autres clients (web, mobile,
-  MCP) reçoivent le programme comme décrit ici.
+  MCP) reçoivent le programme comme décrit ici. Une forme compacte (niveau actif, prochain
+  changement) viendra quand le firmware l'affichera.
 
 **Lire le programme.** Pas de commande nouvelle : `device.state.program` donne l'état résumé ;
 la consigne de chaque niveau, les `_default` et `cool_default_off` se lisent avec `get_state` ou

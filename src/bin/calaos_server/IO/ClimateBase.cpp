@@ -116,7 +116,6 @@ bool ClimateBase::hiddenFromRemoteUi(const string &role) const
 
 void ClimateBase::trimForRemoteUi(Json &deviceObject) const
 {
-    // find() on a non-object Json returns end(), so no object guard is needed.
     for (const char *member: { "capabilities", "state" })
     {
         auto it = deviceObject.find(member);
