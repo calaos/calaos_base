@@ -1765,10 +1765,13 @@ Ces deux actions **HTTP** existent déjà ([`config`](#config--clé-type-http-un
 {"success": "false", "error": "bad_session", "msg": "Admin session required"}
 ```
 
-L'installer déverrouille **une fois** par dialogue (`admin_unlock`), puis réutilise
-`admin_session` pour ses `config get` / `put` successifs. `admin_pass` n'est jamais envoyé
-avec `config`. La session expire 15 min après l'émission, quoi qu'il fasse : sur `bad_session`
-l'installer redemande le mot de passe.
+L'installer déverrouille (`admin_unlock`), puis réutilise `admin_session` pour ses
+`config get` / `put` successifs. `admin_pass` n'est jamais envoyé avec `config`. Il garde le
+mot de passe admin en mémoire, par hôte, pour la durée de l'application. La session expire
+15 min après l'émission, quoi qu'il fasse : sur `bad_session` il refait **un seul**
+`admin_unlock` automatique avec ce mot de passe, puis rejoue la requête. Il ne redemande la
+saisie que si ce nouveau déverrouillage échoue. La session n'est jamais envoyée vers un hôte
+en `http`.
 
 Pour valider la session, calaos_server appelle `GET /api/v2/admin/status` avec
 `X-Calaos-Admin-Session`, et n'accepte que `200` avec `admin_set: true`. Après un

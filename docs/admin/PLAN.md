@@ -69,7 +69,7 @@ Les constats calaos-container portent sur `origin/main`.
     - L'échec ne ferme pas le WS foyer.
   - `admin_unlock` renvoie `{admin_session, expires_in}`.
     - En WS, chaque message `admin` porte l'`admin_session`.
-    - En HTTP, `config` et `get_mcp_info` portent l'`admin_session` dans le corps JSON, jamais en query (haproxy journalise les URL). `admin_pass` n'est plus envoyé à chaque requête : l'installer déverrouille une fois par dialogue.
+    - En HTTP, `config` et `get_mcp_info` portent l'`admin_session` dans le corps JSON, jamais en query (haproxy journalise les URL). `admin_pass` n'est plus envoyé à chaque requête : l'installer déverrouille, garde le mot de passe en mémoire pour la durée de l'application et refait un seul `admin_unlock` automatique sur `bad_session` (il ne redemande la saisie que si celui-ci échoue).
     - calaos_server ne garde aucune session. La webapp garde la session en mémoire et la renvoie après reconnexion et re-login. Sur `bad_session`, elle redemande le mot de passe admin sans message d'erreur.
   - Une fois l'admin défini, ces actions sont réservées à l'admin :
     - `config get/put` ;
