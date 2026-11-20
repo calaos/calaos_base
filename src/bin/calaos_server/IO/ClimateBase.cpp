@@ -700,20 +700,20 @@ uint64_t ClimateBase::lockoutWait(bool on, bool forced, const std::optional<uint
 
 void ClimateBase::documentProgram()
 {
-    static_assert(MAX_PROGRAM_LEVELS == 6, "the levels descriptions below say 6");
+    static_assert(MAX_PROGRAM_LEVELS == 10, "the levels descriptions below say 10");
     ioDoc->paramAdd("heat_levels",
-                    _("Number of schedule levels of the heating program, 0 for no program, at most 6 (more is "
-                      "capped, an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
+                    _("Heating program, 0 for no program. Any value of 1 or more gives the maximum of 10 schedule "
+                      "levels (an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
                       "own setpoint io. The program IOs (heat_default, and a range and a setpoint per level) are "
                       "created hidden at load when missing, and removed when this param no longer asks for them."),
-                    IODoc::TYPE_INT, false, "0", false, _("Heating program levels"));
+                    IODoc::TYPE_INT, false, "0", false, _("Heating program"));
     ioDoc->paramAdd("cool_levels",
-                    _("Number of schedule levels of the cooling program, 0 for no program, at most 6 (more is "
-                      "capped, an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
+                    _("Cooling program, 0 for no program. Any value of 1 or more gives the maximum of 10 schedule "
+                      "levels (an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
                       "own setpoint io. The program IOs (cool_default, cool_default_off, and a range and a setpoint "
                       "per level) are created hidden at load when missing, and removed when this param no longer "
                       "asks for them."),
-                    IODoc::TYPE_INT, false, "0", false, _("Cooling program levels"));
+                    IODoc::TYPE_INT, false, "0", false, _("Cooling program"));
     ioDoc->paramAdd("heat_default_setpoint", _("Heating setpoint outside the levels of the program."),
                     IODoc::TYPE_FLOAT, false, "17", false, _("Default heating setpoint"));
     ioDoc->paramAdd("cool_default_setpoint", _("Cooling setpoint outside the levels of the program."),
@@ -744,12 +744,9 @@ int ClimateBase::levelsParam(const string &set, ClimateMode mode)
                               << "' is not a whole number of levels, 0 is used";
         return 0;
     }
-    if (v > MAX_PROGRAM_LEVELS)
-    {
-        cWarningDom("device") << "Device(" << id << "): " << name << " " << raw << " is above "
-                              << MAX_PROGRAM_LEVELS << ", " << MAX_PROGRAM_LEVELS << " is used";
+    //The level count is not a setting: any program gets the maximum.
+    if (v >= 1)
         v = MAX_PROGRAM_LEVELS;
-    }
     const vector<ClimateMode> modes = supportedModes();
     if (v > 0 && std::find(modes.begin(), modes.end(), mode) == modes.end())
     {

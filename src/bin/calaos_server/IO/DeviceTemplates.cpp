@@ -300,10 +300,10 @@ Json esphomeClimate()
                             "ESPHome needs a few lines of YAML to take it (see the notes): Calaos publishes it on "
                             "<topic_prefix>/calaos/remote_temp."),
                           false, "number", false));
-    fields.push_back(number("heat_levels", _("Heating program levels"),
-                            _("Number of schedule levels of the heating program, 0 for no program."), 0, 6, 1, "", 0));
-    fields.push_back(number("cool_levels", _("Cooling program levels"),
-                            _("Number of schedule levels of the cooling program, 0 for no program."), 0, 6, 1, "", 0));
+    fields.push_back(number("heat_levels", _("Heating program"),
+                            _("1 for a time program of the heating (10 levels), 0 for none."), 0, 1, 1, "", 0));
+    fields.push_back(number("cool_levels", _("Cooling program"),
+                            _("1 for a time program of the cooling (10 levels), 0 for none."), 0, 1, 1, "", 0));
     fields.push_back(number("heat_default_setpoint", _("Default heating setpoint"),
                             _("Heating setpoint outside the levels of the program."), 0, 50, 0.5, "°C", 17));
     fields.push_back(number("cool_default_setpoint", _("Default cooling setpoint"),
