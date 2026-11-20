@@ -764,17 +764,23 @@ TEST_F(ClimateProgramTest, AThreeLevelHouseGainsEmptyLevelsAndKeepsItsSetpoints)
                          linkXml("heat_default", "lg_heat_default") +
                          linkXml("program_enabled", "lg_program_enabled");
     //Level n: day, start and end of its slots.
-    struct Slot { int wday; const char *day; const char *sh, *sm, *eh, *em; };
-    const std::vector<std::vector<Slot>> slots = {
-        {{TimeRange::MONDAY, "lundi", "8", "0", "12", "0"},
-         {TimeRange::MONDAY, "lundi", "14", "0", "18", "30"}},
-        {{TimeRange::SATURDAY, "samedi", "22", "0", "23", "30"}},
-        {{TimeRange::SUNDAY, "dimanche", "6", "15", "7", "45"}},
+    struct Slot
+    {
+        int wday;
+        const char *day;
+        const char *sh, *sm, *eh, *em;
     };
-    auto rangeXml = [&](const std::string &id, const std::vector<Slot> &sl) {
+    const std::vector<std::vector<Slot>> slots = {
+        { { TimeRange::MONDAY, "lundi", "8", "0", "12", "0" },
+          { TimeRange::MONDAY, "lundi", "14", "0", "18", "30" } },
+        { { TimeRange::SATURDAY, "samedi", "22", "0", "23", "30" } },
+        { { TimeRange::SUNDAY, "dimanche", "6", "15", "7", "45" } },
+    };
+    auto rangeXml = [&](const std::string &id, const std::vector<Slot> &sl)
+    {
         std::string x = "      <calaos:internal type=\"InPlageHoraire\" id=\"" + id + "\" name=\"" + id +
                         "\" visible=\"false\">\n";
-        for (const Slot &s : sl)
+        for (const Slot &s: sl)
             x += std::string("        <calaos:") + s.day + "><calaos:plage start_type=\"0\" start_hour=\"" +
                  s.sh + "\" start_min=\"" + s.sm + "\" start_sec=\"0\" end_type=\"0\" end_hour=\"" + s.eh +
                  "\" end_min=\"" + s.em + "\" end_sec=\"0\" /></calaos:" + s.day + ">\n";
@@ -793,7 +799,8 @@ TEST_F(ClimateProgramTest, AThreeLevelHouseGainsEmptyLevelsAndKeepsItsSetpoints)
     Config::Instance().SaveValueIO("lg_heat_level3_setpoint", "18", false);
     load(solo("lg", false, legacy), "lg");
 
-    auto expectKept = [&]() {
+    auto expectKept = [&]()
+    {
         for (int n = 1; n <= 3; n++)
         {
             const std::string r = "lg_heat_level" + std::to_string(n);
@@ -804,7 +811,7 @@ TEST_F(ClimateProgramTest, AThreeLevelHouseGainsEmptyLevelsAndKeepsItsSetpoints)
             for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
             {
                 std::vector<TimeRange> want;
-                for (const Slot &s : slots[n - 1])
+                for (const Slot &s: slots[n - 1])
                     if (s.wday == d)
                         want.push_back(span(s.sh, s.sm, "0", s.eh, s.em, "0"));
                 std::vector<TimeRange> &got = d == TimeRange::SUNDAY      ? p->getSunday()
