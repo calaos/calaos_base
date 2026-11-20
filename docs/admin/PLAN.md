@@ -69,7 +69,7 @@ Les constats calaos-container portent sur `origin/main`.
     - L'échec ne ferme pas le WS foyer.
   - `admin_unlock` renvoie `{admin_session, expires_in}`.
     - En WS, chaque message `admin` porte l'`admin_session`.
-    - En HTTP, `config` et `get_mcp_info` portent l'`admin_session` dans le corps JSON, jamais en query (haproxy journalise les URL). `admin_pass` n'est plus envoyé à chaque requête : l'installer déverrouille une fois par dialogue.
+    - En HTTP, `config` et `get_mcp_info` portent l'`admin_session` dans le corps JSON, jamais en query (haproxy journalise les URL). `admin_pass` n'est plus envoyé à chaque requête : l'installer déverrouille, garde le mot de passe en mémoire pour la durée de l'application et refait un seul `admin_unlock` automatique sur `bad_session` (il ne redemande la saisie que si celui-ci échoue).
     - calaos_server ne garde aucune session. La webapp garde la session en mémoire et la renvoie après reconnexion et re-login. Sur `bad_session`, elle redemande le mot de passe admin sans message d'erreur.
   - Une fois l'admin défini, ces actions sont réservées à l'admin :
     - `config get/put` ;
@@ -289,7 +289,7 @@ Contrats de référence : `docs/API.md` de calaos-container pour les routes du d
 | calaos_base | CB4 | plafond des nouvelles identités XFF venues du loopback dans `LoginThrottle`. Après CB2 | 0,5 j |
 | calaos-web-app | WA1 | vue Admin : définir / déverrouiller, changer le mot de passe admin (`admin_set` avec session), mises à jour, progression, reprise après redémarrage serveur, reboot, « utilisez https:// », écran du mot de passe foyer, liste `api_allowed_hosts` affichée au bootstrap, délai de 5 s sur `admin_unlock`, « Activation en cours » avec nouvel essai puis repli sur « Redémarrez la box », nouvel essai automatique sur `admin_unavailable`, messages d'erreur, bouton « Régénérer » du jeton MCP, scénarios du mock. Depends on: CB0 | 3,5 j |
 | calaos-web-app | WA2 | réécriture de l'Origin par le proxy de dev | 0,1 j |
-| calaos_installer | CI1 | champ mot de passe admin optionnel, `admin_unlock` une fois par dialogue, `admin_session` dans `config`, réécriture https et une retentative sur `https_required`, refus affiché. Depends on: CB0 | 0,5 j |
+| calaos_installer | CI1 | champ mot de passe admin optionnel, mot de passe admin gardé en mémoire pour la durée de l'application, `admin_unlock` une fois puis un seul ré-unlock automatique sur `bad_session`, `admin_session` dans `config`, réécriture https et une retentative sur `https_required`, refus affiché. Depends on: CB0 | 0,5 j |
 | doc-website | DOC1 | pages update et services : la montée se fait avec l'outil habituel, la webapp remplace ensuite SSH ; récupération par `admin set` ; `reset` après changement du mot de passe foyer ; rollback ; `api_allowed_hosts` avant le bootstrap ; `haproxy.cfg` modifié ; Docker et autres distributions : pas d'administration web | 0,5 j |
 | box | RC1 | recette en VM depuis l'image stable 4.5.0, paquets du canal dev/experimental publié par CC-041 (la préparation de la VM peut passer par SSH) : `calaos-os upgrade`, `apt upgrade`, bouton du kiosque ; les deux ordres d'activation ; runs interrompus ; sessions après redémarrage du daemon ; puis dev.x vers dev.y depuis la webapp, qui refait le test de CC-041 sur la VM | 1,75 j |
 
@@ -470,7 +470,7 @@ Décisions de Raoul du 2026-10-25, issues de la revue de sécurité de la phase 
   - plafond des identités XFF loopback ;
   - `mcp_regenerate` change le jeton et redémarre le sidecar.
 - **Webapp** : e2e sur le mock avec la coupure et la reprise pendant l'upgrade, calaos_server ancien (message au bout de 5 s, pas d'attente infinie), daemon ancien (« Activation en cours » puis reprise), `bad_session` suivi d'une nouvelle demande, changement du mot de passe admin.
-- **Installer** : enregistrement en ligne avec et sans mot de passe admin, un seul déverrouillage par dialogue, hôte `http://…:5454` réécrit en https.
+- **Installer** : enregistrement en ligne avec et sans mot de passe admin, déverrouillage réutilisé pendant toute la durée de l'application (un seul ré-unlock automatique sur `bad_session`), hôte `http://…:5454` réécrit en https.
 - **Phase 2** :
   - `push_code` par id : le bus ne porte ni token ni code, calaos_server récupère `{token, message}` par la route bearer et pousse vers ce seul token ;
   - un client foyer ne reçoit jamais `push_code` ;
