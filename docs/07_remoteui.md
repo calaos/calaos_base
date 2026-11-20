@@ -330,7 +330,9 @@ chaîne est ignorée avec un avertissement.
 `RemoteUI::extractReferencedIOs()` calcule deux ensembles :
 
 - **lisible** (`getReferencedIOs()`) : les `io_id` des widgets, plus, pour un widget device, le
-  device, ses IOs possédés et les `io`/`command_io` de ses liens (RUI-1). Seuls les événements
+  device, ses IOs possédés et les `io`/`command_io` de ses liens (RUI-1), sauf les IOs de rôle
+  que le device cache à l'écran (`hiddenFromRemoteUi` : le programme d'un climate). Un widget qui
+  nomme directement un de ces IOs le garde. Seuls les événements
   d'IO (`io_changed`, `io_added`, `io_deleted`, `io_prop_deleted`, `io_status_changed`) dont l'`id`
   est lisible sont transmis au panneau ; les autres événements (pièces, scénarios, audio, push)
   ne le sont jamais. Le filtre est le crochet `forwardsEvent()` de `JsonApiHandlerWS`, qui laisse

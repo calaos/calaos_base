@@ -2740,6 +2740,13 @@ pour « Aucun niveau » de docs/17.
 - Le prochain changement est un instant calculé : le serveur republie `io_changed` du climate
   quand le niveau actif change, et après tout `set_timerange` ou `set_state` d'un IO du
   programme. Un client qui affiche un compte à rebours le calcule lui-même depuis `at`.
+- **Écrans RemoteUI.** Le programme n'est pas envoyé à un écran : ni `capabilities.program` ni
+  `state.program`, ni dans `remote_ui_io_states` à la connexion, ni dans les `io_changed`. Les
+  IOs de programme (les rôles ci-dessus, `program_enabled` compris) sont aussi absents de
+  `device.ios`, et ne sont pas développés en IOs référencés ni émis seuls. Un climate avec
+  programme pèse donc pour un écran autant qu'un climate sans. Les autres clients (web, mobile,
+  MCP) reçoivent le programme comme décrit ici. Une forme compacte (niveau actif, prochain
+  changement) viendra quand le firmware l'affichera.
 
 **Lire le programme.** Pas de commande nouvelle : `device.state.program` donne l'état résumé ;
 la consigne de chaque niveau, les `_default` et `cool_default_off` se lisent avec `get_state` ou

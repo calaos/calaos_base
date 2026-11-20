@@ -56,6 +56,10 @@ enum class ClimateAction
 class ClimateBase: public Device
 {
 public:
+    //The schedule program is not shown on a panel.
+    bool hiddenFromRemoteUi(const string &role) const override;
+    void trimForRemoteUi(Json &deviceObject) const override;
+
     struct Bounds
     {
         double min;

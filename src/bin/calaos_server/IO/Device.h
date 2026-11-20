@@ -69,6 +69,16 @@ public:
      * "unchanged". */
     Json deviceObject();
 
+    /* What a RemoteUI panel does not read: a role it never shows, and the
+     * members of a deviceObject() that only that role's clients use. The panel
+     * firmware has a small network task, so these stay out of its frames. */
+    virtual bool hiddenFromRemoteUi(const string &role) const
+    {
+        (void)role;
+        return false;
+    }
+    virtual void trimForRemoteUi(Json &deviceObject) const { (void)deviceObject; }
+
     bool LoadFromXml(pugi::xml_node node) override;
     bool SaveToXml(pugi::xml_node node) override;
 

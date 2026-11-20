@@ -201,7 +201,9 @@ void JsonApiHandlerWS::handleEvents(const CalaosEvent &event)
      * lowercase \u00e9. Both are pure ASCII; pinned by
      * tests/core/EventWireBytes_test.cpp.
      */
-    sendJson("event", event.toJson());
+    Json ev = event.toJson();
+    adjustEvent(ev);
+    sendJson("event", ev);
 }
 
 //Sent on the plain port too: the filtered event carries nothing sensitive

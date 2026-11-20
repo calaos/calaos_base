@@ -51,6 +51,9 @@ protected:
     //Whether a logged-in client receives this event: every event by default.
     virtual bool forwardsEvent(const CalaosEvent &) { return true; }
 
+    //Lets a session reshape the event it forwards, e.g. to drop what its client never reads.
+    virtual void adjustEvent(Json &) {}
+
     //Whether a logged-in client receives admin_event; never a service session
     virtual bool forwardsAdminEvents() const { return !serviceScope; }
 
