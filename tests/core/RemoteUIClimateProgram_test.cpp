@@ -70,6 +70,8 @@ public:
         authenticated_remote_ui = ui;
         setAuthenticated(true);
     }
+
+    using RemoteUIWebSocketHandler::adjustEvent;
 };
 
 std::string thermostat(const std::string &id, int levels)
@@ -287,6 +289,19 @@ TEST_F(RemoteUIClimateProgramTest, IoChangedCarriesNoProgram)
         EXPECT_FALSE(hasProgramIo(data.at("device").at("ios")));
     }
     EXPECT_TRUE(seen);
+}
+
+TEST_F(RemoteUIClimateProgramTest, AdjustEventIgnoresMissingOrNonStringId)
+{
+    for (const Json &id: {Json(), Json(42)})
+    {
+        Json ev = {{"data", {{"device", {{"state", {{"program", 1}}}}}}}};
+        if (!id.is_null())
+            ev["data"]["id"] = id;
+        const Json before = ev;
+        EXPECT_NO_THROW(handler->adjustEvent(ev));
+        EXPECT_EQ(ev, before);
+    }
 }
 
 TEST_F(RemoteUIClimateProgramTest, ConfigIoItemsCarryNoProgramIo)
