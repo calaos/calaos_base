@@ -293,9 +293,9 @@ TEST_F(RemoteUIClimateProgramTest, IoChangedCarriesNoProgram)
 
 TEST_F(RemoteUIClimateProgramTest, AdjustEventIgnoresMissingOrNonStringId)
 {
-    for (const Json &id: {Json(), Json(42)})
+    for (const Json &id: { Json(), Json(42) })
     {
-        Json ev = {{"data", {{"device", {{"state", {{"program", 1}}}}}}}};
+        Json ev = { { "data", { { "device", { { "state", { { "program", 1 } } } } } } } };
         if (!id.is_null())
             ev["data"]["id"] = id;
         const Json before = ev;
