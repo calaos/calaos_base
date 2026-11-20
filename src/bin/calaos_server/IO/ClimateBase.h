@@ -203,7 +203,7 @@ protected:
      * resolveLinks(), after the base: it creates or removes the owned levels
      * the params ask for. startProgram() applies it a first time, once the
      * impl may write; each later trigger applies it through applyCommand(). */
-    static constexpr int MAX_PROGRAM_LEVELS = 6;
+    static constexpr int MAX_PROGRAM_LEVELS = 10;
     void setupProgram();
     void startProgram();
     //"heat" or "cool": its levels once the params are checked.

@@ -338,9 +338,9 @@ programme horaire. Le programme **ne génère aucune règle** : le device lui-m�
 consigne cible quand l'état d'une plage change. La logique vit dans `ClimateBase`, la
 sous-classe fournit seulement l'écriture de la consigne (voir « Application »).
 
-- Deux **jeux** de niveaux indépendants : `heat` (chaud) et `cool` (froid), de 0 à 6 niveaux
+- Deux **jeux** de niveaux indépendants : `heat` (chaud) et `cool` (froid), de 0 ou 10 niveaux (`MAX_PROGRAM_LEVELS`)
   chacun. Pas de saison globale : le mode du climate choisit le jeu.
-- Un **niveau** `n` (1 à 6) d'un jeu `s` est formé de :
+- Un **niveau** `n` (1 à 10) d'un jeu `s` est formé de :
   - une plage `InPlageHoraire` possédée par le device ;
   - une consigne, `InternalInt` possédé et sauvegardé ;
   - une priorité (voir ci-dessous).
@@ -407,8 +407,8 @@ Params du `<calaos:device>` (documentés dans l'IODoc, `descriptionBaseSet`/`par
 
 | Param | Défaut | Sens |
 |---|---|---|
-| `heat_levels` | `0` | nombre de niveaux du jeu chaud, entier de 0 à 6 |
-| `cool_levels` | `0` | nombre de niveaux du jeu froid, entier de 0 à 6 |
+| `heat_levels` | `0` | programme du jeu chaud : 0 = aucun, toute valeur ≥ 1 = le maximum (10 niveaux) |
+| `cool_levels` | `0` | programme du jeu froid : 0 = aucun, toute valeur ≥ 1 = le maximum (10 niveaux) |
 | `program_min_gap` | `2` | écart minimal, en °C, entre consigne basse et haute en mode `auto` quand le programme les pilote (voir « Mode auto ») |
 | `heat_default_setpoint` | `17` | valeur initiale de `heat_default` (°C) |
 | `cool_default_setpoint` | `26` | valeur initiale de `cool_default` (°C) |
@@ -437,8 +437,9 @@ ajoutés aux templates par CP-BASE-LEVELS (thermostats) et CP-BASE-PROXY (`espho
   offre `cool`. Un jeu dont le mode n'est pas offert est ignoré au chargement (`cWarning`, param
   remis à 0 en mémoire, jamais réécrit dans `io.xml`). Une vanne de zone sans froid n'a donc que
   `heat_levels`.
-- **Au-delà de 6**, la valeur est ramenée à 6 au chargement avec un avertissement ; une valeur
-  non entière ou négative vaut 0.
+- **Le nombre de niveaux n'est pas un réglage** : toute valeur ≥ 1 donne 10 niveaux (`max_levels`)
+  au chargement. Les maisons à 2, 3 ou 4 niveaux gagnent des niveaux vides, sans perte de plages
+  ni de consignes. Une valeur non entière ou négative vaut 0.
 - **Réduire le nombre de niveaux.** Au rechargement de la configuration, les IOs des
   niveaux supérieurs au nouveau nombre (plage et consigne) sont supprimés du device et de
   `io.xml` : leurs créneaux et consignes sont perdus. Les augmenter crée les niveaux

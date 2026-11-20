@@ -11,7 +11,7 @@ from calaos_mcp.tools._home import _PROGRAM_ROLE, program_ios
 from test_mcp_devices import FakeClient, built_iodoc_path, item, run
 
 LEVEL_ROLES = [f"{mode}_level{n}{tail}"
-               for mode in ("heat", "cool") for n in range(1, 7)
+               for mode in ("heat", "cool") for n in range(1, 11)
                for tail in ("", "_setpoint")]
 OTHER_ROLES = ["heat_default", "cool_default", "cool_default_off", "program_enabled"]
 
@@ -152,8 +152,8 @@ def test_the_role_list_covers_what_the_server_documents():
         doc = json.load(f)["devices"]["thermostat"]["parameters"]
     params = {p["name"]: p for p in doc}
     caps = {int(m.group(1)) for p in params.values() if p["name"].endswith("_levels")
-            for m in [re.search(r"at most (\d+)", p["description"])] if m}
-    assert caps == {6}
+            for m in [re.search(r"maximum of (\d+)", p["description"])] if m}
+    assert caps == {10}
     assert "cool_default_off" in params
     for role in LEVEL_ROLES + OTHER_ROLES:
         assert _PROGRAM_ROLE.fullmatch(role), role

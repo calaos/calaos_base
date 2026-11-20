@@ -354,7 +354,10 @@ TEST_F(ProxyClimateProgramTest, ProgramIosAreCreatedFromTheParams)
                              "cool_level1", "cool_level1_setpoint", "heat_default", "cool_default",
                              "cool_default_off", "program_enabled" })
         EXPECT_NE(io(std::string("pg_") + role), nullptr) << role;
-    EXPECT_EQ(io("pg_cool_level2"), nullptr);
+    //Every program has the maximum of levels, whatever the param says.
+    EXPECT_NE(io("pg_heat_level10_setpoint"), nullptr);
+    EXPECT_NE(io("pg_cool_level10"), nullptr);
+    EXPECT_EQ(io("pg_cool_level11"), nullptr);
     //The setpoint bounds are those of the appliance's setpoint.
     EXPECT_EQ(io("pg_heat_default")->get_param("value_min"), "16");
     EXPECT_EQ(io("pg_heat_default")->get_param("value_max"), "30");
@@ -376,15 +379,27 @@ TEST_F(ProxyClimateProgramTest, TheOwnedRolesMatchTheGoldenList)
     };
     using Roles = std::vector<std::string>;
 
-    const Roles full = { "cool_default", "cool_default_off", "cool_level1", "cool_level1_setpoint",
-                         "heat_default", "heat_level1", "heat_level1_setpoint", "heat_level2",
-                         "heat_level2_setpoint", "program_enabled" };
+    auto levelRoles = [](const std::string &set)
+    {
+        Roles r;
+        for (int n = 1; n <= 10; n++)
+        {
+            r.push_back(set + "_level" + std::to_string(n));
+            r.push_back(set + "_level" + std::to_string(n) + "_setpoint");
+        }
+        return r;
+    };
+    Roles full = { "cool_default", "cool_default_off", "heat_default", "program_enabled" };
+    for (const std::string &set: { "heat", "cool" })
+    {
+        const Roles r = levelRoles(set);
+        full.insert(full.end(), r.begin(), r.end());
+    }
+    std::sort(full.begin(), full.end());
     EXPECT_EQ(owned("pg"), full);
     EXPECT_EQ(owned("po"), full);
     EXPECT_EQ(owned("pm"), full);
-    EXPECT_EQ(owned("ps"), (Roles{ "cool_default", "cool_default_off", "cool_level1", "cool_level1_setpoint",
-                                   "heat_default", "heat_level1", "heat_level1_setpoint",
-                                   "program_enabled" }));
+    EXPECT_EQ(owned("ps"), full);
     //emulate_range owns the pair it drives.
     Roles emulated = owned("ps");
     emulated.push_back("target_temp_high");
@@ -709,15 +724,15 @@ TEST_F(ProxyClimateProgramTest, TheStateCarriesTheProgram)
     activate("pg_heat_level1");
 
     const Json dev = ListeRoom::Instance().findIOAs<ProxyClimate>("pg")->deviceObject();
-    EXPECT_EQ(dev.at("capabilities").at("program").at("heat_levels"), 2);
-    EXPECT_EQ(dev.at("capabilities").at("program").at("cool_levels"), 1);
+    EXPECT_EQ(dev.at("capabilities").at("program").at("heat_levels"), 10);
+    EXPECT_EQ(dev.at("capabilities").at("program").at("cool_levels"), 10);
     const Json &p = dev.at("state").at("program");
     EXPECT_TRUE(p.at("enabled").get<bool>());
     EXPECT_EQ(p.at("mode_set"), "heat");
-    EXPECT_EQ(p.at("heat").at("levels"), 2);
+    EXPECT_EQ(p.at("heat").at("levels"), 10);
     EXPECT_EQ(p.at("heat").at("active_level").get<int>(), 1);
     EXPECT_EQ(p.at("heat").at("setpoint").get<double>(), 21);
-    EXPECT_EQ(p.at("cool").at("levels"), 1);
+    EXPECT_EQ(p.at("cool").at("levels"), 10);
     EXPECT_TRUE(p.at("cool").at("active_level").is_null());
     EXPECT_TRUE(p.contains("next_change"));
 }

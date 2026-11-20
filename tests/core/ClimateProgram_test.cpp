@@ -351,7 +351,10 @@ TEST_F(ClimateProgramTest, LevelsCreateTheirOwnedIos)
         EXPECT_EQ(owned->get_param("visible"), "false") << role;
         EXPECT_NE(owned->get_param("log_history"), "true") << role;
     }
-    EXPECT_EQ(linked("prog", "heat_level3"), "");
+    //Any program gets the maximum of levels, whatever its param says.
+    EXPECT_EQ(linked("prog", "heat_level10_setpoint"), "prog_heat_level10_setpoint");
+    EXPECT_EQ(linked("prog", "cool_level10"), "prog_cool_level10");
+    EXPECT_EQ(linked("prog", "heat_level11"), "");
     EXPECT_EQ(io("prog")->get_param("id"), "prog");
 
     EXPECT_EQ(num("prog_heat_default"), 17);
@@ -591,9 +594,11 @@ TEST_F(ClimateProgramTest, FewerLevelsRemoveTheirIos)
     EXPECT_NE(io("prog_heat_level1"), nullptr);
     EXPECT_NE(io("prog_heat_default"), nullptr);
     EXPECT_NE(io("prog_program_enabled"), nullptr);
-    for (const char *gone: { "prog_heat_level2", "prog_heat_level2_setpoint", "prog_cool_level1",
-                             "prog_cool_level1_setpoint", "prog_cool_level2", "prog_cool_default",
-                             "prog_cool_default_off" })
+    //A lower count is still "a program": the heat set keeps all its levels.
+    EXPECT_NE(io("prog_heat_level2"), nullptr);
+    EXPECT_NE(io("prog_heat_level10_setpoint"), nullptr);
+    for (const char *gone: { "prog_cool_level1", "prog_cool_level1_setpoint", "prog_cool_level2",
+                             "prog_cool_level10", "prog_cool_default", "prog_cool_default_off" })
         EXPECT_EQ(io(gone), nullptr) << gone;
     EXPECT_EQ(linked("prog", "cool_default"), "");
 
@@ -642,8 +647,8 @@ TEST_F(ClimateProgramTest, TakenIdsGetTheSmallestFreeNumber)
 TEST_F(ClimateProgramTest, LevelParamsAreChecked)
 {
     load();
-    EXPECT_EQ(linked("big", "heat_level6"), "big_heat_level6");
-    EXPECT_EQ(linked("big", "heat_level7"), "");
+    EXPECT_EQ(linked("big", "heat_level10"), "big_heat_level10");
+    EXPECT_EQ(linked("big", "heat_level11"), "");
 
     for (const std::string id: { "neg", "frac" })
     {
@@ -664,8 +669,8 @@ TEST_F(ClimateProgramTest, ZeroHeatLevelsRemoveTheHeatDefaultAndKeepTheCoolSet)
     ASSERT_NE(io("zh_heat_default"), nullptr);
     changeParam("zh", "heat_levels", "2", "0");
 
-    for (const char *gone: { "zh_heat_level1", "zh_heat_level1_setpoint", "zh_heat_level2",
-                             "zh_heat_level2_setpoint", "zh_heat_default" })
+    for (const char *gone: { "zh_heat_level1", "zh_heat_level1_setpoint", "zh_heat_level10",
+                             "zh_heat_level10_setpoint", "zh_heat_default" })
         EXPECT_EQ(io(gone), nullptr) << gone;
     for (const char *kept: { "zh_cool_level1", "zh_cool_level2_setpoint", "zh_cool_default",
                              "zh_cool_default_off", "zh_program_enabled" })
@@ -745,9 +750,49 @@ TEST_F(ClimateProgramTest, AReducedLevelNoLongerDrivesTheSetpoint)
     activate("zn_heat_level2");
     EXPECT_EQ(num("zn_target"), 23);
 
-    changeParam("zn", "heat_levels", "2", "1");
+    //Heat off: the program of that set, and with it every level, is gone.
+    changeParam("zn", "heat_levels", "2", "0");
     EXPECT_EQ(io("zn_heat_level2"), nullptr);
-    EXPECT_EQ(num("zn_target"), 17) << "level 1 is not active: the default applies";
+    EXPECT_EQ(num("zn_target"), 23) << "no program left, the last setpoint stays";
+}
+
+TEST_F(ClimateProgramTest, AThreeLevelHouseGainsEmptyLevelsAndKeepsItsSetpoints)
+{
+    std::string legacy = paramXml("heat_levels", "3") + paramXml("heat_default_setpoint", "19") +
+                         ownedXml("InternalInt", "lg_heat_default", SAVED) +
+                         ownedXml("InternalBool", "lg_program_enabled", SAVED) +
+                         linkXml("heat_default", "lg_heat_default") +
+                         linkXml("program_enabled", "lg_program_enabled");
+    for (int n = 1; n <= 3; n++)
+    {
+        const std::string r = "lg_heat_level" + std::to_string(n);
+        legacy += ownedXml("InPlageHoraire", r) + ownedXml("InternalInt", r + "_setpoint", SAVED) +
+                  linkXml("heat_level" + std::to_string(n), r) +
+                  linkXml("heat_level" + std::to_string(n) + "_setpoint", r + "_setpoint");
+    }
+    Config::Instance().SaveValueIO("lg_heat_default", "19", false);
+    Config::Instance().SaveValueIO("lg_heat_level1_setpoint", "20", false);
+    Config::Instance().SaveValueIO("lg_heat_level2_setpoint", "22", false);
+    Config::Instance().SaveValueIO("lg_heat_level3_setpoint", "18", false);
+    load(solo("lg", false, legacy), "lg");
+
+    for (int n = 1; n <= 3; n++)
+        EXPECT_EQ(linked("lg", "heat_level" + std::to_string(n)), "lg_heat_level" + std::to_string(n)) << n;
+    EXPECT_EQ(num("lg_heat_level1_setpoint"), 20);
+    EXPECT_EQ(num("lg_heat_level2_setpoint"), 22);
+    EXPECT_EQ(num("lg_heat_level3_setpoint"), 18);
+    for (int n = 4; n <= 10; n++)
+    {
+        const std::string r = "lg_heat_level" + std::to_string(n);
+        EXPECT_NE(io(r), nullptr) << r;
+        EXPECT_EQ(num(r + "_setpoint"), 19) << "a new level starts at the default";
+    }
+    EXPECT_EQ(linked("lg", "heat_level11"), "");
+    expectUniqueIds();
+
+    const Json caps = dev("lg")->deviceObject().at("capabilities");
+    EXPECT_EQ(caps.at("program").at("heat_levels"), 10);
+    EXPECT_EQ(caps.at("program").at("max_levels"), 10);
 }
 
 TEST_F(ClimateProgramTest, MoreLevelsStartFromTheCurrentDefaultAndKeepTheExisting)
@@ -1220,7 +1265,7 @@ TEST_F(ClimateProgramStateTest, TheStateFollowsTheContract)
     EXPECT_TRUE(p.at("enabled").get<bool>());
     EXPECT_EQ(p.at("mode_set"), "heat");
     const Json &heat = p.at("heat");
-    EXPECT_EQ(heat.at("levels"), 2);
+    EXPECT_EQ(heat.at("levels"), 10);
     //remote_ui rejects 2.0 for an integer field.
     EXPECT_TRUE(heat.at("active_level").is_number_integer()) << heat.dump();
     EXPECT_EQ(heat.at("active_level").get<int>(), 2);
@@ -1231,7 +1276,8 @@ TEST_F(ClimateProgramStateTest, TheStateFollowsTheContract)
     EXPECT_TRUE(p.at("next_change").is_null()) << p.dump();
 
     const Json caps = dev("prog")->deviceObject().at("capabilities");
-    EXPECT_EQ(caps.at("program").at("heat_levels"), 2);
+    EXPECT_EQ(caps.at("program").at("heat_levels"), 10);
+    EXPECT_EQ(caps.at("program").at("max_levels"), 10);
 }
 
 TEST_F(ClimateProgramStateTest, NoActiveLevelIsNull)
