@@ -102,6 +102,42 @@ string defaultRole(const string &set)
 
 } //namespace
 
+bool ClimateBase::hiddenFromRemoteUi(const string &role) const
+{
+    if (role == PROGRAM_ENABLED || role == COOL_DEFAULT_OFF)
+        return true;
+    for (const char *set: { "heat", "cool" })
+    {
+        if (role == defaultRole(set) || role.rfind(set + string("_level"), 0) == 0)
+            return true;
+    }
+    return false;
+}
+
+void ClimateBase::trimForRemoteUi(Json &deviceObject) const
+{
+    if (!deviceObject.is_object())
+        return;
+
+    for (const char *member: { "capabilities", "state" })
+    {
+        auto it = deviceObject.find(member);
+        if (it != deviceObject.end() && it->is_object())
+            it->erase("program");
+    }
+
+    auto ios = deviceObject.find("ios");
+    if (ios == deviceObject.end() || !ios->is_object())
+        return;
+    for (auto it = ios->begin(); it != ios->end();)
+    {
+        if (hiddenFromRemoteUi(it.key()))
+            it = ios->erase(it);
+        else
+            ++it;
+    }
+}
+
 ClimateBase::ClimateBase(Params &p):
     Device(p)
 {

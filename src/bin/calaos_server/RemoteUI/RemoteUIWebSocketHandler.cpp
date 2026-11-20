@@ -292,6 +292,19 @@ bool RemoteUIWebSocketHandler::forwardsEvent(const CalaosEvent &event)
     return authenticated_remote_ui->hasReferencedIO(event.getParam()["id"]);
 }
 
+void RemoteUIWebSocketHandler::adjustEvent(Json &eventJson)
+{
+    auto data = eventJson.find("data");
+    if (data == eventJson.end() || !data->is_object())
+        return;
+    auto device = data->find("device");
+    if (device == data->end())
+        return;
+    const string id = data->value("id", "");
+    if (Device *dev = ListeRoom::Instance().findIOAs<Device>(id))
+        dev->trimForRemoteUi(*device);
+}
+
 void RemoteUIWebSocketHandler::handleGetConfig()
 {
     if (!authenticated_remote_ui)
@@ -410,9 +423,11 @@ void RemoteUIWebSocketHandler::sendInitialIOStates()
                 Device *dev = ListeRoom::Instance().findIOAs<Device>(entry.key());
                 if (!dev)
                     continue;
+                Json device = dev->deviceObject();
+                dev->trimForRemoteUi(device);
                 entry.value() = Json{ { "state", entry.value() },
                                       { "gui_type", dev->get_param("gui_type") },
-                                      { "device", dev->deviceObject() } };
+                                      { "device", std::move(device) } };
             }
         }
 

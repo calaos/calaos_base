@@ -540,14 +540,29 @@ void RemoteUI::extractReferencedIOs()
     {
         if (Device *dev = ListeRoom::Instance().findIOAs<Device>(id))
         {
-            for (IOBase *owned: dev->ownedIos())
-                expanded.insert(owned->get_param("id"));
+            //The program IOs stay out: the panel does not show them, and each
+            //one is an io_states entry and a stream of io_changed.
+            std::set<string> program;
             for (const Device::Link &l: dev->getLinks())
             {
-                if (!l.io.empty())
-                    expanded.insert(l.io);
-                if (!l.command_io.empty())
-                    expanded.insert(l.command_io);
+                if (dev->hiddenFromRemoteUi(l.name))
+                {
+                    program.insert(l.io);
+                    program.insert(l.command_io);
+                }
+            }
+            auto add = [&](const string &ioId)
+            {
+                if (!ioId.empty() && !program.count(ioId))
+                    expanded.insert(ioId);
+            };
+
+            for (IOBase *owned: dev->ownedIos())
+                add(owned->get_param("id"));
+            for (const Device::Link &l: dev->getLinks())
+            {
+                add(l.io);
+                add(l.command_io);
             }
         }
     }
