@@ -3370,9 +3370,6 @@ msgstr ""
 " chauffage sous la basse, en froid au-dessus de la haute, et l'arrête entre "
 "les deux. Demande le chauffage et le froid parmi les modes."
 
-msgid "Heating program levels"
-msgstr "Niveaux du programme de chauffage"
-
 msgid "Heating program"
 msgstr "Programme de chauffage"
 
@@ -3392,9 +3389,6 @@ msgstr ""
 "du programme (heat_default, et une plage et une consigne par niveau) sont "
 "créés masqués au chargement s'ils manquent, et supprimés quand ce paramètre "
 "ne les demande plus."
-
-msgid "Cooling program levels"
-msgstr "Niveaux du programme de climatisation"
 
 msgid "Cooling program"
 msgstr "Programme de climatisation"

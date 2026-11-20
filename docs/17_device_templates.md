@@ -338,8 +338,8 @@ programme horaire. Le programme **ne génère aucune règle** : le device lui-m�
 consigne cible quand l'état d'une plage change. La logique vit dans `ClimateBase`, la
 sous-classe fournit seulement l'écriture de la consigne (voir « Application »).
 
-- Deux **jeux** de niveaux indépendants : `heat` (chaud) et `cool` (froid), de 0 ou 10 niveaux chacun
-  (`MAX_PROGRAM_LEVELS`). Pas de saison globale : le mode du climate choisit le jeu.
+- Deux **jeux** de niveaux indépendants : `heat` (chaud) et `cool` (froid), de 0 ou 10 niveaux
+  chacun (`MAX_PROGRAM_LEVELS`). Pas de saison globale : le mode du climate choisit le jeu.
 - Un **niveau** `n` (1 à 10) d'un jeu `s` est formé de :
   - une plage `InPlageHoraire` possédée par le device ;
   - une consigne, `InternalInt` possédé et sauvegardé ;

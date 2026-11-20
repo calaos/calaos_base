@@ -2664,13 +2664,13 @@ champs sont ceux de CP-CONTRACT.
 
 `capabilities.program` est présente seulement si au moins un jeu a des niveaux :
 ```json
-"program": {"heat_levels": 10, "cool_levels": 0, "max_levels": 10}
+"program": {"heat_levels": 10, "cool_levels": 10, "max_levels": 10}
 ```
-`heat_levels` et `cool_levels` sont toujours tous les deux présents quand `program` l'est, `0`
-pour un jeu sans niveau (`"cool_levels": 0`) ; sinon ils valent `max_levels` (10) : tout jeu
-avec programme a ce nombre de niveaux (un param ≥ 1 est ramené au maximum au chargement), et
-`max_levels` fait foi pour les clients. Si les deux valent 0, `program` est absent de `capabilities` (et de l'état), comme pour « Aucun niveau » de
-docs/17.
+`heat_levels` et `cool_levels` sont toujours tous les deux présents quand `program` l'est :
+`0` pour un jeu sans niveau, sinon `max_levels` (10). Tout jeu avec programme a ce nombre de
+niveaux (un param ≥ 1 est ramené au maximum au chargement), et `max_levels` fait foi pour les
+clients. Si les deux valent 0, `program` est absent de `capabilities` (et de l'état), comme
+pour « Aucun niveau » de docs/17.
 
 `state.program`, exemple (mode `heat`, 18 h 40, niveau 2 « soir » actif) :
 ```json

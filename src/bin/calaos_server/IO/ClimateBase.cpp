@@ -706,14 +706,14 @@ void ClimateBase::documentProgram()
                       "levels (an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
                       "own setpoint io. The program IOs (heat_default, and a range and a setpoint per level) are "
                       "created hidden at load when missing, and removed when this param no longer asks for them."),
-                    IODoc::TYPE_INT, false, "0", false, _("Heating program levels"));
+                    IODoc::TYPE_INT, false, "0", false, _("Heating program"));
     ioDoc->paramAdd("cool_levels",
                     _("Cooling program, 0 for no program. Any value of 1 or more gives the maximum of 10 schedule "
                       "levels (an invalid number means 0). A level is a time range (InPlageHoraire io) with its "
                       "own setpoint io. The program IOs (cool_default, cool_default_off, and a range and a setpoint "
                       "per level) are created hidden at load when missing, and removed when this param no longer "
                       "asks for them."),
-                    IODoc::TYPE_INT, false, "0", false, _("Cooling program levels"));
+                    IODoc::TYPE_INT, false, "0", false, _("Cooling program"));
     ioDoc->paramAdd("heat_default_setpoint", _("Heating setpoint outside the levels of the program."),
                     IODoc::TYPE_FLOAT, false, "17", false, _("Default heating setpoint"));
     ioDoc->paramAdd("cool_default_setpoint", _("Cooling setpoint outside the levels of the program."),
