@@ -744,7 +744,7 @@ int ClimateBase::levelsParam(const string &set, ClimateMode mode)
                               << "' is not a whole number of levels, 0 is used";
         return 0;
     }
-    // The level count is not a setting: any program gets the maximum.
+    //The level count is not a setting: any program gets the maximum.
     if (v >= 1)
         v = MAX_PROGRAM_LEVELS;
     const vector<ClimateMode> modes = supportedModes();

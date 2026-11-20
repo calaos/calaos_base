@@ -581,7 +581,7 @@ TEST_F(ClimateProgramTest, ValuesSurviveARestart)
     EXPECT_EQ(linked("prog", "heat_level1"), "prog_heat_level1");
 }
 
-TEST_F(ClimateProgramTest, FewerLevelsRemoveTheirIos)
+TEST_F(ClimateProgramTest, ASetAtZeroRemovesItsIos)
 {
     load();
     saveConfig();
@@ -742,7 +742,7 @@ TEST_F(ClimateProgramTest, ZeroLevelsInTotalRemoveEveryProgramIoAndBringThemBack
     EXPECT_EQ(ListeRule::Instance().size(), 0);
 }
 
-TEST_F(ClimateProgramTest, AReducedLevelNoLongerDrivesTheSetpoint)
+TEST_F(ClimateProgramTest, ARemovedSetNoLongerDrivesTheSetpoint)
 {
     load(solo("zn", false, levels(2, 0)), "zn");
     ASSERT_TRUE(mode("zn", "heat"));
@@ -763,10 +763,27 @@ TEST_F(ClimateProgramTest, AThreeLevelHouseGainsEmptyLevelsAndKeepsItsSetpoints)
                          ownedXml("InternalBool", "lg_program_enabled", SAVED) +
                          linkXml("heat_default", "lg_heat_default") +
                          linkXml("program_enabled", "lg_program_enabled");
+    //Level n: day, start and end of its slots.
+    struct Slot { int wday; const char *day; const char *sh, *sm, *eh, *em; };
+    const std::vector<std::vector<Slot>> slots = {
+        {{TimeRange::MONDAY, "lundi", "8", "0", "12", "0"},
+         {TimeRange::MONDAY, "lundi", "14", "0", "18", "30"}},
+        {{TimeRange::SATURDAY, "samedi", "22", "0", "23", "30"}},
+        {{TimeRange::SUNDAY, "dimanche", "6", "15", "7", "45"}},
+    };
+    auto rangeXml = [&](const std::string &id, const std::vector<Slot> &sl) {
+        std::string x = "      <calaos:internal type=\"InPlageHoraire\" id=\"" + id + "\" name=\"" + id +
+                        "\" visible=\"false\">\n";
+        for (const Slot &s : sl)
+            x += std::string("        <calaos:") + s.day + "><calaos:plage start_type=\"0\" start_hour=\"" +
+                 s.sh + "\" start_min=\"" + s.sm + "\" start_sec=\"0\" end_type=\"0\" end_hour=\"" + s.eh +
+                 "\" end_min=\"" + s.em + "\" end_sec=\"0\" /></calaos:" + s.day + ">\n";
+        return x + "      </calaos:internal>\n";
+    };
     for (int n = 1; n <= 3; n++)
     {
         const std::string r = "lg_heat_level" + std::to_string(n);
-        legacy += ownedXml("InPlageHoraire", r) + ownedXml("InternalInt", r + "_setpoint", SAVED) +
+        legacy += rangeXml(r, slots[n - 1]) + ownedXml("InternalInt", r + "_setpoint", SAVED) +
                   linkXml("heat_level" + std::to_string(n), r) +
                   linkXml("heat_level" + std::to_string(n) + "_setpoint", r + "_setpoint");
     }
@@ -776,19 +793,49 @@ TEST_F(ClimateProgramTest, AThreeLevelHouseGainsEmptyLevelsAndKeepsItsSetpoints)
     Config::Instance().SaveValueIO("lg_heat_level3_setpoint", "18", false);
     load(solo("lg", false, legacy), "lg");
 
-    for (int n = 1; n <= 3; n++)
-        EXPECT_EQ(linked("lg", "heat_level" + std::to_string(n)), "lg_heat_level" + std::to_string(n)) << n;
-    EXPECT_EQ(num("lg_heat_level1_setpoint"), 20);
-    EXPECT_EQ(num("lg_heat_level2_setpoint"), 22);
-    EXPECT_EQ(num("lg_heat_level3_setpoint"), 18);
-    for (int n = 4; n <= 10; n++)
-    {
-        const std::string r = "lg_heat_level" + std::to_string(n);
-        EXPECT_NE(io(r), nullptr) << r;
-        EXPECT_EQ(num(r + "_setpoint"), 19) << "a new level starts at the default";
-    }
-    EXPECT_EQ(linked("lg", "heat_level11"), "");
-    expectUniqueIds();
+    auto expectKept = [&]() {
+        for (int n = 1; n <= 3; n++)
+        {
+            const std::string r = "lg_heat_level" + std::to_string(n);
+            EXPECT_EQ(linked("lg", "heat_level" + std::to_string(n)), r) << n;
+            InPlageHoraire *p = range(r);
+            if (!p)
+                continue;
+            for (int d = TimeRange::SUNDAY; d <= TimeRange::SATURDAY; d++)
+            {
+                std::vector<TimeRange> want;
+                for (const Slot &s : slots[n - 1])
+                    if (s.wday == d)
+                        want.push_back(span(s.sh, s.sm, "0", s.eh, s.em, "0"));
+                std::vector<TimeRange> &got = d == TimeRange::SUNDAY      ? p->getSunday()
+                                              : d == TimeRange::MONDAY    ? p->getMonday()
+                                              : d == TimeRange::TUESDAY   ? p->getTuesday()
+                                              : d == TimeRange::WEDNESDAY ? p->getWednesday()
+                                              : d == TimeRange::THURSDAY  ? p->getThursday()
+                                              : d == TimeRange::FRIDAY    ? p->getFriday()
+                                                                          : p->getSaturday();
+                EXPECT_EQ(got, want) << r << " day " << d;
+            }
+        }
+        EXPECT_EQ(num("lg_heat_level1_setpoint"), 20);
+        EXPECT_EQ(num("lg_heat_level2_setpoint"), 22);
+        EXPECT_EQ(num("lg_heat_level3_setpoint"), 18);
+        for (int n = 4; n <= 10; n++)
+        {
+            const std::string r = "lg_heat_level" + std::to_string(n);
+            EXPECT_NE(io(r), nullptr) << r;
+            EXPECT_EQ(num(r + "_setpoint"), 19) << "a new level starts at the default";
+        }
+        EXPECT_EQ(linked("lg", "heat_level11"), "");
+        expectUniqueIds();
+    };
+    expectKept();
+
+    //The new levels are written to io.xml, and the second load reads them
+    //back next to the old ones without duplicating any id.
+    saveConfig();
+    reload("lg");
+    expectKept();
 
     const Json caps = dev("lg")->deviceObject().at("capabilities");
     EXPECT_EQ(caps.at("program").at("heat_levels"), 10);

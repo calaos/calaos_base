@@ -338,8 +338,8 @@ programme horaire. Le programme **ne génère aucune règle** : le device lui-m�
 consigne cible quand l'état d'une plage change. La logique vit dans `ClimateBase`, la
 sous-classe fournit seulement l'écriture de la consigne (voir « Application »).
 
-- Deux **jeux** de niveaux indépendants : `heat` (chaud) et `cool` (froid), de 0 ou 10 niveaux (`MAX_PROGRAM_LEVELS`)
-  chacun. Pas de saison globale : le mode du climate choisit le jeu.
+- Deux **jeux** de niveaux indépendants : `heat` (chaud) et `cool` (froid), de 0 ou 10 niveaux chacun
+  (`MAX_PROGRAM_LEVELS`). Pas de saison globale : le mode du climate choisit le jeu.
 - Un **niveau** `n` (1 à 10) d'un jeu `s` est formé de :
   - une plage `InPlageHoraire` possédée par le device ;
   - une consigne, `InternalInt` possédé et sauvegardé ;
@@ -363,10 +363,10 @@ Dans la table, `<c>` est l'id du climate, `n` va de 1 au nombre de niveaux du je
 
 | Id | Rôle | Type | Sauvegardé | Créé si | Rôle fonctionnel |
 |---|---|---|---|---|---|
-| `<c>_heat_level<n>` | `heat_level<n>` | `InPlageHoraire` | oui (en tant qu'IO possédé, dans `io.xml`) | `n` ≤ `heat_levels` | plage du niveau `n` du jeu chaud |
+| `<c>_heat_level<n>` | `heat_level<n>` | `InPlageHoraire` | oui (en tant qu'IO possédé, dans `io.xml`) | `heat_levels` ≥ 1, `n` ≤ 10 | plage du niveau `n` du jeu chaud |
 | `<c>_heat_level<n>_setpoint` | `heat_level<n>_setpoint` | `InternalInt` | `save="true"` | idem | consigne du niveau, °C |
 | `<c>_heat_default` | `heat_default` | `InternalInt` | `save="true"` | `heat_levels` ≥ 1 | consigne chaud par défaut, °C |
-| `<c>_cool_level<n>` | `cool_level<n>` | `InPlageHoraire` | oui | `n` ≤ `cool_levels` | plage du niveau `n` du jeu froid |
+| `<c>_cool_level<n>` | `cool_level<n>` | `InPlageHoraire` | oui | `cool_levels` ≥ 1, `n` ≤ 10 | plage du niveau `n` du jeu froid |
 | `<c>_cool_level<n>_setpoint` | `cool_level<n>_setpoint` | `InternalInt` | `save="true"` | idem | consigne du niveau, °C |
 | `<c>_cool_default` | `cool_default` | `InternalInt` | `save="true"` | `cool_levels` ≥ 1 | consigne froid par défaut, °C |
 | `<c>_cool_default_off` | `cool_default_off` | `InternalBool` | `save="true"` | `cool_levels` ≥ 1 | `true` : le défaut du froid est « arrêt » ; `cool_default` est alors ignorée |
@@ -440,14 +440,12 @@ ajoutés aux templates par CP-BASE-LEVELS (thermostats) et CP-BASE-PROXY (`espho
 - **Le nombre de niveaux n'est pas un réglage** : toute valeur ≥ 1 donne 10 niveaux (`max_levels`)
   au chargement. Les maisons à 2, 3 ou 4 niveaux gagnent des niveaux vides, sans perte de plages
   ni de consignes. Une valeur non entière ou négative vaut 0.
-- **Réduire le nombre de niveaux.** Au rechargement de la configuration, les IOs des
-  niveaux supérieurs au nouveau nombre (plage et consigne) sont supprimés du device et de
-  `io.xml` : leurs créneaux et consignes sont perdus. Les augmenter crée les niveaux
-  manquants, plages vides, consigne = valeur courante du `_default` du jeu.
-  À 0 niveau pour un jeu, son `_default` est supprimé, ainsi que `cool_default_off` pour le
-  jeu froid. À 0 niveau au total (chaud et froid), `program_enabled` est supprimé aussi. Cela
-  s'applique au chargement de la configuration ; un changement de params prend effet au
-  rechargement suivant.
+- **Retirer le programme d'un jeu** (param remis à 0). Au rechargement de la configuration,
+  les IOs des niveaux du jeu (plage et consigne) sont supprimés du device et de `io.xml` :
+  leurs créneaux et consignes sont perdus. Son `_default` est supprimé aussi, ainsi que
+  `cool_default_off` pour le jeu froid. À 0 au total (chaud et froid), `program_enabled` est
+  supprimé aussi. Passer de 0 à ≥ 1 crée les niveaux, plages vides, consigne = valeur
+  courante du `_default` du jeu. Un changement de params prend effet au rechargement suivant.
 
 ### Application
 

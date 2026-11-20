@@ -2664,12 +2664,12 @@ champs sont ceux de CP-CONTRACT.
 
 `capabilities.program` est présente seulement si au moins un jeu a des niveaux :
 ```json
-"program": {"heat_levels": 3, "cool_levels": 2, "max_levels": 10}
+"program": {"heat_levels": 10, "cool_levels": 0, "max_levels": 10}
 ```
 `heat_levels` et `cool_levels` sont toujours tous les deux présents quand `program` l'est, `0`
-pour un jeu sans niveau (`"cool_levels": 0`) ; `max_levels` vaut 10 : tout jeu avec programme a ce nombre de niveaux (`heat_levels`/`cool_levels` ≥ 1
-sont ramenés au maximum au chargement), et `max_levels` fait foi pour les clients. Si les deux valent 0,
-`program` est absent de `capabilities` (et de l'état), comme pour « Aucun niveau » de
+pour un jeu sans niveau (`"cool_levels": 0`) ; sinon ils valent `max_levels` (10) : tout jeu
+avec programme a ce nombre de niveaux (un param ≥ 1 est ramené au maximum au chargement), et
+`max_levels` fait foi pour les clients. Si les deux valent 0, `program` est absent de `capabilities` (et de l'état), comme pour « Aucun niveau » de
 docs/17.
 
 `state.program`, exemple (mode `heat`, 18 h 40, niveau 2 « soir » actif) :
@@ -2677,8 +2677,8 @@ docs/17.
 "program": {
   "enabled": true,
   "mode_set": "heat",
-  "heat": {"levels": 3, "active_level": 2, "setpoint": 21.0, "default": 17.0},
-  "cool": {"levels": 2, "active_level": null, "setpoint": null, "default": null},
+  "heat": {"levels": 10, "active_level": 2, "setpoint": 21.0, "default": 17.0},
+  "cool": {"levels": 10, "active_level": null, "setpoint": null, "default": null},
   "next_change": {"at": "2026-11-17T22:30:00+01:00", "set": "heat",
                   "level": null, "setpoint": 17.0}
 }
@@ -2689,7 +2689,7 @@ docs/17.
   (modes `off`, `dry`, `fan_only`, mode inconnu, ou jeu du mode absent). En `auto`, `mode_set`
   vaut `"auto"` même si un seul jeu existe : seul l'objet du jeu absent manque.
 - `heat` / `cool` : un objet par jeu qui a des niveaux, absent sinon.
-  - `levels` : nombre de niveaux (1 à 6) ;
+  - `levels` : nombre de niveaux (`max_levels`, 10) ;
   - `active_level` : numéro du niveau prioritaire dont la plage est active, ou `null` si
     aucun (consigne par défaut) ;
   - `setpoint` : la consigne cible que le programme écrit ou écrirait maintenant, en °C ; `null`

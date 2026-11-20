@@ -3373,9 +3373,11 @@ msgstr ""
 msgid "Heating program levels"
 msgstr "Niveaux du programme de chauffage"
 
-msgid "Number of schedule levels of the heating program, 0 for no program."
-msgstr ""
-"Nombre de niveaux du programme horaire de chauffage, 0 pour aucun programme."
+msgid "Heating program"
+msgstr "Programme de chauffage"
+
+msgid "1 for a time program of the heating (10 levels), 0 for none."
+msgstr "1 pour un programme horaire du chauffage (10 niveaux), 0 pour aucun."
 
 msgid ""
 "Heating program, 0 for no program. Any value of 1 or more gives the maximum "
@@ -3394,10 +3396,11 @@ msgstr ""
 msgid "Cooling program levels"
 msgstr "Niveaux du programme de climatisation"
 
-msgid "Number of schedule levels of the cooling program, 0 for no program."
-msgstr ""
-"Nombre de niveaux du programme horaire de climatisation, 0 pour aucun "
-"programme."
+msgid "Cooling program"
+msgstr "Programme de climatisation"
+
+msgid "1 for a time program of the cooling (10 levels), 0 for none."
+msgstr "1 pour un programme horaire de la climatisation (10 niveaux), 0 pour aucun."
 
 msgid ""
 "Cooling program, 0 for no program. Any value of 1 or more gives the maximum "
